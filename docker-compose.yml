@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:5173}
+      - EXTERNAL_BAAS_URL=${EXTERNAL_BAAS_URL:-https://core.geozns.com}
+      - EXTERNAL_BAAS_API_KEY=${EXTERNAL_BAAS_API_KEY}
+      - JWT_APP_ID=${JWT_APP_ID:-integrador2_web}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      - backend-data:/app/prisma
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
