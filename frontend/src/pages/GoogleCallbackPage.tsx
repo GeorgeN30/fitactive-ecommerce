@@ -19,7 +19,13 @@ export default function GoogleCallbackPage() {
     }
 
     loginWithGoogle(accessToken)
-      .then(() => navigate("/", { replace: true }))
+      .then((result) => {
+        if (!result.hasPassword) {
+          navigate("/set-password?firstTime=true", { replace: true });
+        } else {
+          navigate("/", { replace: true });
+        }
+      })
       .catch(() => setError("Error al autenticar con Google."));
   }, [loginWithGoogle, navigate]);
 

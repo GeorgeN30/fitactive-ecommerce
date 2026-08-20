@@ -11,6 +11,7 @@ import SettingsPage from "./pages/SettingsPage";
 import TwoFaSetupPage from "./pages/TwoFaSetupPage";
 import TwoFaVerifyPage from "./pages/TwoFaVerifyPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import SetPasswordPage from "./pages/SetPasswordPage";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/2fa-setup" element={<TwoFaSetupPage />} />
           <Route path="/2fa-verify" element={<TwoFaVerifyPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
 
           <Route
             path="/"

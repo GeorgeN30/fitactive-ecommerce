@@ -35,6 +35,10 @@ export default function LoginPage() {
       const { data } = await api.get(
         `/auth/check-password?email=${encodeURIComponent(email.trim().toLowerCase())}`
       );
+      if (!data.exists) {
+        setError("Correo no registrado. Crea una cuenta para continuar.");
+        return;
+      }
       if (data.hasPassword) {
         setStep("password");
       } else {

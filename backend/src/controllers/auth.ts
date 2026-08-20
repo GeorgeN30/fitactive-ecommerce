@@ -147,8 +147,12 @@ export const authController = {
         return;
       }
 
-      const hasPassword = await authService.hasPassword(email.trim().toLowerCase());
-      res.status(HTTP_STATUS.OK).json({ hasPassword });
+      const normalizedEmail = email.trim().toLowerCase();
+      const [hasPassword, exists] = await Promise.all([
+        authService.hasPassword(normalizedEmail),
+        authService.emailExists(normalizedEmail),
+      ]);
+      res.status(HTTP_STATUS.OK).json({ hasPassword, exists });
     } catch (err) {
       console.error("Check password error:", err);
       res
@@ -582,6 +586,87 @@ export const authController = {
 
       console.error("Delete account error:", err);
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "DELETE_ACCOUNT_FAILED" });
+    }
+  },
+
+  // POST /api/auth/request-delete-otp
+  async requestDeleteOtp(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+
+      const { password, totpCode } = req.body;
+
+      const result = await authService.requestDeleteOtp(
+        req.user.userId,
+        password,
+        totpCode
+      );
+      res.status(HTTP_STATUS.OK).json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "REQUEST_DELETE_OTP_FAILED";
+
+      if (message === "PASSWORD_REQUIRED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "PASSWORD_REQUIRED" });
+        return;
+      }
+      if (message === "INVALID_PASSWORD") {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "INVALID_PASSWORD" });
+        return;
+      }
+      if (message === "TOTP_REQUIRED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "TOTP_REQUIRED" });
+        return;
+      }
+      if (message === "INVALID_TOTP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_TOTP" });
+        return;
+      }
+      if (message === "USER_NOT_FOUND") {
+        res.status(HTTP_STATUS.NOT_FOUND).json({ error: "USER_NOT_FOUND" });
+        return;
+      }
+
+      console.error("Request delete OTP error:", err);
+      res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "REQUEST_DELETE_OTP_FAILED" });
+    }
+  },
+
+  // POST /api/auth/verify-delete-otp
+  async verifyDeleteOtp(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+
+      const { code } = req.body;
+      if (!code) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "CODE_REQUIRED" });
+        return;
+      }
+
+      const result = await authService.verifyDeleteOtp(
+        req.user.userId,
+        code.trim()
+      );
+      res.status(HTTP_STATUS.OK).json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "VERIFY_DELETE_OTP_FAILED";
+
+      if (message === "INVALID_OTP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_OTP" });
+        return;
+      }
+      if (message === "USER_NOT_FOUND") {
+        res.status(HTTP_STATUS.NOT_FOUND).json({ error: "USER_NOT_FOUND" });
+        return;
+      }
+
+      console.error("Verify delete OTP error:", err);
+      res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "VERIFY_DELETE_OTP_FAILED" });
     }
   },
 

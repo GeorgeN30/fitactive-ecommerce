@@ -528,3 +528,186 @@ describe("authService.changePassword", () => {
     ).rejects.toThrow("PASSWORD_TOO_SHORT");
   });
 });
+
+describe("authService.emailExists", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("should return true when user exists", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "test@example.com",
+    } as never);
+
+    const result = await authService.emailExists("test@example.com");
+    expect(result).toBe(true);
+  });
+
+  it("should return false when user does not exist", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    const result = await authService.emailExists("nonexistent@example.com");
+    expect(result).toBe(false);
+  });
+});
+
+describe("authService.deleteAccount", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("should delete account without password for Google user (no passwordHash)", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "google-user",
+      email: "google@example.com",
+      passwordHash: null,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    const result = await authService.deleteAccount("google-user");
+    expect(result.success).toBe(true);
+    expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+      where: { id: "google-user" },
+    });
+  });
+
+  it("should delete account with valid password for password user", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("password123", 12);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "pw-user",
+      email: "pw@example.com",
+      passwordHash: hash,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    const result = await authService.deleteAccount("pw-user", "password123");
+    expect(result.success).toBe(true);
+  });
+
+  it("should throw PASSWORD_REQUIRED when password user provides no password", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("password123", 12);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "pw-user",
+      email: "pw@example.com",
+      passwordHash: hash,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    await expect(authService.deleteAccount("pw-user")).rejects.toThrow(
+      "PASSWORD_REQUIRED"
+    );
+  });
+
+  it("should throw USER_NOT_FOUND for non-existent user", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(authService.deleteAccount("ghost")).rejects.toThrow(
+      "USER_NOT_FOUND"
+    );
+  });
+});
+
+describe("authService.requestDeleteOtp", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("should send OTP for Google user without password", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "google-user",
+      email: "google@example.com",
+      passwordHash: null,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    const result = await authService.requestDeleteOtp("google-user");
+    expect(result.message).toBe("OTP sent");
+    expect(mockBaas.generateOtp).toHaveBeenCalledWith("google@example.com", "Fitlook", "Fitlook");
+  });
+
+  it("should throw PASSWORD_REQUIRED when password user provides no password", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("password123", 12);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "pw-user",
+      email: "pw@example.com",
+      passwordHash: hash,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    await expect(authService.requestDeleteOtp("pw-user")).rejects.toThrow(
+      "PASSWORD_REQUIRED"
+    );
+  });
+
+  it("should send OTP after valid password verification", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("password123", 12);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "pw-user",
+      email: "pw@example.com",
+      passwordHash: hash,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    const result = await authService.requestDeleteOtp("pw-user", "password123");
+    expect(result.message).toBe("OTP sent");
+  });
+
+  it("should throw INVALID_PASSWORD for wrong password", async () => {
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.hash("correct-password", 12);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "pw-user",
+      email: "pw@example.com",
+      passwordHash: hash,
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    await expect(authService.requestDeleteOtp("pw-user", "wrong")).rejects.toThrow(
+      "INVALID_PASSWORD"
+    );
+  });
+});
+
+describe("authService.verifyDeleteOtp", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should delete account after valid OTP", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "test@example.com",
+    } as never);
+    mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
+
+    const result = await authService.verifyDeleteOtp("user-1", "123456");
+    expect(result.success).toBe(true);
+    expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
+  });
+
+  it("should throw INVALID_OTP for wrong code", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "test@example.com",
+    } as never);
+    mockBaas.verifyOtp.mockResolvedValue({ valido: false, message: "invalid" });
+
+    await expect(authService.verifyDeleteOtp("user-1", "000000")).rejects.toThrow(
+      "INVALID_OTP"
+    );
+  });
+
+  it("should throw USER_NOT_FOUND for non-existent user", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(authService.verifyDeleteOtp("ghost", "123456")).rejects.toThrow(
+      "USER_NOT_FOUND"
+    );
+  });
+});

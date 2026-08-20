@@ -84,6 +84,7 @@ function sanitizeUser(user: {
     twoFactorEnabled: user.twoFactorEnabled,
     points: user.points,
     hasPassword: false,
+    isNewUser: false,
   };
 }
 
@@ -239,6 +240,14 @@ export const authService = {
     return !!user?.passwordHash;
   },
 
+  async emailExists(email: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return !!user;
+  },
+
   async requestOtp(email: string, name?: string): Promise<{ message: string }> {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
@@ -315,6 +324,7 @@ export const authService = {
     });
 
     const resolvedRole = resolveRole(googleProfile.email);
+    const isNewUser = !user;
 
     if (!user) {
       user = await prisma.user.create({
@@ -346,7 +356,11 @@ export const authService = {
 
     return {
       token: jwtResult.token,
-      user: sanitizeUser(user),
+      user: {
+        ...sanitizeUser(user),
+        hasPassword: !!user.passwordHash,
+        isNewUser,
+      },
     };
   },
 
@@ -479,6 +493,61 @@ export const authService = {
       if (!result.valid) {
         throw new Error("INVALID_TOTP");
       }
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    return { success: true };
+  },
+
+  async requestDeleteOtp(
+    userId: string,
+    password: string,
+    totpCode?: string
+  ): Promise<{ message: string }> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    if (user.passwordHash) {
+      if (!password) {
+        throw new Error("PASSWORD_REQUIRED");
+      }
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        throw new Error("INVALID_PASSWORD");
+      }
+    }
+
+    if (user.twoFactorEnabled) {
+      if (!totpCode) {
+        throw new Error("TOTP_REQUIRED");
+      }
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+      const result = await baas.verifyTotp(user.totpSecret, totpCode);
+      if (!result.valid) {
+        throw new Error("INVALID_TOTP");
+      }
+    }
+
+    return baas.generateOtp(user.email, APP_NAME, APP_NAME);
+  },
+
+  async verifyDeleteOtp(
+    userId: string,
+    deleteCode: string
+  ): Promise<{ success: boolean }> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    const result = await baas.verifyOtp(user.email, deleteCode);
+    if (!result.valido) {
+      throw new Error("INVALID_OTP");
     }
 
     await prisma.user.delete({ where: { id: userId } });

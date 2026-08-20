@@ -17,7 +17,7 @@ interface AuthContextType {
   loading: boolean;
   loginWithOtp: (email: string, code: string, name?: string) => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (accessToken: string) => Promise<boolean>;
+  loginWithGoogle: (accessToken: string) => Promise<{ requires2Fa: boolean; isNewUser: boolean; hasPassword: boolean }>;
   verify2Fa: (code: string) => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -75,10 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }
 
-  async function loginWithGoogle(accessToken: string): Promise<boolean> {
+  async function loginWithGoogle(accessToken: string): Promise<{ requires2Fa: boolean; isNewUser: boolean; hasPassword: boolean }> {
     const { data } = await api.post("/auth/google", { access_token: accessToken });
     persistSession(data.token, data.user);
-    return false;
+    return {
+      requires2Fa: false,
+      isNewUser: data.user.isNewUser ?? false,
+      hasPassword: data.user.hasPassword ?? false,
+    };
   }
 
   async function verify2Fa(code: string) {

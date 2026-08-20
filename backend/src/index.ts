@@ -6,6 +6,8 @@ import authRoutes from "./routes/auth";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json({ limit: "16kb" }));
