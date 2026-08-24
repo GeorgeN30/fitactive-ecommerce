@@ -13,7 +13,6 @@ export default function CatalogPage() {
       <div className="bg-[#f8f9fa] dark:bg-brand-dark-bg min-h-screen py-8 font-sans text-gray-900 dark:text-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Breadcrumbs & Title */}
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
               Catálogo Deportivo
@@ -21,8 +20,7 @@ export default function CatalogPage() {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-8">
-            
-            {/* Sidebar Filtros */}
+
             <aside className="w-full lg:w-64 flex-shrink-0">
               <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
                 <div className="flex justify-between items-center mb-6">
@@ -32,7 +30,6 @@ export default function CatalogPage() {
                   </button>
                 </div>
 
-                {/* Filtro: Género */}
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Género</h4>
                   <div className="space-y-2">
@@ -47,7 +44,6 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                {/* Filtro: Deporte */}
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Deporte</h4>
                   <div className="space-y-2">
@@ -60,7 +56,7 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                {/* Filtro: Talla */}
+
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Talla</h4>
                   <div className="flex flex-wrap gap-2">
@@ -76,7 +72,7 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                {/* Filtro: Precio (Visual Mockup) */}
+
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Rango de Precio</h4>
                   <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full mt-4 mb-2 relative">
@@ -90,7 +86,7 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                {/* Filtro: Stock */}
+  
                 <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
                   <h4 className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase tracking-widest">Solo en Stock</h4>
                   <button 
@@ -104,10 +100,8 @@ export default function CatalogPage() {
               </div>
             </aside>
 
-            {/* Contenido Principal: Catálogo */}
             <div className="flex-1">
-              
-              {/* Barra superior de catálogo */}
+            
               <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-brand-card-dark rounded-xl p-4 mb-6 shadow-sm border border-gray-100 dark:border-gray-800">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4 sm:mb-0">
                   Mostrando <span className="font-bold text-black dark:text-white">6</span> de 48 productos
@@ -122,7 +116,6 @@ export default function CatalogPage() {
                 </div>
               </div>
 
-              {/* Grid de Productos */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
                   { cat: 'Running', name: 'AeroTech Compression Tee', price: '$59.00', img: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=400&q=80', stock: 'HIGH STOCK' },
@@ -140,11 +133,9 @@ export default function CatalogPage() {
                 ].map((item, index) => (
                   <div key={index} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-gray-800 flex flex-col">
                     <div className="relative bg-[#f4f5f7] dark:bg-gray-800 rounded-xl aspect-[4/5] mb-4 flex items-center justify-center overflow-hidden">
-                      {/* Badge de Stock */}
                       <span className={`absolute top-3 left-3 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white rounded shadow-sm z-10 ${item.low ? 'bg-red-500' : 'bg-gray-900/70 dark:bg-black/50'}`}>
                         {item.stock}
                       </span>
-                      {/* Favorito */}
                       <button className="absolute top-3 right-3 p-1.5 bg-white dark:bg-gray-700 rounded-full shadow-md text-gray-400 dark:text-gray-300 hover:text-red-500 hover:scale-110 transition-all z-10">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
                       </button>
@@ -157,8 +148,7 @@ export default function CatalogPage() {
                       <Link to="/producto/1">{item.name}</Link>
                     </h3>
                     <div className="font-black text-lg mb-3 dark:text-gray-200">{item.price}</div>
-                    
-                    {/* Tallas pequeñas */}
+
                     <div className="flex gap-1 mb-4 mt-auto">
                       {['S', 'M', 'L', 'XL'].map(sz => (
                         <span key={sz} className="w-5 h-5 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded text-[9px] font-bold text-gray-600 dark:text-gray-300">{sz}</span>
@@ -178,7 +168,6 @@ export default function CatalogPage() {
                 ))}
               </div>
 
-              {/* Paginación */}
               <div className="flex justify-center mt-10 gap-2">
                 <button 
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
