@@ -8,10 +8,8 @@ export default function HomePage() {
   return (
     <AppLayout>
       <div className="w-full pb-10 bg-[#f8f9fa] dark:bg-brand-dark-bg text-gray-900 dark:text-white font-sans">
-        
-        {/* 1. Hero Section (Banner Principal) */}
+ 
         <section className="relative w-full h-[500px] md:h-[600px] bg-gray-900 text-white flex items-center overflow-hidden">
-          {/* Imagen de fondo (Placeholder) */}
           <div 
             className="absolute inset-0 w-full h-full opacity-40 bg-center bg-cover bg-no-repeat"
             style={{ backgroundImage: "url('https://images.unsplash.com/photo-1552674605-db6aea4bc09c?q=80&w=2070&auto=format&fit=crop')" }}
@@ -39,8 +37,6 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* 2. Categorías: Explora por deporte */}
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
           <h2 className="text-2xl font-extrabold mb-8 dark:text-white">Explora por deporte</h2>
           <div className="flex flex-wrap justify-center md:justify-between gap-6 md:gap-4">
@@ -61,8 +57,6 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-
-        {/* 3. Productos Destacados */}
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="mb-6">
             <span className="text-brand-green text-[10px] font-extrabold tracking-widest uppercase">High Performance</span>
@@ -103,7 +97,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 4. Recomendado para ti */}
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
           <h2 className="text-2xl font-extrabold mb-8 dark:text-white">Recomendado para ti</h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -134,7 +127,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 5. Banner Promocional 30% OFF */}
         <section className="max-w-7xl mx-auto px-6 lg:px-8 pt-4 pb-12">
           <div className="bg-gradient-to-r from-brand-green/20 to-brand-green/40 dark:from-brand-green/10 dark:to-brand-green/20 rounded-3xl p-8 md:p-10 border border-brand-green/30 flex flex-col md:flex-row items-center justify-between shadow-sm">
             <div className="mb-6 md:mb-0 max-w-xl text-center md:text-left">

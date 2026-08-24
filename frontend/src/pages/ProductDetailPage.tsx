@@ -12,8 +12,7 @@ export default function ProductDetailPage() {
     <AppLayout>
       <div className="bg-white dark:bg-brand-dark-bg min-h-screen py-8 font-sans text-gray-900 dark:text-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          {/* Breadcrumbs */}
+
           <nav className="flex text-xs font-medium text-gray-500 mb-8" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-3">
               <li className="inline-flex items-center">
@@ -33,13 +32,10 @@ export default function ProductDetailPage() {
               </li>
             </ol>
           </nav>
-
-          {/* Producto Detalle Superior */}
           <div className="flex flex-col lg:flex-row gap-12 mb-16">
-            
-            {/* Izquierda: Galería de Imágenes */}
+
             <div className="w-full lg:w-3/5 flex flex-col-reverse sm:flex-row gap-4">
-              {/* Thumbnails */}
+ 
               <div className="flex sm:flex-col gap-3 overflow-x-auto sm:overflow-visible">
                 {[1, 2, 3, 4].map(idx => (
                   <button key={idx} className={`w-16 h-20 rounded-lg bg-[#f4f5f7] dark:bg-gray-800 flex items-center justify-center border-2 transition-all flex-shrink-0 overflow-hidden ${idx === 1 ? 'border-brand-green' : 'border-transparent hover:border-gray-300'}`}>
@@ -47,13 +43,12 @@ export default function ProductDetailPage() {
                   </button>
                 ))}
               </div>
-              {/* Imagen Principal */}
+
               <div className="flex-1 bg-[#f4f5f7] dark:bg-gray-800 rounded-2xl flex items-center justify-center p-8 overflow-hidden aspect-[4/5] sm:aspect-auto sm:min-h-[600px]">
                 <img src="https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80" alt="AeroTech Compression Tee" className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
               </div>
             </div>
 
-            {/* Derecha: Info del Producto */}
             <div className="w-full lg:w-2/5 flex flex-col">
               
               <div className="flex justify-between items-start mb-2">
@@ -76,7 +71,6 @@ export default function ProductDetailPage() {
                 Tee de compresión ergonómica diseñada para atletas de alta resistencia. Desarrollada con hilos inteligentes de microfibra que regulan la temperatura corporal en situaciones de alto esfuerzo.
               </p>
 
-              {/* Talla */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="text-xs font-bold uppercase tracking-widest">Seleccionar Talla</h4>
@@ -95,7 +89,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Color */}
               <div className="mb-8">
                 <h4 className="text-xs font-bold uppercase tracking-widest mb-3">Color</h4>
                 <div className="flex gap-3">
@@ -116,7 +109,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Add to cart row */}
               <div className="flex gap-3 mb-4">
                 <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-12 flex items-center justify-center text-lg font-medium hover:text-brand-green transition">-</button>
@@ -141,7 +133,6 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Tabs Section */}
           <div className="mb-16">
             <div className="border-b border-gray-200 dark:border-gray-800 flex gap-8 mb-6">
               {['Descripción', 'Especificaciones', 'Reseñas (124)'].map(tab => (
@@ -185,7 +176,6 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Productos Relacionados */}
           <div className="mb-12">
             <h2 className="text-2xl font-extrabold mb-8">Productos Relacionados</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
