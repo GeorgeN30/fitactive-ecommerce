@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import api from "../services/api";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 type Step = "email" | "password" | "otp";
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
   const { loginWithPassword } = useAuth();
 
@@ -26,6 +28,10 @@ export default function LoginPage() {
     if (step === "password") setError("");
     if (step === "otp") setError("");
   }, [step]);
+
+  const navigateToHome = useCallback(() => {
+    window.location.href = "/";
+  }, []);
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +72,7 @@ export default function LoginPage() {
       if (requires2Fa) {
         navigate("/2fa-verify");
       } else {
-        window.location.href = "/";
+        setSuccess(true);
       }
     } catch {
       setError("Correo o contrasena incorrectos.");
@@ -101,14 +107,28 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10">
-        <Link to="/" className="flex items-center gap-2 mb-8">
+      {success && (
+        <SuccessOverlay
+          message="Sesion iniciada"
+          subtitle="Bienvenido de vuelta"
+          onDone={navigateToHome}
+        />
+      )}
+      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10 animate-slide-up-fade">
+        <Link to="/" className="flex items-center gap-2 mb-2">
           <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             FIT<span className="text-brand-green">LOOK</span>
           </span>
           <span className="bg-slate-100 dark:bg-slate-700 text-[10px] font-bold text-brand-green px-2 py-0.5 rounded border border-brand-green/30 tracking-wider">
             AR FIT
           </span>
+        </Link>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors mb-8"
+        >
+          <i className="fa-solid fa-arrow-left text-[10px]" />
+          Volver al inicio
         </Link>
 
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
@@ -119,7 +139,7 @@ export default function LoginPage() {
         </p>
 
         {step === "email" && (
-          <form onSubmit={handleEmailSubmit} className="space-y-5">
+          <form onSubmit={handleEmailSubmit} className="space-y-5 animate-slide-up-fade">
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electronico
@@ -173,7 +193,7 @@ export default function LoginPage() {
         )}
 
         {step === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-5">
+          <form onSubmit={handlePasswordSubmit} className="space-y-5 animate-slide-up-fade">
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electronico

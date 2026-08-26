@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
-dotenv.config();
+import path from "path";
+
+// El archivo de entorno se mantiene en la raíz del monorepo.
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 export const config = {
   port: parseInt(process.env.PORT || "4000", 10),

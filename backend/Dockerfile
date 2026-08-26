@@ -10,13 +10,12 @@ RUN corepack enable && corepack prepare pnpm@9 --activate && pnpm install --froz
 
 COPY backend .
 
+RUN chmod +x /app/start.sh
+
 RUN npx prisma generate
 
 RUN pnpm build
 
 EXPOSE 4000
-
-COPY backend/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
 
 CMD ["/app/start.sh"]

@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 type Step = "form" | "otp";
 
@@ -15,7 +16,9 @@ export default function RegisterPage() {
   const [sending, setSending] = useState(false);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
+  const [success, setSuccess] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const navigate = useNavigate();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -65,6 +68,10 @@ export default function RegisterPage() {
       handleVerify(pasted);
     }
   }
+
+  const navigateToSetup = useCallback(() => {
+    navigate("/2fa-setup?firstTime=true", { replace: true });
+  }, [navigate]);
 
   async function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -133,7 +140,7 @@ export default function RegisterPage() {
       }
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      window.location.href = "/2fa-setup?firstTime=true";
+      setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");
       setCode(["", "", "", "", "", ""]);
@@ -170,14 +177,28 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout>
-      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10">
-        <Link to="/" className="flex items-center gap-2 mb-8">
+      {success && (
+        <SuccessOverlay
+          message="Registro exitoso"
+          subtitle="Configura tu armario virtual..."
+          onDone={navigateToSetup}
+        />
+      )}
+      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10 animate-slide-up-fade">
+        <Link to="/" className="flex items-center gap-2 mb-2">
           <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             FIT<span className="text-brand-green">LOOK</span>
           </span>
           <span className="bg-slate-100 dark:bg-slate-700 text-[10px] font-bold text-brand-green px-2 py-0.5 rounded border border-brand-green/30 tracking-wider">
             AR FIT
           </span>
+        </Link>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors mb-8"
+        >
+          <i className="fa-solid fa-arrow-left text-[10px]" />
+          Volver al inicio
         </Link>
 
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
@@ -190,7 +211,7 @@ export default function RegisterPage() {
         </p>
 
         {step === "form" && (
-          <form onSubmit={handleFormSubmit} className="space-y-5">
+          <form onSubmit={handleFormSubmit} className="space-y-5 animate-slide-up-fade">
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nombre Completo
@@ -288,7 +309,7 @@ export default function RegisterPage() {
               const fullCode = code.join("");
               if (fullCode.length === 6) handleVerify(fullCode);
             }}
-            className="space-y-5"
+            className="space-y-5 animate-slide-up-fade"
           >
             <div className="flex justify-center gap-2">
               {code.map((digit, i) => (

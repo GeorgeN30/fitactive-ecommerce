@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 export default function TwoFaVerifyPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const { verify2Fa, preAuthUserId, clearPreAuth } = useAuth();
   const navigate = useNavigate();
+
+  const navigateToHome = useCallback(() => {
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   if (!preAuthUserId) {
     navigate("/login", { replace: true });
@@ -21,7 +27,7 @@ export default function TwoFaVerifyPage() {
     setLoading(true);
     try {
       await verify2Fa(code);
-      navigate("/", { replace: true });
+      setSuccess(true);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response
         ?.status;
@@ -39,7 +45,14 @@ export default function TwoFaVerifyPage() {
 
   return (
     <AuthLayout>
-      <div className="text-center mb-8">
+      {success && (
+        <SuccessOverlay
+          message="Verificacion completada"
+          subtitle="Acceso concedido"
+          onDone={navigateToHome}
+        />
+      )}
+      <div className="text-center mb-8 animate-slide-up-fade">
         <div className="w-14 h-14 bg-brand-green/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <i className="fa-solid fa-shield-halved text-brand-green text-xl" />
         </div>
