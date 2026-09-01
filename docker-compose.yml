@@ -14,6 +14,8 @@ services:
       - JWT_APP_ID=${JWT_APP_ID:-integrador2_web}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - INVENTORY_EMAIL=${INVENTORY_EMAIL:-${RECEPTIONIST_EMAIL}}
+      - INVENTORY_PASSWORD=${INVENTORY_PASSWORD:-${RECEPTIONIST_PASSWORD}}
     volumes:
       - backend-data:/app/prisma/data
     restart: unless-stopped

@@ -180,10 +180,10 @@ export default function ProductDetailPage() {
             <h2 className="text-2xl font-extrabold mb-8">Productos Relacionados</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { cat: 'Gym', name: 'Apex Performance Shorts', price: '$45.00', img: 'https://images.unsplash.com/photo-1591557304192-35324d271638?w=400&q=80' },
-                { cat: 'Ciclismo', name: 'Nova Carbon Windbreaker', price: '$129.00', img: 'https://images.unsplash.com/photo-1622445272461-c458007e63d2?w=400&q=80' },
+                { cat: 'Gym', name: 'Apex Performance Shorts', price: '$45.00', img: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=400&q=80' },
+                { cat: 'Ciclismo', name: 'Nova Carbon Windbreaker', price: '$129.00', img: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&q=80' },
                 { cat: 'CrossFit', name: 'Vortex Weightlifting Shoes', price: '$149.00', img: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
-                { cat: 'Yoga', name: 'Zen Ultra Breathable Crop', price: '$39.00', img: 'https://images.unsplash.com/photo-1608228079968-c76817032b90?w=400&q=80' }
+                { cat: 'Yoga', name: 'Zen Ultra Breathable Crop', price: '$39.00', img: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400&q=80' }
               ].map((item, index) => (
                 <div key={index} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-gray-800 flex flex-col">
                   <div className="relative bg-[#f4f5f7] dark:bg-gray-800 rounded-xl aspect-[4/5] mb-4 flex items-center justify-center overflow-hidden">

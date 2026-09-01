@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-  const { loginWithPassword } = useAuth();
+  const { loginWithPassword, user } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -30,8 +30,10 @@ export default function LoginPage() {
   }, [step]);
 
   const navigateToHome = useCallback(() => {
-    window.location.href = "/";
-  }, []);
+    const role = user?.role;
+    const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
+    window.location.href = path;
+  }, [user]);
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();

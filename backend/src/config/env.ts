@@ -15,4 +15,9 @@ export const config = {
   jwtAppId: process.env.JWT_APP_ID || "integrador2_web",
   adminEmail: process.env.ADMIN_EMAIL || "",
   adminPassword: process.env.ADMIN_PASSWORD || "",
+  // Keep the old variable names as a fallback while exposing the new role as inventory.
+  inventoryEmail: process.env.INVENTORY_EMAIL || process.env.RECEPTIONIST_EMAIL || "",
+  inventoryPassword: process.env.INVENTORY_PASSWORD || process.env.RECEPTIONIST_PASSWORD || "",
+  receptionistEmail: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_EMAIL || "",
+  receptionistPassword: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_PASSWORD || "",
 };

@@ -1,6 +1,11 @@
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import { useAuth } from "../context/AuthContext";
 export default function HomePage() {
+  const { user } = useAuth();
+  const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
+  const panelPath = user?.role === "admin" ? "/admin" : isInventoryUser ? "/inventory" : null;
+  const panelLabel = user?.role === "admin" ? "Volver al panel admin" : "Volver al panel de inventario";
 
   return (
     <AppLayout>
@@ -9,11 +14,17 @@ export default function HomePage() {
         <section className="relative w-full h-[500px] md:h-[600px] bg-gray-900 text-white flex items-center overflow-hidden">
           <div 
             className="absolute inset-0 w-full h-full opacity-40 bg-center bg-cover bg-no-repeat"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1552674605-db6aea4bc09c?q=80&w=2070&auto=format&fit=crop')" }}
+            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop')" }}
           ></div>
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent"></div>
           
           <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 w-full">
+            {panelPath && (
+              <Link to={panelPath} className="inline-flex items-center gap-2 px-4 py-2 bg-white/95 text-gray-900 text-xs font-bold rounded-xl mb-5 shadow-lg hover:bg-brand-green transition-colors">
+                <i className="fa-solid fa-arrow-left" />
+                {panelLabel}
+              </Link>
+            )}
             <span className="inline-block px-3 py-1 bg-brand-green text-black text-[10px] sm:text-xs font-bold rounded-full mb-4 tracking-wider">
               ✨ PROBADOR VIRTUAL DISPONIBLE
             </span>

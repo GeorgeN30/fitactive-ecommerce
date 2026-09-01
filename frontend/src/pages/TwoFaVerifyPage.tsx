@@ -9,12 +9,14 @@ export default function TwoFaVerifyPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { verify2Fa, preAuthUserId, clearPreAuth } = useAuth();
+  const { verify2Fa, preAuthUserId, clearPreAuth, user } = useAuth();
   const navigate = useNavigate();
 
   const navigateToHome = useCallback(() => {
-    navigate("/", { replace: true });
-  }, [navigate]);
+    const role = user?.role;
+    const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
+    navigate(path, { replace: true });
+  }, [navigate, user]);
 
   if (!preAuthUserId) {
     navigate("/login", { replace: true });

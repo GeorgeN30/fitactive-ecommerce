@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -17,6 +18,24 @@
 
 body {
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+.admin-shell,
+.admin-shell button,
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3 {
+  letter-spacing: -0.02em;
+}
+
+.admin-shell .font-display {
+  font-family: "Barlow Condensed", sans-serif;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

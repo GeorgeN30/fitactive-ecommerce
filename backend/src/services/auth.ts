@@ -55,12 +55,32 @@ function getPendingRegistration(email: string): PendingRegistration | null {
 }
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (typeof email !== "string") return false;
+  const value = email.trim();
+  if (value !== email) return false;
+  if (value.length > 254) return false;
+  if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/.test(value)) {
+    return false;
+  }
+  if (value.includes("..")) return false;
+  const [local, domain] = value.split("@");
+  if (!local || !domain) return false;
+  if (local.length > 64) return false;
+  if (domain.startsWith("-") || domain.endsWith("-")) return false;
+  const labels = domain.split(".");
+  if (labels.some((l) => l.startsWith("-") || l.endsWith("-"))) return false;
+  return true;
 }
 
 function resolveRole(email: string): string {
   if (config.adminEmail && email === config.adminEmail.toLowerCase()) {
     return ROLES.ADMIN;
+  }
+  if (config.inventoryEmail && email === config.inventoryEmail.toLowerCase()) {
+    return ROLES.INVENTORY;
+  }
+  if (config.receptionistEmail && email === config.receptionistEmail.toLowerCase()) {
+    return ROLES.RECEPTIONIST;
   }
   return ROLES.CUSTOMER;
 }

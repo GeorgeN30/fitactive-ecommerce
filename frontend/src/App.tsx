@@ -8,6 +8,7 @@ import OtpPage from "./pages/OtpPage";
 import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import HomePage from "./pages/HomePage";
 import AdminLayout from "./components/admin/AdminLayout";
+import ReceptionistLayout from "./components/receptionist/ReceptionistLayout";
 import SettingsPage from "./pages/SettingsPage";
 import TwoFaSetupPage from "./pages/TwoFaSetupPage";
 import TwoFaVerifyPage from "./pages/TwoFaVerifyPage";
@@ -47,6 +48,24 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminLayout />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/recepcion"
+          element={
+            <ProtectedRoute requiredRole="inventory">
+              <ReceptionistLayout />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute requiredRole="inventory">
+              <ReceptionistLayout />
             </ProtectedRoute>
           }
         />

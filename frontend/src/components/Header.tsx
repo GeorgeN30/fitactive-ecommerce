@@ -5,6 +5,7 @@ import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
+  const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -74,6 +75,16 @@ export default function Header() {
             >
               <i className="fa-solid fa-shield-halved" />
               Admin
+            </Link>
+          )}
+
+          {isInventoryUser && (
+            <Link
+              to="/inventory"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              <i className="fa-solid fa-boxes-stacked" />
+              Inventario
             </Link>
           )}
 
