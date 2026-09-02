@@ -69,7 +69,7 @@ export default function LoginPage() {
         window.location.href = "/";
       }
     } catch {
-      setError("Correo o contrasena incorrectos.");
+      setError("Correo o contraseña incorrectos.");
     } finally {
       setSending(false);
     }
@@ -85,7 +85,7 @@ export default function LoginPage() {
       });
       navigate("/otp", { state: { email: email.trim().toLowerCase() } });
     } catch {
-      setError("No se pudo enviar el codigo. Intenta de nuevo.");
+      setError("No se pudo enviar el código. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
   function handleGoogleLogin() {
     if (!clientId) {
-      setError("Google no esta configurado en este entorno.");
+      setError("Google no está configurado en este entorno.");
       return;
     }
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${window.location.origin}/google-callback&response_type=token&scope=openid email profile`;
@@ -236,7 +236,7 @@ export default function LoginPage() {
                 to="/forgot-password"
                 className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline font-medium"
               >
-                Olvide mi contrasena
+                Olvidé mi contraseña
               </Link>
             </div>
 
@@ -251,7 +251,7 @@ export default function LoginPage() {
               disabled={sending}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Ingresando..." : "Iniciar sesion"}
+              {sending ? "Ingresando..." : "Iniciar sesión"}
             </button>
 
             <button
@@ -265,7 +265,7 @@ export default function LoginPage() {
               }}
               className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium"
             >
-              Usar codigo OTP en su lugar
+              Usar código OTP en su lugar
             </button>
           </form>
         )}
@@ -276,7 +276,7 @@ export default function LoginPage() {
             to="/register"
             className="text-brand-green font-bold hover:underline ml-1"
           >
-            Registrate
+            Regístrate
           </Link>
         </div>
       </div>
