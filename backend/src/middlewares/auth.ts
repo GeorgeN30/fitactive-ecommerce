@@ -16,6 +16,23 @@ export function validateJWT(
   res: Response,
   next: NextFunction
 ): void {
+  validateToken(req, res, next, false);
+}
+
+export function validateMfaPendingJWT(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  validateToken(req, res, next, true);
+}
+
+function validateToken(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+  allowMfaPending: boolean
+): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NO_TOKEN" });
@@ -33,6 +50,14 @@ export function validateJWT(
       }
 
       const claims = result.claims;
+      const extra = claims.extra as Record<string, unknown> | undefined;
+      const isMfaPending = extra?.purpose === "mfa_pending";
+
+      if (isMfaPending !== allowMfaPending) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "INVALID_TOKEN" });
+        return;
+      }
+
       const userId = claims.sub as string;
 
       const dbUser = await prisma.user.findUnique({

@@ -404,7 +404,8 @@ export const authService = {
   async resetPassword(
     email: string,
     code: string,
-    newPassword: string
+    newPassword: string,
+    totpCode?: string
   ): Promise<{ success: boolean }> {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
@@ -413,14 +414,28 @@ export const authService = {
       throw new Error("PASSWORD_TOO_SHORT");
     }
 
-    const result = await baas.verifyOtp(email, code);
-    if (!result.valido) {
-      throw new Error("INVALID_OTP");
-    }
-
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
+    }
+
+    if (user.twoFactorEnabled) {
+      if (!totpCode) {
+        throw new Error("TOTP_REQUIRED");
+      }
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+
+      const totpResult = await baas.verifyTotp(user.totpSecret, totpCode);
+      if (!totpResult.valid) {
+        throw new Error("INVALID_TOTP");
+      }
+    }
+
+    const result = await baas.verifyOtp(email, code);
+    if (!result.valido) {
+      throw new Error("INVALID_OTP");
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -457,7 +472,8 @@ export const authService = {
   async changePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
+    totpCode?: string
   ): Promise<{ success: boolean }> {
     if (newPassword.length < 8) {
       throw new Error("PASSWORD_TOO_SHORT");
@@ -471,6 +487,20 @@ export const authService = {
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!valid) {
       throw new Error("INVALID_CURRENT_PASSWORD");
+    }
+
+    if (user.twoFactorEnabled) {
+      if (!totpCode) {
+        throw new Error("TOTP_REQUIRED");
+      }
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+
+      const totpResult = await baas.verifyTotp(user.totpSecret, totpCode);
+      if (!totpResult.valid) {
+        throw new Error("INVALID_TOTP");
+      }
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
