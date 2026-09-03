@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
+import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
   const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
   const navigate = useNavigate();
+  const { cartCount } = useCart();
+  const { favorites } = useFavorites();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,18 +49,22 @@ export default function Header() {
           <Link to="/producto/1" className="hover:text-brand-green transition-colors">
             Probador Virtual
           </Link>
-          <span className="text-slate-300 dark:text-slate-600 cursor-not-allowed" title="Proximamente">
+          <Link to="/favoritos" className="hover:text-brand-green transition-colors flex items-center gap-1.5">
             Favoritos
-          </span>
+            {favorites.length > 0 && (
+              <span className="bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
+                {favorites.length}
+              </span>
+            )}
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
 
           <div
-            className={`relative hidden sm:block w-64 lg:w-80 transition-all ${
-              searchFocused ? "w-80 lg:w-96" : ""
-            }`}
+            className={`relative hidden sm:block w-64 lg:w-80 transition-all ${searchFocused ? "w-80 lg:w-96" : ""
+              }`}
           >
             <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
             <input
@@ -190,12 +198,19 @@ export default function Header() {
             </div>
           )}
 
-          <button className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <Link
+            to="/carrito"
+            className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            title="Carrito"
+          >
             <i className="fa-solid fa-bag-shopping text-lg" />
-            <span className="absolute top-1 right-1 bg-brand-green text-slate-900 text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-brand-card-dark">
-              0
-            </span>
-          </button>
+
+            {cartCount > 0 && (
+              <span className="absolute top-1 right-1 bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-brand-card-dark">
+                {cartCount}
+              </span>
+            )}
+          </Link>
         </div>
       </div>
     </header>

@@ -38,7 +38,7 @@ export default function TwoFaVerifyPage() {
         navigate("/login", { replace: true });
         return;
       }
-      setError("Codigo invalido. Intenta de nuevo.");
+      setError("código inválido. Intenta de nuevo.");
       setCode("");
     } finally {
       setLoading(false);
@@ -59,17 +59,17 @@ export default function TwoFaVerifyPage() {
           <i className="fa-solid fa-shield-halved text-brand-green text-xl" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-          Verificacion de doble factor
+          Verificación de doble factor
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Ingresa el codigo de 6 digitos de tu aplicacion de autenticacion
+          Ingresa el código de 6 dígitos de tu aplicación de autenticación
         </p>
       </div>
 
       <form onSubmit={handleVerify} className="space-y-5">
         <div>
           <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-            Codigo de verificacion
+            código de verificación
           </label>
           <input
             type="text"
@@ -112,7 +112,7 @@ export default function TwoFaVerifyPage() {
           className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors inline-flex items-center gap-1"
         >
           <i className="fa-solid fa-arrow-left" />
-          Volver al inicio de sesion
+          Volver al inicio de sesión
         </button>
       </div>
     </AuthLayout>

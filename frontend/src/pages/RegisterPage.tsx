@@ -90,11 +90,11 @@ export default function RegisterPage() {
         const data = await res.json();
         if (!res.ok) {
           if (data.error === "EMAIL_EXISTS") {
-            setError("Este correo ya esta registrado. Inicia sesion.");
+            setError("Este correo ya está registrado. Inicia sesión.");
           } else if (data.error === "INVALID_EMAIL") {
-            setError("El correo electronico no es valido.");
+            setError("El correo electrónico no es válido.");
           } else {
-            setError("No se pudo enviar el codigo. Intenta de nuevo.");
+            setError("No se pudo enviar el código. Intenta de nuevo.");
           }
           return;
         }
@@ -102,7 +102,7 @@ export default function RegisterPage() {
         setCountdown(60);
       });
     } catch {
-      setError("No se pudo enviar el codigo. Intenta de nuevo.");
+      setError("No se pudo enviar el código. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
@@ -127,11 +127,11 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.error === "INVALID_OTP") {
-          setError("Codigo invalido o expirado.");
+          setError("código inválido o expirado.");
           setCode(["", "", "", "", "", ""]);
           inputRefs.current[0]?.focus();
         } else if (data.error === "EMAIL_EXISTS") {
-          setError("Este correo ya esta registrado. Inicia sesion.");
+          setError("Este correo ya está registrado. Inicia sesión.");
         } else {
           setError("No se pudo crear la cuenta. Intenta de nuevo.");
           setCode(["", "", "", "", "", ""]);
@@ -163,13 +163,13 @@ export default function RegisterPage() {
       });
       setCountdown(60);
     } catch {
-      setError("No se pudo reenviar el codigo.");
+      setError("No se pudo reenviar el código.");
     }
   }
 
   function handleGoogleLogin() {
     if (!clientId) {
-      setError("Google no esta configurado en este entorno.");
+      setError("Google no está configurado en este entorno.");
       return;
     }
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${window.location.origin}/google-callback&response_type=token&scope=openid email profile`;
@@ -346,7 +346,7 @@ export default function RegisterPage() {
 
             <div className="text-center">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                No recibiste el codigo?{" "}
+                No recibiste el código?{" "}
                 {countdown > 0 ? (
                   <span className="text-slate-400 dark:text-slate-500">Reenviar en {countdown}s</span>
                 ) : (
