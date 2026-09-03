@@ -1,5 +1,8 @@
 export const ROLES = {
   ADMIN: "admin",
+  INVENTORY: "inventory",
+  // Legacy alias kept for existing local accounts.
+  RECEPTIONIST: "receptionist",
   CUSTOMER: "customer",
 } as const;
 

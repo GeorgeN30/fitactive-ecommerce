@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import AuthLayout from "../components/AuthLayout";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 interface LocationState {
   email?: string;
@@ -15,6 +16,7 @@ export default function OtpPage() {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [success, setSuccess] = useState<{ message: string; subtitle: string; target: string } | null>(null);
   const { loginWithOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +41,10 @@ export default function OtpPage() {
   useEffect(() => {
     inputRefs.current[0]?.focus();
   }, []);
+
+  const navigateToTarget = useCallback(() => {
+    if (success) navigate(success.target, { replace: true });
+  }, [success, navigate]);
 
   if (!email) return null;
 
@@ -84,9 +90,17 @@ export default function OtpPage() {
     try {
       const requires2Fa = await loginWithOtp(email, fullCode, name);
       if (requires2Fa) {
-        navigate("/2fa-verify", { replace: true });
+        setSuccess({
+          message: "Sesion iniciada",
+          subtitle: "Redirigiendo a verificacion de seguridad...",
+          target: "/2fa-verify",
+        });
       } else {
-        navigate("/", { replace: true });
+        setSuccess({
+          message: "Sesion iniciada",
+          subtitle: "Bienvenido de vuelta",
+          target: "/",
+        });
       }
     } catch {
       setError("Codigo invalido o expirado. Intenta de nuevo.");
@@ -112,7 +126,14 @@ export default function OtpPage() {
 
   return (
     <AuthLayout>
-      <div className="text-center mb-8">
+      {success && (
+        <SuccessOverlay
+          message={success.message}
+          subtitle={success.subtitle}
+          onDone={navigateToTarget}
+        />
+      )}
+      <div className="text-center mb-8 animate-slide-up-fade">
         <div className="w-14 h-14 bg-brand-green/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <i className="fa-solid fa-envelope text-brand-green text-xl" />
         </div>

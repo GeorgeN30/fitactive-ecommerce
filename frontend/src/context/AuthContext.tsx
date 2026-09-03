@@ -29,6 +29,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function normalizeRole(role: string): string {
+  // Keep sessions created with the former role name compatible with the inventory panel.
+  return role === "receptionist" ? "inventory" : role;
+}
+
+function normalizeUser(sessionUser: User): User {
+  const role = normalizeRole(sessionUser.role);
+  return role === sessionUser.role ? sessionUser : { ...sessionUser, role };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -40,16 +50,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedUser = localStorage.getItem("user");
     if (storedToken && storedUser) {
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      const storedSessionUser = normalizeUser(JSON.parse(storedUser) as User);
+      setUser(storedSessionUser);
+      localStorage.setItem("user", JSON.stringify(storedSessionUser));
     }
     setLoading(false);
   }, []);
 
   function persistSession(newToken: string, newUser: User) {
+    const normalizedUser = normalizeUser(newUser);
     localStorage.setItem("token", newToken);
-    localStorage.setItem("user", JSON.stringify(newUser));
+    localStorage.setItem("user", JSON.stringify(normalizedUser));
     setToken(newToken);
-    setUser(newUser);
+    setUser(normalizedUser);
     setPreAuthUserId(null);
   }
 
@@ -127,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function refreshUser() {
     try {
       const { data } = await api.get("/auth/me");
-      const freshUser = data.user as User;
+      const freshUser = normalizeUser(data.user as User);
       localStorage.setItem("user", JSON.stringify(freshUser));
       setUser(freshUser);
     } catch {

@@ -31,11 +31,11 @@ export default function SetPasswordPage() {
     e.preventDefault();
     setError("");
     if (newPassword !== confirmPassword) {
-      setError("Las contrasenas no coinciden.");
+      setError("Las contraseñas no coinciden.");
       return;
     }
     if (newPassword.length < 8) {
-      setError("La contrasena debe tener al menos 8 caracteres.");
+      setError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
     setLoading(true);
@@ -44,7 +44,7 @@ export default function SetPasswordPage() {
       await refreshUser();
       setSuccess(true);
     } catch {
-      setError("No se pudo configurar la contrasena.");
+      setError("No se pudo configurar la contraseña.");
     } finally {
       setLoading(false);
     }
@@ -59,10 +59,10 @@ export default function SetPasswordPage() {
               <i className="fa-solid fa-check text-brand-green text-2xl" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Contrasena configurada
+              Contraseña configurada
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              Ahora puedes iniciar sesion con Google o con tu correo y contrasena.
+              Ahora puedes iniciar sesión con Google o con tu correo y contraseña.
             </p>
             <a
               href="/"
@@ -85,11 +85,11 @@ export default function SetPasswordPage() {
               <i className="fa-solid fa-key text-brand-green text-2xl" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Agrega una contrasena
+              Agrega una contraseña
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed max-w-sm mx-auto">
-              Configura una contrasena para poder iniciar sesion con tu correo
-              electronico ademas de Google.
+              Configura una contraseña para poder iniciar sesión con tu correo
+              electrónico además de Google.
             </p>
 
             <div className="flex flex-col gap-3">
@@ -131,17 +131,17 @@ export default function SetPasswordPage() {
               <i className="fa-solid fa-key text-brand-green text-xl" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              Establecer contrasena
+              Establecer contraseña
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Crea una contrasena para tu cuenta
+              Crea una contraseña para tu cuenta
             </p>
           </div>
 
           <form onSubmit={handleSetPassword} className="space-y-5">
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Nueva contrasena
+                Nueva contraseña
               </label>
               <div className="relative">
                 <input
@@ -165,7 +165,7 @@ export default function SetPasswordPage() {
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Confirmar contrasena
+                Confirmar contraseña
               </label>
               <input
                 type={showPw ? "text" : "password"}
@@ -173,7 +173,7 @@ export default function SetPasswordPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                placeholder="Repite la contrasena"
+                placeholder="Repite la contraseña"
               />
             </div>
 
@@ -188,7 +188,7 @@ export default function SetPasswordPage() {
               disabled={loading}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Guardando..." : "Establecer contrasena"}
+              {loading ? "Guardando..." : "Establecer contraseña"}
             </button>
           </form>
         </div>

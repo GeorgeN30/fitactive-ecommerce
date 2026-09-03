@@ -9,6 +9,8 @@ vi.mock("../src/config/env", () => ({
     jwtAppId: "test-app",
     adminEmail: "admin@test.com",
     adminPassword: "Admin123",
+    receptionistEmail: "receptionist@test.com",
+    receptionistPassword: "Admin123",
   },
 }));
 
@@ -117,6 +119,30 @@ describe("authService.register", () => {
     const createCall = mockPrisma.user.create.mock.calls[0][0];
     expect(createCall.data.role).toBe("admin");
     process.env.ADMIN_EMAIL = originalEmail;
+  });
+
+  it("should assign receptionist role for receptionist email", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue({
+      id: "recep-1",
+      email: "receptionist@test.com",
+      name: "Receptionist",
+      role: "receptionist",
+      provider: "password",
+      picture: null,
+      twoFactorEnabled: false,
+      points: 0,
+    } as never);
+
+    const result = await authService.register(
+      "receptionist@test.com",
+      "password123",
+      "Receptionist"
+    );
+
+    expect(result.user.role).toBe("receptionist");
+    const createCall = mockPrisma.user.create.mock.calls[0][0];
+    expect(createCall.data.role).toBe("receptionist");
   });
 });
 

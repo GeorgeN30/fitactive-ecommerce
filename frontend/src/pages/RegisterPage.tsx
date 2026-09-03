@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 type Step = "form" | "otp";
 
@@ -15,7 +16,9 @@ export default function RegisterPage() {
   const [sending, setSending] = useState(false);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
+  const [success, setSuccess] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const navigate = useNavigate();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -66,6 +69,10 @@ export default function RegisterPage() {
     }
   }
 
+  const navigateToSetup = useCallback(() => {
+    navigate("/2fa-setup?firstTime=true", { replace: true });
+  }, [navigate]);
+
   async function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -83,11 +90,11 @@ export default function RegisterPage() {
         const data = await res.json();
         if (!res.ok) {
           if (data.error === "EMAIL_EXISTS") {
-            setError("Este correo ya esta registrado. Inicia sesion.");
+            setError("Este correo ya está registrado. Inicia sesión.");
           } else if (data.error === "INVALID_EMAIL") {
-            setError("El correo electronico no es valido.");
+            setError("El correo electrónico no es válido.");
           } else {
-            setError("No se pudo enviar el codigo. Intenta de nuevo.");
+            setError("No se pudo enviar el código. Intenta de nuevo.");
           }
           return;
         }
@@ -95,7 +102,7 @@ export default function RegisterPage() {
         setCountdown(60);
       });
     } catch {
-      setError("No se pudo enviar el codigo. Intenta de nuevo.");
+      setError("No se pudo enviar el código. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
@@ -120,11 +127,11 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.error === "INVALID_OTP") {
-          setError("Codigo invalido o expirado.");
+          setError("código inválido o expirado.");
           setCode(["", "", "", "", "", ""]);
           inputRefs.current[0]?.focus();
         } else if (data.error === "EMAIL_EXISTS") {
-          setError("Este correo ya esta registrado. Inicia sesion.");
+          setError("Este correo ya está registrado. Inicia sesión.");
         } else {
           setError("No se pudo crear la cuenta. Intenta de nuevo.");
           setCode(["", "", "", "", "", ""]);
@@ -133,7 +140,7 @@ export default function RegisterPage() {
       }
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      window.location.href = "/2fa-setup?firstTime=true";
+      setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");
       setCode(["", "", "", "", "", ""]);
@@ -156,13 +163,13 @@ export default function RegisterPage() {
       });
       setCountdown(60);
     } catch {
-      setError("No se pudo reenviar el codigo.");
+      setError("No se pudo reenviar el código.");
     }
   }
 
   function handleGoogleLogin() {
     if (!clientId) {
-      setError("Google no esta configurado en este entorno.");
+      setError("Google no está configurado en este entorno.");
       return;
     }
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${window.location.origin}/google-callback&response_type=token&scope=openid email profile`;
@@ -170,14 +177,28 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout>
-      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10">
-        <Link to="/" className="flex items-center gap-2 mb-8">
+      {success && (
+        <SuccessOverlay
+          message="Registro exitoso"
+          subtitle="Configura tu armario virtual..."
+          onDone={navigateToSetup}
+        />
+      )}
+      <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700/50 p-8 sm:p-10 animate-slide-up-fade">
+        <Link to="/" className="flex items-center gap-2 mb-2">
           <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             FIT<span className="text-brand-green">LOOK</span>
           </span>
           <span className="bg-slate-100 dark:bg-slate-700 text-[10px] font-bold text-brand-green px-2 py-0.5 rounded border border-brand-green/30 tracking-wider">
             AR FIT
           </span>
+        </Link>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors mb-8"
+        >
+          <i className="fa-solid fa-arrow-left text-[10px]" />
+          Volver al inicio
         </Link>
 
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
@@ -190,7 +211,7 @@ export default function RegisterPage() {
         </p>
 
         {step === "form" && (
-          <form onSubmit={handleFormSubmit} className="space-y-5">
+          <form onSubmit={handleFormSubmit} className="space-y-5 animate-slide-up-fade">
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nombre Completo
@@ -288,7 +309,7 @@ export default function RegisterPage() {
               const fullCode = code.join("");
               if (fullCode.length === 6) handleVerify(fullCode);
             }}
-            className="space-y-5"
+            className="space-y-5 animate-slide-up-fade"
           >
             <div className="flex justify-center gap-2">
               {code.map((digit, i) => (
@@ -325,7 +346,7 @@ export default function RegisterPage() {
 
             <div className="text-center">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                No recibiste el codigo?{" "}
+                No recibiste el código?{" "}
                 {countdown > 0 ? (
                   <span className="text-slate-400 dark:text-slate-500">Reenviar en {countdown}s</span>
                 ) : (

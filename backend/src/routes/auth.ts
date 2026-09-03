@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authController } from "../controllers/auth";
-import { validateJWT } from "../middlewares/auth";
+import { validateJWT, validateMfaPendingJWT } from "../middlewares/auth";
 import { otpRequestLimiter, otpVerifyLimiter } from "../middlewares/rateLimit";
 
 const router = Router();
@@ -17,7 +17,7 @@ router.post("/reset-password", authController.resetPassword);
 
 router.post("/2fa/setup", validateJWT, authController.setup2Fa);
 router.post("/2fa/enable", validateJWT, authController.enable2Fa);
-router.post("/2fa/verify", validateJWT, authController.verify2Fa);
+router.post("/2fa/verify", validateMfaPendingJWT, authController.verify2Fa);
 router.post("/2fa/disable", validateJWT, authController.disable2Fa);
 
 router.get("/me", validateJWT, authController.getMe);
