@@ -19,7 +19,7 @@ interface CartContextType {
     id: string,
     quantity: number,
     size?: string,
-    color?: string
+    color?: string,
   ) => void;
   clearCart: () => void;
   cartCount: number;
@@ -45,7 +45,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         (cartItem) =>
           cartItem.id === item.id &&
           cartItem.size === item.size &&
-          cartItem.color === item.color
+          cartItem.color === item.color,
       );
 
       if (existingItem) {
@@ -57,7 +57,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 ...cartItem,
                 quantity: cartItem.quantity + item.quantity,
               }
-            : cartItem
+            : cartItem,
         );
       }
 
@@ -65,53 +65,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
- const removeFromCart = (id: string, size?: string, color?: string) => {
-  setCartItems((currentItems) =>
-    currentItems.filter(
-      (item) =>
-        !(
-          item.id === id &&
-          item.size === size &&
-          item.color === color
-        )
-    )
-  );
-};
+  const removeFromCart = (id: string, size?: string, color?: string) => {
+    setCartItems((currentItems) =>
+      currentItems.filter(
+        (item) =>
+          !(item.id === id && item.size === size && item.color === color),
+      ),
+    );
+  };
 
-const updateQuantity = (
-  id: string,
-  quantity: number,
-  size?: string,
-  color?: string
-) => {
-  if (quantity < 1) return;
+  const updateQuantity = (
+    id: string,
+    quantity: number,
+    size?: string,
+    color?: string,
+  ) => {
+    if (quantity < 1) return;
 
-  setCartItems((currentItems) =>
-    currentItems.map((item) =>
-      item.id === id &&
-      item.size === size &&
-      item.color === color
-        ? {
-            ...item,
-            quantity,
-          }
-        : item
-    )
-  );
-};
+    setCartItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === id && item.size === size && item.color === color
+          ? {
+              ...item,
+              quantity,
+            }
+          : item,
+      ),
+    );
+  };
 
   const clearCart = () => {
     setCartItems([]);
   };
 
-  const cartCount = cartItems.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   const cartTotal = cartItems.reduce(
     (total, item) => total + item.price * item.quantity,
-    0
+    0,
   );
 
   return (

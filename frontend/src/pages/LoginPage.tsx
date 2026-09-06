@@ -31,7 +31,12 @@ export default function LoginPage() {
 
   const navigateToHome = useCallback(() => {
     const role = user?.role;
-    const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
+    const path =
+      role === "admin"
+        ? "/admin"
+        : role === "inventory" || role === "receptionist"
+          ? "/inventory"
+          : "/";
     window.location.href = path;
   }, [user]);
 
@@ -41,7 +46,7 @@ export default function LoginPage() {
     setSending(true);
     try {
       const { data } = await api.get(
-        `/auth/check-password?email=${encodeURIComponent(email.trim().toLowerCase())}`
+        `/auth/check-password?email=${encodeURIComponent(email.trim().toLowerCase())}`,
       );
       if (!data.exists) {
         setError("Correo no registrado. Crea una cuenta para continuar.");
@@ -69,7 +74,7 @@ export default function LoginPage() {
     try {
       const requires2Fa = await loginWithPassword(
         email.trim().toLowerCase(),
-        password
+        password,
       );
       if (requires2Fa) {
         navigate("/2fa-verify");
@@ -141,7 +146,10 @@ export default function LoginPage() {
         </p>
 
         {step === "email" && (
-          <form onSubmit={handleEmailSubmit} className="space-y-5 animate-slide-up-fade">
+          <form
+            onSubmit={handleEmailSubmit}
+            className="space-y-5 animate-slide-up-fade"
+          >
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electronico
@@ -195,7 +203,10 @@ export default function LoginPage() {
         )}
 
         {step === "password" && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-5 animate-slide-up-fade">
+          <form
+            onSubmit={handlePasswordSubmit}
+            className="space-y-5 animate-slide-up-fade"
+          >
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electronico
@@ -252,7 +263,9 @@ export default function LoginPage() {
                   type="checkbox"
                   className="w-4 h-4 rounded text-brand-green focus:ring-brand-green accent-brand-green"
                 />
-                <span className="text-slate-600 dark:text-slate-400 font-medium">Recordarme</span>
+                <span className="text-slate-600 dark:text-slate-400 font-medium">
+                  Recordarme
+                </span>
               </label>
               <Link
                 to="/forgot-password"
@@ -282,7 +295,7 @@ export default function LoginPage() {
                 setError("");
                 setPassword("");
                 handleOtpSubmit(
-                  new Event("submit") as unknown as React.FormEvent
+                  new Event("submit") as unknown as React.FormEvent,
                 );
               }}
               className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium"

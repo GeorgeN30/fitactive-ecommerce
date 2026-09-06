@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -6,14 +6,14 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
-  --color-brand-green: #00E676;
-  --color-brand-green-hover: #00C853;
-  --color-brand-dark-bg: #0B0D12;
-  --color-brand-card-dark: #12151C;
-  --color-brand-input-dark: #1C202B;
-  --color-brand-input-border-dark: #2A2F3D;
-  --color-brand-light-bg: #F4F5F8;
-  --color-brand-gray-text: #8E95A5;
+  --color-brand-green: #00e676;
+  --color-brand-green-hover: #00c853;
+  --color-brand-dark-bg: #0b0d12;
+  --color-brand-card-dark: #12151c;
+  --color-brand-input-dark: #1c202b;
+  --color-brand-input-border-dark: #2a2f3d;
+  --color-brand-light-bg: #f4f5f8;
+  --color-brand-gray-text: #8e95a5;
 }
 
 body {
@@ -51,39 +51,63 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fade-in {
   animation: fadeIn 0.25s ease-out forwards;
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 .animate-fade-out {
   animation: fadeOut 0.3s ease-in forwards;
 }
 
 @keyframes slideUpFade {
-  from { opacity: 0; transform: translateY(12px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .animate-slide-up-fade {
   animation: slideUpFade 0.35s ease-out forwards;
 }
 
 @keyframes routeFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-route-fade-in {
   animation: routeFadeIn 0.3s ease-out forwards;
 }
 
 @keyframes checkDraw {
-  to { stroke-dashoffset: 0; }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 .success-circle {
   animation: checkDraw 0.5s ease-out 0.2s forwards;

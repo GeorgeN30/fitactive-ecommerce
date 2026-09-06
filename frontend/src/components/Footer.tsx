@@ -12,17 +12,20 @@ export default function Footer() {
               nuestro catalogo virtualmente antes de que llegue a tu puerta.
             </p>
             <div className="flex items-center gap-3 pt-2">
-              {["fa-instagram", "fa-facebook-f", "fa-youtube", "fa-x-twitter"].map(
-                (icon) => (
-                  <a
-                    key={icon}
-                    href="#"
-                    className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:bg-brand-green hover:text-slate-900 transition-all text-xs"
-                  >
-                    <i className={`fa-brands ${icon}`} />
-                  </a>
-                )
-              )}
+              {[
+                "fa-instagram",
+                "fa-facebook-f",
+                "fa-youtube",
+                "fa-x-twitter",
+              ].map((icon) => (
+                <a
+                  key={icon}
+                  href="#"
+                  className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:bg-brand-green hover:text-slate-900 transition-all text-xs"
+                >
+                  <i className={`fa-brands ${icon}`} />
+                </a>
+              ))}
             </div>
           </div>
 
@@ -31,15 +34,19 @@ export default function Footer() {
               Tienda
             </h3>
             <ul className="space-y-2 text-xs">
-              {["Hombre", "Mujer", "Nuevo Ingreso", "Colecciones", "Probador AR"].map(
-                (item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors">
-                      {item}
-                    </a>
-                  </li>
-                )
-              )}
+              {[
+                "Hombre",
+                "Mujer",
+                "Nuevo Ingreso",
+                "Colecciones",
+                "Probador AR",
+              ].map((item) => (
+                <li key={item}>
+                  <a href="#" className="hover:text-white transition-colors">
+                    {item}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -48,15 +55,19 @@ export default function Footer() {
               Soporte
             </h3>
             <ul className="space-y-2 text-xs">
-              {["Envios", "Devoluciones", "Guia de Tallas", "Contacto", "Preguntas Frecuentes"].map(
-                (item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors">
-                      {item}
-                    </a>
-                  </li>
-                )
-              )}
+              {[
+                "Envios",
+                "Devoluciones",
+                "Guia de Tallas",
+                "Contacto",
+                "Preguntas Frecuentes",
+              ].map((item) => (
+                <li key={item}>
+                  <a href="#" className="hover:text-white transition-colors">
+                    {item}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -65,15 +76,18 @@ export default function Footer() {
               Legal
             </h3>
             <ul className="space-y-2 text-xs">
-              {["Terminos de Servicio", "Privacidad", "Uso de Cookies", "Garantia de AR"].map(
-                (item) => (
-                  <li key={item}>
-                    <a href="#" className="hover:text-white transition-colors">
-                      {item}
-                    </a>
-                  </li>
-                )
-              )}
+              {[
+                "Terminos de Servicio",
+                "Privacidad",
+                "Uso de Cookies",
+                "Garantia de AR",
+              ].map((item) => (
+                <li key={item}>
+                  <a href="#" className="hover:text-white transition-colors">
+                    {item}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

@@ -7,7 +7,9 @@ import api from "../services/api";
 export default function SettingsPage() {
   const { user, updateUser, logout } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "danger">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "danger">(
+    "profile",
+  );
 
   const [name, setName] = useState(user?.name || "");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -45,9 +47,12 @@ export default function SettingsPage() {
   const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
-    api.get("/auth/me").then(({ data }) => {
-      setHasPassword(data.user.hasPassword);
-    }).catch(() => {});
+    api
+      .get("/auth/me")
+      .then(({ data }) => {
+        setHasPassword(data.user.hasPassword);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -97,7 +102,8 @@ export default function SettingsPage() {
       setConfirmPassword("");
       setChangeTotp("");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const msg = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
       if (msg === "INVALID_CURRENT_PASSWORD") {
         setPwError("La contrasena actual es incorrecta.");
       } else if (msg === "PASSWORD_TOO_SHORT") {
@@ -154,7 +160,8 @@ export default function SettingsPage() {
       setCountdown(60);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const msg = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
       if (msg === "INVALID_PASSWORD") {
         setDeleteError("La contrasena es incorrecta.");
       } else if (msg === "INVALID_TOTP") {
@@ -193,7 +200,10 @@ export default function SettingsPage() {
 
   function handleOtpPaste(e: React.ClipboardEvent) {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const pasted = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
     if (pasted.length === 6) {
       const newCode = pasted.split("");
       setOtpCode(newCode);
@@ -212,7 +222,8 @@ export default function SettingsPage() {
       logout();
       window.location.href = "/login";
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const msg = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
       if (msg === "INVALID_OTP") {
         setDeleteError("Codigo invalido o expirado.");
         setOtpCode(["", "", "", "", "", ""]);
@@ -242,14 +253,20 @@ export default function SettingsPage() {
   const tabs = [
     { key: "profile" as const, label: "Perfil", icon: "fa-user" },
     { key: "security" as const, label: "Seguridad", icon: "fa-shield-halved" },
-    { key: "danger" as const, label: "Zona de peligro", icon: "fa-triangle-exclamation" },
+    {
+      key: "danger" as const,
+      label: "Zona de peligro",
+      icon: "fa-triangle-exclamation",
+    },
   ];
 
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Configuracion</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+            Configuracion
+          </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Administra tu perfil y seguridad de la cuenta.
           </p>
@@ -273,8 +290,13 @@ export default function SettingsPage() {
         </div>
 
         {activeTab === "profile" && (
-          <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Datos personales</h3>
+          <form
+            onSubmit={handleSaveProfile}
+            className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
+          >
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              Datos personales
+            </h3>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electronico
@@ -333,7 +355,9 @@ export default function SettingsPage() {
               {user?.twoFactorEnabled ? (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">2FA activo</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                      2FA activo
+                    </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Tu cuenta tiene una capa extra de seguridad.
                     </p>
@@ -348,9 +372,12 @@ export default function SettingsPage() {
               ) : (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">2FA no configurado</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                      2FA no configurado
+                    </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Activa la autenticacion de dos factores para mayor seguridad.
+                      Activa la autenticacion de dos factores para mayor
+                      seguridad.
                     </p>
                   </div>
                   <Link
@@ -364,14 +391,17 @@ export default function SettingsPage() {
             </div>
 
             {!hasPassword && (
-              <form onSubmit={handleSetPassword} className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5">
+              <form
+                onSubmit={handleSetPassword}
+                className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
+              >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   <i className="fa-solid fa-key mr-2 text-brand-green" />
                   Establecer contrasena
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Tu cuenta fue creada con Google. Configura una contrasena para poder
-                  iniciar sesion con correo y contrasena.
+                  Tu cuenta fue creada con Google. Configura una contrasena para
+                  poder iniciar sesion con correo y contrasena.
                 </p>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -392,7 +422,9 @@ export default function SettingsPage() {
                       onClick={() => setShowSetPw(!showSetPw)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                     >
-                      <i className={`fa-regular ${showSetPw ? "fa-eye" : "fa-eye-slash"} text-sm`} />
+                      <i
+                        className={`fa-regular ${showSetPw ? "fa-eye" : "fa-eye-slash"} text-sm`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -432,7 +464,10 @@ export default function SettingsPage() {
             )}
 
             {hasPassword && (
-              <form onSubmit={handleChangePassword} className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5">
+              <form
+                onSubmit={handleChangePassword}
+                className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
+              >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   <i className="fa-solid fa-key mr-2 text-brand-green" />
                   Cambiar contrasena
@@ -455,7 +490,9 @@ export default function SettingsPage() {
                       onClick={() => setShowCurrentPw(!showCurrentPw)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                     >
-                      <i className={`fa-regular ${showCurrentPw ? "fa-eye" : "fa-eye-slash"} text-sm`} />
+                      <i
+                        className={`fa-regular ${showCurrentPw ? "fa-eye" : "fa-eye-slash"} text-sm`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -470,13 +507,18 @@ export default function SettingsPage() {
                       autoComplete="one-time-code"
                       maxLength={6}
                       value={changeTotp}
-                      onChange={(e) => setChangeTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onChange={(e) =>
+                        setChangeTotp(
+                          e.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
                       required
                       className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm tracking-[0.35em] text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
                       placeholder="123456"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-                      Como tienes 2FA activo, confirma el cambio con el codigo de tu aplicacion.
+                      Como tienes 2FA activo, confirma el cambio con el codigo
+                      de tu aplicacion.
                     </p>
                   </div>
                 )}
@@ -499,7 +541,9 @@ export default function SettingsPage() {
                       onClick={() => setShowNewPw(!showNewPw)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                     >
-                      <i className={`fa-regular ${showNewPw ? "fa-eye" : "fa-eye-slash"} text-sm`} />
+                      <i
+                        className={`fa-regular ${showNewPw ? "fa-eye" : "fa-eye-slash"} text-sm`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -549,20 +593,23 @@ export default function SettingsPage() {
                   Eliminar cuenta
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mt-3">
-                  Esta accion es <strong>permanente</strong> y no se puede deshacer.
-                  Se eliminaran todos tus datos, incluyendo tu perfil, pedidos y
-                  medidas AR.
+                  Esta accion es <strong>permanente</strong> y no se puede
+                  deshacer. Se eliminaran todos tus datos, incluyendo tu perfil,
+                  pedidos y medidas AR.
                 </p>
 
                 <div className="mt-4">
                   <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 text-xs px-4 py-2.5 rounded-lg">
-                    Se enviara un codigo de verificacion a <strong>{user?.email}</strong> para confirmar la eliminacion.
+                    Se enviara un codigo de verificacion a{" "}
+                    <strong>{user?.email}</strong> para confirmar la
+                    eliminacion.
                   </div>
                 </div>
 
                 {!hasPassword && (
                   <div className="mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300 text-xs px-4 py-2.5 rounded-lg">
-                    Tu cuenta fue creada con Google. No necesitas contrasena para eliminarla.
+                    Tu cuenta fue creada con Google. No necesitas contrasena
+                    para eliminarla.
                   </div>
                 )}
 
@@ -584,7 +631,9 @@ export default function SettingsPage() {
                         onClick={() => setShowDeletePw(!showDeletePw)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                       >
-                        <i className={`fa-regular ${showDeletePw ? "fa-eye" : "fa-eye-slash"} text-sm`} />
+                        <i
+                          className={`fa-regular ${showDeletePw ? "fa-eye" : "fa-eye-slash"} text-sm`}
+                        />
                       </button>
                     </div>
                   </div>
@@ -615,8 +664,8 @@ export default function SettingsPage() {
                       className="w-4 h-4 rounded mt-0.5 text-red-600 focus:ring-red-500 accent-red-600"
                     />
                     <span className="text-xs text-slate-600 dark:text-slate-400 leading-tight">
-                      Confirmo que deseo eliminar mi cuenta de forma permanente y
-                      entiendo que esta accion no se puede deshacer.
+                      Confirmo que deseo eliminar mi cuenta de forma permanente
+                      y entiendo que esta accion no se puede deshacer.
                     </span>
                   </label>
                 </div>
@@ -632,7 +681,9 @@ export default function SettingsPage() {
                   disabled={!confirmDelete || sendingOtp}
                   className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-4"
                 >
-                  {sendingOtp ? "Enviando codigo..." : "Enviar codigo de verificacion"}
+                  {sendingOtp
+                    ? "Enviando codigo..."
+                    : "Enviar codigo de verificacion"}
                 </button>
               </form>
             ) : (
@@ -642,15 +693,18 @@ export default function SettingsPage() {
                   Verifica tu identidad
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mt-3">
-                  Ingresa el codigo de 6 digitos enviado a <strong>{user?.email}</strong> para
-                  confirmar la eliminacion de tu cuenta.
+                  Ingresa el codigo de 6 digitos enviado a{" "}
+                  <strong>{user?.email}</strong> para confirmar la eliminacion
+                  de tu cuenta.
                 </p>
 
                 <div className="flex justify-center gap-2 mt-6">
                   {otpCode.map((digit, i) => (
                     <input
                       key={i}
-                      ref={(el) => { otpRefs.current[i] = el; }}
+                      ref={(el) => {
+                        otpRefs.current[i] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -674,7 +728,9 @@ export default function SettingsPage() {
                   disabled={verifyingOtp || otpCode.some((c) => c === "")}
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md text-sm disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                 >
-                  {verifyingOtp ? "Verificando..." : "Eliminar mi cuenta permanentemente"}
+                  {verifyingOtp
+                    ? "Verificando..."
+                    : "Eliminar mi cuenta permanentemente"}
                 </button>
 
                 <div className="text-center mt-4">

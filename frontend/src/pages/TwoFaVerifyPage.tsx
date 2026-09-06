@@ -14,7 +14,12 @@ export default function TwoFaVerifyPage() {
 
   const navigateToHome = useCallback(() => {
     const role = user?.role;
-    const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
+    const path =
+      role === "admin"
+        ? "/admin"
+        : role === "inventory" || role === "receptionist"
+          ? "/inventory"
+          : "/";
     navigate(path, { replace: true });
   }, [navigate, user]);
 

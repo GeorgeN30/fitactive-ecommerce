@@ -20,11 +20,14 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     if (!isFirstTime) return;
-    api.get("/auth/me").then(({ data }) => {
-      if (data.user.hasPassword) {
-        navigate("/", { replace: true });
-      }
-    }).catch(() => {});
+    api
+      .get("/auth/me")
+      .then(({ data }) => {
+        if (data.user.hasPassword) {
+          navigate("/", { replace: true });
+        }
+      })
+      .catch(() => {});
   }, [isFirstTime, navigate]);
 
   async function handleSetPassword(e: React.FormEvent) {
@@ -62,7 +65,8 @@ export default function SetPasswordPage() {
               Contraseña configurada
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              Ahora puedes iniciar sesión con Google o con tu correo y contraseña.
+              Ahora puedes iniciar sesión con Google o con tu correo y
+              contraseña.
             </p>
             <a
               href="/"
@@ -159,7 +163,9 @@ export default function SetPasswordPage() {
                   onClick={() => setShowPw(!showPw)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                  <i className={`fa-regular ${showPw ? "fa-eye" : "fa-eye-slash"} text-sm`} />
+                  <i
+                    className={`fa-regular ${showPw ? "fa-eye" : "fa-eye-slash"} text-sm`}
+                  />
                 </button>
               </div>
             </div>
