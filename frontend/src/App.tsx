@@ -14,6 +14,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import CatalogPage from "./pages/CatalogPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
+import ProbadorVirtual from "./pages/ProbadorVirtual";
+import FavoritesPage from "./pages/FavoritesPage";
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/catalogo" element={<CatalogPage />} />
           <Route path="/producto/:id" element={<ProductDetailPage />} />
+          <Route path="/probador-virtual" element={<ProbadorVirtual />} /> 
+          <Route path="/favoritos" element={<FavoritesPage />} />
 
           <Route
             path="/admin"
