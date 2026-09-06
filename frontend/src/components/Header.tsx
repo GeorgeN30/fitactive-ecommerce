@@ -7,7 +7,8 @@ import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
-  const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
+  const isInventoryUser =
+    user?.role === "inventory" || user?.role === "receptionist";
   const navigate = useNavigate();
   const { cartCount } = useCart();
   const { favorites } = useFavorites();
@@ -43,13 +44,22 @@ export default function Header() {
           <Link to="/" className="hover:text-brand-green transition-colors">
             Inicio
           </Link>
-          <Link to="/catalogo" className="hover:text-brand-green transition-colors">
+          <Link
+            to="/catalogo"
+            className="hover:text-brand-green transition-colors"
+          >
             Catalogo
           </Link>
-          <Link to="/producto/1" className="hover:text-brand-green transition-colors">
+          <Link
+            to="/producto/1"
+            className="hover:text-brand-green transition-colors"
+          >
             Probador Virtual
           </Link>
-          <Link to="/favoritos" className="hover:text-brand-green transition-colors flex items-center gap-1.5">
+          <Link
+            to="/favoritos"
+            className="hover:text-brand-green transition-colors flex items-center gap-1.5"
+          >
             Favoritos
             {favorites.length > 0 && (
               <span className="bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
@@ -63,8 +73,9 @@ export default function Header() {
           <ThemeToggle />
 
           <div
-            className={`relative hidden sm:block w-64 lg:w-80 transition-all ${searchFocused ? "w-80 lg:w-96" : ""
-              }`}
+            className={`relative hidden sm:block w-64 lg:w-80 transition-all ${
+              searchFocused ? "w-80 lg:w-96" : ""
+            }`}
           >
             <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
             <input
@@ -103,7 +114,11 @@ export default function Header() {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
               >
                 {user.picture ? (
-                  <img src={user.picture} alt="" className="w-6 h-6 rounded-full" />
+                  <img
+                    src={user.picture}
+                    alt=""
+                    className="w-6 h-6 rounded-full"
+                  />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-brand-green/10 text-brand-green flex items-center justify-center text-xs font-bold">
                     {(user.name || user.email || "?")[0].toUpperCase()}

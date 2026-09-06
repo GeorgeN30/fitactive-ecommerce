@@ -11,7 +11,13 @@ interface ToastContainerProps {
   onRemove: (id: string) => void;
 }
 
-function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: string) => void }) {
+function ToastItem({
+  toast,
+  onRemove,
+}: {
+  toast: ToastMessage;
+  onRemove: (id: string) => void;
+}) {
   useEffect(() => {
     const timer = setTimeout(() => onRemove(toast.id), 3000);
     return () => clearTimeout(timer);
@@ -30,14 +36,19 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
   };
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold animate-fade-in pointer-events-auto ${styles[toast.type]}`}>
+    <div
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold animate-fade-in pointer-events-auto ${styles[toast.type]}`}
+    >
       <i className={`${icons[toast.type]} text-sm`} />
       <span>{toast.message}</span>
     </div>
   );
 }
 
-export default function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
+export default function ToastContainer({
+  toasts,
+  onRemove,
+}: ToastContainerProps) {
   return (
     <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map((toast) => (

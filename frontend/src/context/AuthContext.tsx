@@ -15,9 +15,17 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  loginWithOtp: (email: string, code: string, name?: string) => Promise<boolean>;
+  loginWithOtp: (
+    email: string,
+    code: string,
+    name?: string,
+  ) => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (accessToken: string) => Promise<{ requires2Fa: boolean; isNewUser: boolean; hasPassword: boolean }>;
+  loginWithGoogle: (accessToken: string) => Promise<{
+    requires2Fa: boolean;
+    isNewUser: boolean;
+    hasPassword: boolean;
+  }>;
   verify2Fa: (code: string) => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -30,7 +38,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function normalizeRole(role: string): string {
-  // Keep sessions created with the former role name compatible with the inventory panel.
   return role === "receptionist" ? "inventory" : role;
 }
 
@@ -66,7 +73,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPreAuthUserId(null);
   }
 
-  async function loginWithOtp(email: string, code: string, name?: string): Promise<boolean> {
+  async function loginWithOtp(
+    email: string,
+    code: string,
+    name?: string,
+  ): Promise<boolean> {
     const { data } = await api.post("/auth/otp-verify", { email, code, name });
     if (data.requires2Fa) {
       localStorage.setItem("preAuth_token", data.token);
@@ -77,8 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }
 
-  async function loginWithPassword(email: string, password: string): Promise<boolean> {
-    const { data } = await api.post("/auth/login-password", { email, password });
+  async function loginWithPassword(
+    email: string,
+    password: string,
+  ): Promise<boolean> {
+    const { data } = await api.post("/auth/login-password", {
+      email,
+      password,
+    });
     if (data.requires2Fa) {
       localStorage.setItem("preAuth_token", data.token);
       setPreAuthUserId(data.userId);
@@ -88,8 +105,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }
 
-  async function loginWithGoogle(accessToken: string): Promise<{ requires2Fa: boolean; isNewUser: boolean; hasPassword: boolean }> {
-    const { data } = await api.post("/auth/google", { access_token: accessToken });
+  async function loginWithGoogle(accessToken: string): Promise<{
+    requires2Fa: boolean;
+    isNewUser: boolean;
+    hasPassword: boolean;
+  }> {
+    const { data } = await api.post("/auth/google", {
+      access_token: accessToken,
+    });
     persistSession(data.token, data.user);
     return {
       requires2Fa: false,
@@ -107,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post(
       "/auth/2fa/verify",
       { code },
-      { headers: { Authorization: `Bearer ${preAuthToken}` } }
+      { headers: { Authorization: `Bearer ${preAuthToken}` } },
     );
 
     localStorage.removeItem("preAuth_token");
@@ -143,9 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const freshUser = normalizeUser(data.user as User);
       localStorage.setItem("user", JSON.stringify(freshUser));
       setUser(freshUser);
-    } catch {
-      // keep current state
-    }
+    } catch {}
   }
 
   const isAdmin = user?.role === "admin";

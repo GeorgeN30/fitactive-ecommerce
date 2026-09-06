@@ -33,7 +33,11 @@ const tabSubtitles: Record<AdminTab, string> = {
   settings: "Configuración del sistema · FITLOOK",
 };
 
-export default function AdminHeader({ activeTab, onTabChange, onOpenSidebar }: AdminHeaderProps) {
+export default function AdminHeader({
+  activeTab,
+  onTabChange,
+  onOpenSidebar,
+}: AdminHeaderProps) {
   const { user, logout } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -70,7 +74,9 @@ export default function AdminHeader({ activeTab, onTabChange, onOpenSidebar }: A
         {notificationsOpen && (
           <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50 animate-fade-in">
             <div className="flex justify-between items-center mb-3 pb-2 border-b">
-              <h4 className="font-bold text-sm text-gray-900">Notificaciones</h4>
+              <h4 className="font-bold text-sm text-gray-900">
+                Notificaciones
+              </h4>
               <span className="text-[10px] font-semibold text-[#00E87A] bg-[#00E87A]/10 px-2 py-0.5 rounded-full">
                 {unreadCount} Nuevas
               </span>
@@ -87,10 +93,14 @@ export default function AdminHeader({ activeTab, onTabChange, onOpenSidebar }: A
                 >
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      n.type === "order" ? "bg-[#00E87A]/10 text-[#00E87A]" : "bg-amber-100 text-amber-600"
+                      n.type === "order"
+                        ? "bg-[#00E87A]/10 text-[#00E87A]"
+                        : "bg-amber-100 text-amber-600"
                     }`}
                   >
-                    <i className={`fa-solid ${n.type === "order" ? "fa-cart-shopping" : "fa-triangle-exclamation"} text-xs`} />
+                    <i
+                      className={`fa-solid ${n.type === "order" ? "fa-cart-shopping" : "fa-triangle-exclamation"} text-xs`}
+                    />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{n.title}</p>
@@ -104,15 +114,23 @@ export default function AdminHeader({ activeTab, onTabChange, onOpenSidebar }: A
 
         <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
           {user?.picture ? (
-            <img src={user.picture} alt="" className="w-8 h-8 rounded-full object-cover" />
+            <img
+              src={user.picture}
+              alt=""
+              className="w-8 h-8 rounded-full object-cover"
+            />
           ) : (
             <div className="w-8 h-8 rounded-full bg-[#00E87A]/10 text-[#00E87A] flex items-center justify-center text-xs font-bold">
               {(user?.name || user?.email || "A")[0].toUpperCase()}
             </div>
           )}
           <div className="hidden sm:block text-left">
-            <span className="text-xs font-bold text-gray-900 block leading-tight">{user?.name || "Admin"}</span>
-            <span className="text-[10px] text-[#00E87A] font-extrabold uppercase">Admin</span>
+            <span className="text-xs font-bold text-gray-900 block leading-tight">
+              {user?.name || "Admin"}
+            </span>
+            <span className="text-[10px] text-[#00E87A] font-extrabold uppercase">
+              Admin
+            </span>
           </div>
           <button
             onClick={logout}

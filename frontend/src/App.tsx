@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -8,7 +14,7 @@ import OtpPage from "./pages/OtpPage";
 import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import HomePage from "./pages/HomePage";
 import AdminLayout from "./components/admin/AdminLayout";
-import ReceptionistLayout from "./components/receptionist/ReceptionistLayout";
+import InventoryDashboard from "./pages/inventory/InventoryDashboard";
 import SettingsPage from "./pages/SettingsPage";
 import TwoFaSetupPage from "./pages/TwoFaSetupPage";
 import TwoFaVerifyPage from "./pages/TwoFaVerifyPage";
@@ -64,7 +70,7 @@ function AnimatedRoutes() {
           path="/recepcion"
           element={
             <ProtectedRoute requiredRole="inventory">
-              <ReceptionistLayout />
+              <InventoryDashboard />
             </ProtectedRoute>
           }
         />
@@ -73,7 +79,7 @@ function AnimatedRoutes() {
           path="/inventory"
           element={
             <ProtectedRoute requiredRole="inventory">
-              <ReceptionistLayout />
+              <InventoryDashboard />
             </ProtectedRoute>
           }
         />
@@ -93,18 +99,24 @@ function AnimatedRoutes() {
   );
 }
 
+import { ThemeProvider } from "next-themes";
+
 function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <CartProvider>
-          <FavoritesProvider>
-            <ScrollToTop />
-            <AnimatedRoutes />
-          </FavoritesProvider>
-        </CartProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider attribute="class" defaultTheme="light">
+      <BrowserRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <AuthProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <ScrollToTop />
+              <AnimatedRoutes />
+            </FavoritesProvider>
+          </CartProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

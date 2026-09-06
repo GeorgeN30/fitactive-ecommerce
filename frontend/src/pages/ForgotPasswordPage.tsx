@@ -78,7 +78,9 @@ export default function ForgotPasswordPage() {
         setError("La contrasena debe tener minimo 8 caracteres.");
       } else if (msg === "TOTP_REQUIRED") {
         setTotpRequired(true);
-        setError("Esta cuenta tiene 2FA activo. Ingresa tambien el codigo TOTP.");
+        setError(
+          "Esta cuenta tiene 2FA activo. Ingresa tambien el codigo TOTP.",
+        );
       } else if (msg === "INVALID_TOTP") {
         setError("El codigo TOTP es incorrecto o ha expirado.");
         setTotpCode("");
@@ -171,19 +173,19 @@ export default function ForgotPasswordPage() {
           {step === "email"
             ? "Recuperar contrasena"
             : step === "otp"
-            ? "Verifica tu correo"
-            : totpRequired
-            ? "Verifica tu identidad"
-            : "Nueva contrasena"}
+              ? "Verifica tu correo"
+              : totpRequired
+                ? "Verifica tu identidad"
+                : "Nueva contrasena"}
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {step === "email"
             ? "Ingresa tu correo para recibir un codigo de verificacion"
             : step === "otp"
-            ? `Ingresa el codigo enviado a ${email}`
-            : totpRequired
-            ? "Ingresa tambien el codigo TOTP de tu aplicacion autenticadora"
-            : "Establece una nueva contrasena para tu cuenta"}
+              ? `Ingresa el codigo enviado a ${email}`
+              : totpRequired
+                ? "Ingresa tambien el codigo TOTP de tu aplicacion autenticadora"
+                : "Establece una nueva contrasena para tu cuenta"}
         </p>
       </div>
 
@@ -267,7 +269,9 @@ export default function ForgotPasswordPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               No recibiste el codigo?{" "}
               {countdown > 0 ? (
-                <span className="text-slate-400 dark:text-slate-500">Reenviar en {countdown}s</span>
+                <span className="text-slate-400 dark:text-slate-500">
+                  Reenviar en {countdown}s
+                </span>
               ) : (
                 <button
                   type="button"
@@ -355,13 +359,16 @@ export default function ForgotPasswordPage() {
                 autoComplete="one-time-code"
                 maxLength={6}
                 value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) =>
+                  setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 required
                 className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm tracking-[0.35em] text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
                 placeholder="123456"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-                Usa el codigo actual de Google Authenticator, Authy u otra aplicacion compatible.
+                Usa el codigo actual de Google Authenticator, Authy u otra
+                aplicacion compatible.
               </p>
             </div>
           )}

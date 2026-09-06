@@ -17,14 +17,10 @@ interface FavoritesContextType {
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(
-  undefined
+  undefined,
 );
 
-export function FavoritesProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<FavoriteProduct[]>(() => {
     const saved = localStorage.getItem("favorites");
 
@@ -50,9 +46,7 @@ export function FavoritesProvider({
   };
 
   const removeFavorite = (id: string) => {
-    setFavorites((prev) =>
-      prev.filter((item) => item.id !== id)
-    );
+    setFavorites((prev) => prev.filter((item) => item.id !== id));
   };
 
   const isFavorite = (id: string) => {
@@ -90,9 +84,7 @@ export function useFavorites() {
   const context = useContext(FavoritesContext);
 
   if (!context) {
-    throw new Error(
-      "useFavorites debe usarse dentro de FavoritesProvider"
-    );
+    throw new Error("useFavorites debe usarse dentro de FavoritesProvider");
   }
 
   return context;

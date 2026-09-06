@@ -211,7 +211,10 @@ export default function RegisterPage() {
         </p>
 
         {step === "form" && (
-          <form onSubmit={handleFormSubmit} className="space-y-5 animate-slide-up-fade">
+          <form
+            onSubmit={handleFormSubmit}
+            className="space-y-5 animate-slide-up-fade"
+          >
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nombre Completo
@@ -275,11 +278,17 @@ export default function RegisterPage() {
                 />
                 <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
                   Acepto los{" "}
-                  <a href="#" className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                  <a
+                    href="#"
+                    className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  >
                     Terminos de Servicio
                   </a>{" "}
                   y la{" "}
-                  <a href="#" className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                  <a
+                    href="#"
+                    className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  >
                     Politica de Privacidad
                   </a>
                 </span>
@@ -348,7 +357,9 @@ export default function RegisterPage() {
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 No recibiste el código?{" "}
                 {countdown > 0 ? (
-                  <span className="text-slate-400 dark:text-slate-500">Reenviar en {countdown}s</span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    Reenviar en {countdown}s
+                  </span>
                 ) : (
                   <button
                     type="button"
