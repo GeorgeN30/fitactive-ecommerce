@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [savingPw, setSavingPw] = useState(false);
   const [pwMsg, setPwMsg] = useState("");
   const [pwError, setPwError] = useState("");
+  const [changeTotp, setChangeTotp] = useState("");
 
   const [setPwValue, setSetPwValue] = useState("");
   const [confirmSetPw, setConfirmSetPw] = useState("");
@@ -88,17 +89,23 @@ export default function SettingsPage() {
       await api.post("/auth/change-password", {
         currentPassword,
         newPassword,
+        totpCode: user?.twoFactorEnabled ? changeTotp : undefined,
       });
       setPwMsg("Contrasena actualizada.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setChangeTotp("");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       if (msg === "INVALID_CURRENT_PASSWORD") {
         setPwError("La contrasena actual es incorrecta.");
       } else if (msg === "PASSWORD_TOO_SHORT") {
         setPwError("La contrasena debe tener al menos 8 caracteres.");
+      } else if (msg === "TOTP_REQUIRED") {
+        setPwError("Debes ingresar el codigo TOTP de tu aplicacion.");
+      } else if (msg === "INVALID_TOTP") {
+        setPwError("El codigo TOTP es incorrecto o ha expirado.");
       } else {
         setPwError("No se pudo cambiar la contrasena.");
       }
@@ -452,6 +459,27 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+                {user?.twoFactorEnabled && (
+                  <div>
+                    <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+                      Codigo TOTP
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={changeTotp}
+                      onChange={(e) => setChangeTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      required
+                      className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm tracking-[0.35em] text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
+                      placeholder="123456"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                      Como tienes 2FA activo, confirma el cambio con el codigo de tu aplicacion.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                     Nueva contrasena

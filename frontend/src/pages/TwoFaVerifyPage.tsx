@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
+import SuccessOverlay from "../components/SuccessOverlay";
 
 export default function TwoFaVerifyPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { verify2Fa, preAuthUserId, clearPreAuth } = useAuth();
+  const [success, setSuccess] = useState(false);
+  const { verify2Fa, preAuthUserId, clearPreAuth, user } = useAuth();
   const navigate = useNavigate();
+
+  const navigateToHome = useCallback(() => {
+    const role = user?.role;
+    const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
+    navigate(path, { replace: true });
+  }, [navigate, user]);
 
   if (!preAuthUserId) {
     navigate("/login", { replace: true });
@@ -21,7 +29,7 @@ export default function TwoFaVerifyPage() {
     setLoading(true);
     try {
       await verify2Fa(code);
-      navigate("/", { replace: true });
+      setSuccess(true);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response
         ?.status;
@@ -30,7 +38,7 @@ export default function TwoFaVerifyPage() {
         navigate("/login", { replace: true });
         return;
       }
-      setError("Codigo invalido. Intenta de nuevo.");
+      setError("código inválido. Intenta de nuevo.");
       setCode("");
     } finally {
       setLoading(false);
@@ -39,22 +47,29 @@ export default function TwoFaVerifyPage() {
 
   return (
     <AuthLayout>
-      <div className="text-center mb-8">
+      {success && (
+        <SuccessOverlay
+          message="Verificacion completada"
+          subtitle="Acceso concedido"
+          onDone={navigateToHome}
+        />
+      )}
+      <div className="text-center mb-8 animate-slide-up-fade">
         <div className="w-14 h-14 bg-brand-green/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <i className="fa-solid fa-shield-halved text-brand-green text-xl" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-          Verificacion de doble factor
+          Verificación de doble factor
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Ingresa el codigo de 6 digitos de tu aplicacion de autenticacion
+          Ingresa el código de 6 dígitos de tu aplicación de autenticación
         </p>
       </div>
 
       <form onSubmit={handleVerify} className="space-y-5">
         <div>
           <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-            Codigo de verificacion
+            código de verificación
           </label>
           <input
             type="text"
@@ -97,7 +112,7 @@ export default function TwoFaVerifyPage() {
           className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors inline-flex items-center gap-1"
         >
           <i className="fa-solid fa-arrow-left" />
-          Volver al inicio de sesion
+          Volver al inicio de sesión
         </button>
       </div>
     </AuthLayout>

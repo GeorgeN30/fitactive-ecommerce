@@ -1,58 +1,15 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import api from '../services/api';
+import { useFavorites } from "../context/FavoritesContext";
 
 export default function FavoritesPage() {
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
+  const { favorites, removeFavorite } = useFavorites();
 
-  useEffect(() => {
-    const cargarFavoritos = async () => {
-      try {
-        const savedFavsIds = JSON.parse(localStorage.getItem('fitlook_favs') || '[]');
-        if (savedFavsIds.length === 0) {
-          setCargando(false);
-          return;
-        }
-
-        const response = await api.get('/products');
-        const allProducts = Array.isArray(response.data) ? response.data : (response.data.data || []);
-        
-        const favProducts = allProducts.filter((p: any) => savedFavsIds.includes(String(p.id)));
-        setFavorites(favProducts);
-      } catch (error) {
-        console.error("Error al cargar favoritos", error);
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargarFavoritos();
-  }, []);
-
-  const removerFavorito = (id: string) => {
-    const newFavs = favorites.filter(f => String(f.id) !== id);
-    setFavorites(newFavs);
-    localStorage.setItem('fitlook_favs', JSON.stringify(newFavs.map(f => String(f.id))));
-  };
+  const valorTotal = favorites.reduce((acc: number, curr: any) => acc + Number(curr.precio || curr.price || 0), 0);
 
   const limpiarFavoritos = () => {
-    setFavorites([]);
-    localStorage.removeItem('fitlook_favs');
+    favorites.forEach((item: any) => removeFavorite(item.id));
   };
-
-  const valorTotal = favorites.reduce((acc, curr) => acc + Number(curr.precio || curr.price || 0), 0);
-
-  if (cargando) {
-    return (
-      <AppLayout>
-        <div className="min-h-screen flex items-center justify-center dark:bg-[#0f1115] text-brand-green font-bold">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-green mr-4"></div>
-          Cargando tu Wishlist...
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
@@ -94,10 +51,10 @@ export default function FavoritesPage() {
           ) : (
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8 xl:col-span-9 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {favorites.map(item => (
+                {favorites.map((item: any) => (
                   <div key={item.id} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-white/5 flex flex-col relative group">
                     <button 
-                      onClick={() => removerFavorito(String(item.id))}
+                      onClick={() => removeFavorite(item.id)}
                       className="absolute top-6 right-6 z-20 w-8 h-8 bg-white dark:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-red-500 shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:scale-110"
                     >
                       <i className="fa-solid fa-heart-crack text-sm"></i>
@@ -105,15 +62,15 @@ export default function FavoritesPage() {
 
                     <div className="relative bg-[#f4f5f7] dark:bg-black/20 rounded-xl aspect-[4/5] mb-4 flex items-center justify-center overflow-hidden">
                       <Link to={`/producto/${item.id}`} className="w-full h-full">
-                        <img src={item.imagen_url || item.img} alt={item.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" />
+                        <img src={item.imagen_url || item.img} alt={item.nombre || item.name} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" />
                       </Link>
                     </div>
                     
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 font-black uppercase tracking-widest mb-1">{item.categoria}</div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 font-black uppercase tracking-widest mb-1">{item.categoria || item.cat}</div>
                     <h3 className="font-extrabold text-sm text-gray-900 dark:text-white leading-tight mb-2 truncate">
-                      <Link to={`/producto/${item.id}`}>{item.nombre}</Link>
+                      <Link to={`/producto/${item.id}`}>{item.nombre || item.name}</Link>
                     </h3>
-                    <div className="font-black text-lg mb-4 mt-auto text-brand-green">${item.precio || item.price}</div>
+                    <div className="font-black text-lg mb-4 mt-auto text-brand-green">${Number(item.precio || item.price || 0).toFixed(2)}</div>
 
                     <Link to={`/producto/${item.id}`} className="w-full py-2.5 bg-gray-100 dark:bg-white/5 text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 rounded-lg hover:bg-brand-green hover:text-black transition-colors text-center">
                       Ver Producto

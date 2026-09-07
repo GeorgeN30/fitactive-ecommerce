@@ -55,12 +55,32 @@ function getPendingRegistration(email: string): PendingRegistration | null {
 }
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (typeof email !== "string") return false;
+  const value = email.trim();
+  if (value !== email) return false;
+  if (value.length > 254) return false;
+  if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/.test(value)) {
+    return false;
+  }
+  if (value.includes("..")) return false;
+  const [local, domain] = value.split("@");
+  if (!local || !domain) return false;
+  if (local.length > 64) return false;
+  if (domain.startsWith("-") || domain.endsWith("-")) return false;
+  const labels = domain.split(".");
+  if (labels.some((l) => l.startsWith("-") || l.endsWith("-"))) return false;
+  return true;
 }
 
 function resolveRole(email: string): string {
   if (config.adminEmail && email === config.adminEmail.toLowerCase()) {
     return ROLES.ADMIN;
+  }
+  if (config.inventoryEmail && email === config.inventoryEmail.toLowerCase()) {
+    return ROLES.INVENTORY;
+  }
+  if (config.receptionistEmail && email === config.receptionistEmail.toLowerCase()) {
+    return ROLES.RECEPTIONIST;
   }
   return ROLES.CUSTOMER;
 }
@@ -69,20 +89,21 @@ function sanitizeUser(user: {
   id: string;
   email: string;
   name: string | null;
-  role: string;
+  role: string | null;
   picture: string | null;
   twoFactorEnabled: boolean;
   points: number;
-  provider: string;
+  provider: string | null;
 }) {
   return {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
+    role: user.role || "CLIENT",
     picture: user.picture,
     twoFactorEnabled: user.twoFactorEnabled,
     points: user.points,
+    provider: user.provider || "LOCAL",
     hasPassword: false,
     isNewUser: false,
   };
@@ -98,7 +119,7 @@ export const authService = {
       throw new Error("INVALID_EMAIL");
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.usuarios.findUnique({ where: { email } });
     if (existing) {
       throw new Error("EMAIL_EXISTS");
     }
@@ -106,7 +127,7 @@ export const authService = {
     const passwordHash = await bcrypt.hash(password, 12);
     const role = resolveRole(email);
 
-    const user = await prisma.user.create({
+    const user = await prisma.usuarios.create({
       data: {
         email,
         name: name || null,
@@ -116,7 +137,7 @@ export const authService = {
       },
     });
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -133,7 +154,7 @@ export const authService = {
       throw new Error("INVALID_EMAIL");
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.usuarios.findUnique({ where: { email } });
     if (existing) {
       throw new Error("EMAIL_EXISTS");
     }
@@ -158,14 +179,14 @@ export const authService = {
       throw new Error("INVALID_OTP");
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.usuarios.findUnique({ where: { email } });
     if (existing) {
       throw new Error("EMAIL_EXISTS");
     }
 
     const role = resolveRole(email);
 
-    const user = await prisma.user.create({
+    const user = await prisma.usuarios.create({
       data: {
         email,
         name: pending.name,
@@ -175,7 +196,7 @@ export const authService = {
       },
     });
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -190,7 +211,7 @@ export const authService = {
     | { token: string; user: ReturnType<typeof sanitizeUser> }
     | { requires2Fa: true; userId: string; token: string; user: ReturnType<typeof sanitizeUser> }
   > {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.usuarios.findUnique({ where: { email } });
     if (!user || !user.passwordHash) {
       throw new Error("INVALID_CREDENTIALS");
     }
@@ -202,13 +223,13 @@ export const authService = {
 
     const resolvedRole = resolveRole(email);
     if (user.role !== resolvedRole) {
-      await prisma.user.update({ where: { id: user.id }, data: { role: resolvedRole } });
+      await prisma.usuarios.update({ where: { id: user.id }, data: { role: resolvedRole } });
       user.role = resolvedRole;
     }
 
     if (user.twoFactorEnabled) {
       if (!user.totpSecret) {
-        await prisma.user.update({
+        await prisma.usuarios.update({
           where: { id: user.id },
           data: { twoFactorEnabled: false },
         });
@@ -224,7 +245,7 @@ export const authService = {
       }
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -233,7 +254,7 @@ export const authService = {
   },
 
   async hasPassword(email: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.usuarios.findUnique({
       where: { email },
       select: { passwordHash: true },
     });
@@ -241,7 +262,7 @@ export const authService = {
   },
 
   async emailExists(email: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.usuarios.findUnique({
       where: { email },
       select: { id: true },
     });
@@ -268,11 +289,11 @@ export const authService = {
       throw new Error("INVALID_OTP");
     }
 
-    let user = await prisma.user.findUnique({ where: { email } });
+    let user = await prisma.usuarios.findUnique({ where: { email } });
     if (!user) {
       const resolvedName = name || getPendingName(email) || null;
       const role = resolveRole(email);
-      user = await prisma.user.create({
+      user = await prisma.usuarios.create({
         data: {
           email,
           name: resolvedName,
@@ -283,14 +304,14 @@ export const authService = {
     } else {
       const resolvedRole = resolveRole(email);
       if (user.role !== resolvedRole) {
-        await prisma.user.update({ where: { id: user.id }, data: { role: resolvedRole } });
+        await prisma.usuarios.update({ where: { id: user.id }, data: { role: resolvedRole } });
         user.role = resolvedRole;
       }
     }
 
     if (user.twoFactorEnabled) {
       if (!user.totpSecret) {
-        await prisma.user.update({
+        await prisma.usuarios.update({
           where: { id: user.id },
           data: { twoFactorEnabled: false },
         });
@@ -306,7 +327,7 @@ export const authService = {
       }
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -319,7 +340,7 @@ export const authService = {
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
     const googleProfile = await baas.verifyGoogleToken(accessToken);
 
-    let user = await prisma.user.findUnique({
+    let user = await prisma.usuarios.findUnique({
       where: { email: googleProfile.email },
     });
 
@@ -327,7 +348,7 @@ export const authService = {
     const isNewUser = !user;
 
     if (!user) {
-      user = await prisma.user.create({
+      user = await prisma.usuarios.create({
         data: {
           email: googleProfile.email,
           name: googleProfile.name,
@@ -346,13 +367,13 @@ export const authService = {
       if (user.role !== resolvedRole) {
         updates.role = resolvedRole;
       }
-      user = await prisma.user.update({
+      user = await prisma.usuarios.update({
         where: { id: user.id },
         data: updates,
       });
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -369,7 +390,7 @@ export const authService = {
       throw new Error("INVALID_EMAIL");
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.usuarios.findUnique({
       where: { email },
       select: { id: true },
     });
@@ -384,7 +405,8 @@ export const authService = {
   async resetPassword(
     email: string,
     code: string,
-    newPassword: string
+    newPassword: string,
+    totpCode?: string
   ): Promise<{ success: boolean }> {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
@@ -393,18 +415,32 @@ export const authService = {
       throw new Error("PASSWORD_TOO_SHORT");
     }
 
+    const user = await prisma.usuarios.findUnique({ where: { email } });
+    if (!user) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    if (user.twoFactorEnabled) {
+      if (!totpCode) {
+        throw new Error("TOTP_REQUIRED");
+      }
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+
+      const totpResult = await baas.verifyTotp(user.totpSecret, totpCode);
+      if (!totpResult.valid) {
+        throw new Error("INVALID_TOTP");
+      }
+    }
+
     const result = await baas.verifyOtp(email, code);
     if (!result.valido) {
       throw new Error("INVALID_OTP");
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new Error("USER_NOT_FOUND");
-    }
-
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: user.id },
       data: { passwordHash },
     });
@@ -420,13 +456,13 @@ export const authService = {
       throw new Error("PASSWORD_TOO_SHORT");
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: userId },
       data: { passwordHash },
     });
@@ -437,13 +473,14 @@ export const authService = {
   async changePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
+    totpCode?: string
   ): Promise<{ success: boolean }> {
     if (newPassword.length < 8) {
       throw new Error("PASSWORD_TOO_SHORT");
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.passwordHash) {
       throw new Error("NO_PASSWORD_SET");
     }
@@ -453,8 +490,22 @@ export const authService = {
       throw new Error("INVALID_CURRENT_PASSWORD");
     }
 
+    if (user.twoFactorEnabled) {
+      if (!totpCode) {
+        throw new Error("TOTP_REQUIRED");
+      }
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+
+      const totpResult = await baas.verifyTotp(user.totpSecret, totpCode);
+      if (!totpResult.valid) {
+        throw new Error("INVALID_TOTP");
+      }
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: userId },
       data: { passwordHash },
     });
@@ -467,7 +518,7 @@ export const authService = {
     password: string,
     totpCode?: string
   ): Promise<{ success: boolean }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
@@ -495,7 +546,7 @@ export const authService = {
       }
     }
 
-    await prisma.user.delete({ where: { id: userId } });
+    await prisma.usuarios.delete({ where: { id: userId } });
 
     return { success: true };
   },
@@ -505,7 +556,7 @@ export const authService = {
     password: string,
     totpCode?: string
   ): Promise<{ message: string }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
@@ -540,7 +591,7 @@ export const authService = {
     userId: string,
     deleteCode: string
   ): Promise<{ success: boolean }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
@@ -550,7 +601,7 @@ export const authService = {
       throw new Error("INVALID_OTP");
     }
 
-    await prisma.user.delete({ where: { id: userId } });
+    await prisma.usuarios.delete({ where: { id: userId } });
 
     return { success: true };
   },
@@ -558,14 +609,14 @@ export const authService = {
   async setup2Fa(
     userId: string
   ): Promise<{ secret: string; qrSvg: string; uri: string }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
 
     const result = await baas.generateTotp(APP_NAME, user.email);
 
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: userId },
       data: { totpSecret: result.secret },
     });
@@ -581,7 +632,7 @@ export const authService = {
     userId: string,
     code: string
   ): Promise<{ success: boolean }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.totpSecret) {
       throw new Error("TOTP_NOT_SETUP");
     }
@@ -591,7 +642,7 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: userId },
       data: { twoFactorEnabled: true },
     });
@@ -603,17 +654,17 @@ export const authService = {
     userId: string,
     code: string
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
       throw new Error("TOTP_NOT_SETUP");
     }
 
     if (!user.totpSecret) {
-      await prisma.user.update({
+      await prisma.usuarios.update({
         where: { id: userId },
         data: { twoFactorEnabled: false },
       });
-      const jwtResult = await baas.signJwt(user.id, { role: user.role });
+      const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
       return {
         token: jwtResult.token,
         user: sanitizeUser({ ...user, twoFactorEnabled: false }),
@@ -625,7 +676,7 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
 
     return {
       token: jwtResult.token,
@@ -637,7 +688,7 @@ export const authService = {
     userId: string,
     code: string
   ): Promise<{ success: boolean }> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.totpSecret) {
       throw new Error("TOTP_NOT_SETUP");
     }
@@ -647,7 +698,7 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    await prisma.user.update({
+    await prisma.usuarios.update({
       where: { id: userId },
       data: { twoFactorEnabled: false, totpSecret: null },
     });

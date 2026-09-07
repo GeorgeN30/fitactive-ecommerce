@@ -417,7 +417,7 @@ export const authController = {
   // POST /api/auth/reset-password
   async resetPassword(req: Request, res: Response): Promise<void> {
     try {
-      const { email, code, newPassword } = req.body;
+      const { email, code, newPassword, totpCode } = req.body;
       if (!email || !code || !newPassword) {
         res
           .status(HTTP_STATUS.BAD_REQUEST)
@@ -434,7 +434,8 @@ export const authController = {
       const result = await authService.resetPassword(
         email.trim().toLowerCase(),
         code.trim(),
-        newPassword
+        newPassword,
+        typeof totpCode === "string" ? totpCode.trim() : undefined
       );
       res.status(HTTP_STATUS.OK).json(result);
     } catch (err: unknown) {
@@ -446,6 +447,18 @@ export const authController = {
       }
       if (message === "USER_NOT_FOUND") {
         res.status(HTTP_STATUS.NOT_FOUND).json({ error: "USER_NOT_FOUND" });
+        return;
+      }
+      if (message === "TOTP_REQUIRED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "TOTP_REQUIRED" });
+        return;
+      }
+      if (message === "TOTP_NOT_SETUP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "TOTP_NOT_SETUP" });
+        return;
+      }
+      if (message === "INVALID_TOTP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_TOTP" });
         return;
       }
       if (message === "PASSWORD_TOO_SHORT") {
@@ -507,7 +520,7 @@ export const authController = {
         return;
       }
 
-      const { currentPassword, newPassword } = req.body;
+      const { currentPassword, newPassword, totpCode } = req.body;
       if (!currentPassword || !newPassword) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "BOTH_PASSWORDS_REQUIRED" });
         return;
@@ -520,7 +533,8 @@ export const authController = {
       const result = await authService.changePassword(
         req.user.userId,
         currentPassword,
-        newPassword
+        newPassword,
+        typeof totpCode === "string" ? totpCode.trim() : undefined
       );
       res.status(HTTP_STATUS.OK).json(result);
     } catch (err: unknown) {
@@ -532,6 +546,18 @@ export const authController = {
       }
       if (message === "INVALID_CURRENT_PASSWORD") {
         res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "INVALID_CURRENT_PASSWORD" });
+        return;
+      }
+      if (message === "TOTP_REQUIRED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "TOTP_REQUIRED" });
+        return;
+      }
+      if (message === "TOTP_NOT_SETUP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "TOTP_NOT_SETUP" });
+        return;
+      }
+      if (message === "INVALID_TOTP") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_TOTP" });
         return;
       }
       if (message === "PASSWORD_TOO_SHORT") {

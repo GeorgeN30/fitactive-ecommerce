@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import api from '../services/api';
 
 export default function ProbadorVirtual() {
+  const [searchParams] = useSearchParams();
+  const productoIdUrl = searchParams.get('producto');
+
   const [genero, setGenero] = useState('Hombre');
   const [medidas, setMedidas] = useState({ pecho: 96, cintura: 82, cadera: 95 });
   const [productos, setProductos] = useState<any[]>([]);
@@ -17,19 +20,22 @@ export default function ProbadorVirtual() {
         const response = await api.get('/products');
         const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
         
-        const productosValidos = data.filter((p: any) => 
-          p.producto_tallas && p.producto_tallas.length > 0 && p.producto_tallas.some((t: any) => t.rango_cm_min > 0)
-        );
-        
+        const productosValidos = Array.isArray(data) ? data : [];
         setProductos(productosValidos);
         
         if (productosValidos.length > 0) {
-          const inicialesHombre = productosValidos.filter((p: any) => p.genero?.toLowerCase() === 'hombre');
-          if (inicialesHombre.length > 0) {
-            setSelectedProduct(inicialesHombre[0]);
+          if (productoIdUrl) {
+            const productoEspecifico = productosValidos.find((p: any) => String(p.id) === String(productoIdUrl));
+            if (productoEspecifico) {
+              setSelectedProduct(productoEspecifico);
+              if (productoEspecifico.genero) {
+                setGenero(productoEspecifico.genero);
+              }
+            } else {
+              seleccionarPorDefecto(productosValidos);
+            }
           } else {
-            setSelectedProduct(productosValidos[0]);
-            setGenero(productosValidos[0].genero || 'Hombre');
+            seleccionarPorDefecto(productosValidos);
           }
         }
       } catch (error) {
@@ -39,13 +45,23 @@ export default function ProbadorVirtual() {
       }
     };
     cargarDatos();
-  }, []);
+  }, [productoIdUrl]);
 
-  const productosDelGenero = productos.filter(p => p.genero?.toLowerCase() === genero.toLowerCase());
-  const categoriasUnicas = ['Todas', ...Array.from(new Set(productosDelGenero.map(p => p.categoria)))].filter(Boolean);
+  const seleccionarPorDefecto = (listaValidos: any[]) => {
+    const inicialesHombre = listaValidos.filter((p: any) => p.genero?.toLowerCase() === 'hombre');
+    if (inicialesHombre.length > 0) {
+      setSelectedProduct(inicialesHombre[0]);
+    } else if (listaValidos.length > 0) {
+      setSelectedProduct(listaValidos[0]);
+      setGenero(listaValidos[0].genero || 'Hombre');
+    }
+  };
+
+  const productosDelGenero = productos.filter(p => p?.genero?.toLowerCase() === genero.toLowerCase());
+  const categoriasUnicas = ['Todas', ...Array.from(new Set(productosDelGenero.map(p => p?.categoria))).filter(Boolean)];
   const productosFiltrados = categoriaFiltro === 'Todas' 
     ? productosDelGenero 
-    : productosDelGenero.filter(p => p.categoria === categoriaFiltro);
+    : productosDelGenero.filter(p => p?.categoria === categoriaFiltro);
 
   const handleCambioGenero = (nuevoGenero: string) => {
     setGenero(nuevoGenero);
@@ -57,7 +73,7 @@ export default function ProbadorVirtual() {
       setMedidas({ pecho: 96, cintura: 82, cadera: 95 });
     }
     
-    const prodsNuevos = productos.filter(p => p.genero?.toLowerCase() === nuevoGenero.toLowerCase());
+    const prodsNuevos = productos.filter(p => p?.genero?.toLowerCase() === nuevoGenero.toLowerCase());
     if (prodsNuevos.length > 0) {
       setSelectedProduct(prodsNuevos[0]);
     } else {
@@ -72,17 +88,19 @@ export default function ProbadorVirtual() {
     if (!selectedProduct || !selectedProduct.producto_tallas) return null;
 
     const tallas = selectedProduct.producto_tallas;
+    if (!Array.isArray(tallas) || tallas.length === 0) return null;
+
     let tallaIdeal: any = null;
     let mejorDiferencia = Infinity;
 
     const medidaBase = esPrendaInferior ? medidas.cintura : medidas.pecho;
 
-    tallaIdeal = tallas.find((t: any) => medidaBase >= Number(t.rango_cm_min) && medidaBase <= Number(t.rango_cm_max));
+    tallaIdeal = tallas.find((t: any) => medidaBase >= Number(t.rango_cm_min || 0) && medidaBase <= Number(t.rango_cm_max || 0));
 
     if (!tallaIdeal) {
       tallas.forEach((t: any) => {
-        const min = Number(t.rango_cm_min);
-        const max = Number(t.rango_cm_max);
+        const min = Number(t.rango_cm_min || 0);
+        const max = Number(t.rango_cm_max || 0);
         
         if (min > 0 && max > 0) {
           const centro = (min + max) / 2;
@@ -95,17 +113,15 @@ export default function ProbadorVirtual() {
         }
       });
     } else {
-      const centro = (Number(tallaIdeal.rango_cm_min) + Number(tallaIdeal.rango_cm_max)) / 2;
+      const centro = (Number(tallaIdeal.rango_cm_min || 0) + Number(tallaIdeal.rango_cm_max || 0)) / 2;
       mejorDiferencia = Math.abs(medidaBase - centro);
     }
 
     if (!tallaIdeal) return null;
 
     const calcularAjuste = (medidaUsuario: number, min: number, max: number) => {
-      const centro = (min + max) / 2;
       const rangoTotal = max - min;
-      const posicion = ((medidaUsuario - min) / rangoTotal) * 100;
-      
+      const posicion = rangoTotal === 0 ? 50 : ((medidaUsuario - min) / rangoTotal) * 100;
       const porcentajeVisual = Math.max(5, Math.min(95, posicion));
       
       let estado = 'Perfecto';
@@ -119,8 +135,8 @@ export default function ProbadorVirtual() {
       return { estado, color, porcentajeVisual };
     };
 
-    const minBase = Number(tallaIdeal.rango_cm_min);
-    const maxBase = Number(tallaIdeal.rango_cm_max);
+    const minBase = Number(tallaIdeal.rango_cm_min || 60);
+    const maxBase = Number(tallaIdeal.rango_cm_max || 100);
     
     const difCintura = genero === 'Mujer' ? 18 : 12;
     const difCadera = genero === 'Mujer' ? -4 : 2;
@@ -148,8 +164,8 @@ export default function ProbadorVirtual() {
     const matchScore = Math.max(40, Math.min(99, 100 - (mejorDiferencia * 1.8))).toFixed(0);
 
     return {
-      talla: tallaIdeal.talla,
-      stock: tallaIdeal.stock,
+      talla: tallaIdeal.talla || 'M',
+      stock: tallaIdeal.stock || 0,
       matchScore,
       detalles: detallesFitMap
     };
@@ -241,7 +257,7 @@ export default function ProbadorVirtual() {
                       <button 
                         key={g} 
                         onClick={() => handleCambioGenero(g)}
-                        className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 ${genero === g ? 'bg-white text-gray-900 shadow-sm dark:bg-brand-green dark:text-black' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
+                        className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 cursor-pointer ${genero === g ? 'bg-white text-gray-900 shadow-sm dark:bg-brand-green dark:text-black' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
                       >
                         {g}
                       </button>
@@ -292,7 +308,7 @@ export default function ProbadorVirtual() {
                       <button
                         key={cat}
                         onClick={() => setCategoriaFiltro(cat)}
-                        className={`whitespace-nowrap px-5 py-2 rounded-full text-[11px] font-bold transition-all ${categoriaFiltro === cat ? 'bg-brand-green text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 border border-transparent dark:border-white/5'}`}
+                        className={`whitespace-nowrap px-5 py-2 rounded-full text-[11px] font-bold transition-all cursor-pointer ${categoriaFiltro === cat ? 'bg-brand-green text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 border border-transparent dark:border-white/5'}`}
                       >
                         {cat}
                       </button>
@@ -305,7 +321,7 @@ export default function ProbadorVirtual() {
                     <button 
                       key={prod.id} 
                       onClick={() => setSelectedProduct(prod)}
-                      className={`flex-shrink-0 w-28 h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300 relative bg-gray-50 dark:bg-black/20 ${selectedProduct?.id === prod.id ? 'border-brand-green scale-105 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-transparent opacity-70 hover:opacity-100 dark:border-white/5'}`}
+                      className={`flex-shrink-0 w-28 h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300 relative bg-gray-50 dark:bg-black/20 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green scale-105 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-transparent opacity-70 hover:opacity-100 dark:border-white/5'}`}
                     >
                       <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal" />
                       {selectedProduct?.id === prod.id && (
@@ -334,7 +350,7 @@ export default function ProbadorVirtual() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex items-end p-5">
                         <div className="text-white">
                           <p className="text-[9px] font-black uppercase tracking-widest text-brand-green mb-1.5 drop-shadow-md">{selectedProduct.categoria}</p>
-                          <h4 className="font-extrabold text-sm leading-snug line-clamp-2 drop-shadow-lg text-gray-50">{selectedProduct.nombre}</h4>
+                          <h4 className="font-extrabold text-sm leading-snug line-clamp-2 drop-shadow-lg text-gray-50">{selectedProduct.nombre || selectedProduct.name}</h4>
                         </div>
                       </div>
                     </div>
@@ -365,7 +381,7 @@ export default function ProbadorVirtual() {
                     </h4>
                     
                     <div className="space-y-7">
-                      {analisis.detalles.map((det, idx) => (
+                      {analisis.detalles.map((det: any, idx: number) => (
                         <div key={idx} className="group transition-all duration-300">
                           <div className="flex justify-between items-center text-xs font-bold mb-3">
                             <span className="text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[11px]">
@@ -398,7 +414,7 @@ export default function ProbadorVirtual() {
                     </div>
 
                     <div className="mt-10">
-                      <Link to={`/producto/${selectedProduct.id}`} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] hover:shadow-[0_10px_20px_rgba(255,255,255,0.1)] transition-all flex items-center justify-center gap-3">
+                      <Link to={`/producto/${selectedProduct.id}`} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         Ver Detalle del Producto
                       </Link>

@@ -11,6 +11,8 @@ export default function ForgotPasswordPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [totpRequired, setTotpRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,6 +64,7 @@ export default function ForgotPasswordPage() {
         email: email.trim().toLowerCase(),
         code: fullCode,
         newPassword,
+        totpCode: totpRequired ? totpCode : undefined,
       });
       setStep("success");
     } catch (err: unknown) {
@@ -73,6 +76,12 @@ export default function ForgotPasswordPage() {
         setCode(["", "", "", "", "", ""]);
       } else if (msg === "PASSWORD_TOO_SHORT") {
         setError("La contrasena debe tener minimo 8 caracteres.");
+      } else if (msg === "TOTP_REQUIRED") {
+        setTotpRequired(true);
+        setError("Esta cuenta tiene 2FA activo. Ingresa tambien el codigo TOTP.");
+      } else if (msg === "INVALID_TOTP") {
+        setError("El codigo TOTP es incorrecto o ha expirado.");
+        setTotpCode("");
       } else {
         setError("No se pudo restablecer la contrasena.");
       }
@@ -163,6 +172,8 @@ export default function ForgotPasswordPage() {
             ? "Recuperar contrasena"
             : step === "otp"
             ? "Verifica tu correo"
+            : totpRequired
+            ? "Verifica tu identidad"
             : "Nueva contrasena"}
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -170,6 +181,8 @@ export default function ForgotPasswordPage() {
             ? "Ingresa tu correo para recibir un codigo de verificacion"
             : step === "otp"
             ? `Ingresa el codigo enviado a ${email}`
+            : totpRequired
+            ? "Ingresa tambien el codigo TOTP de tu aplicacion autenticadora"
             : "Establece una nueva contrasena para tu cuenta"}
         </p>
       </div>
@@ -331,6 +344,28 @@ export default function ForgotPasswordPage() {
             )}
           </div>
 
+          {totpRequired && (
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+                Codigo TOTP
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                required
+                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm tracking-[0.35em] text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
+                placeholder="123456"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                Usa el codigo actual de Google Authenticator, Authy u otra aplicacion compatible.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs px-4 py-2.5 rounded-lg">
               {error}
@@ -342,7 +377,8 @@ export default function ForgotPasswordPage() {
             disabled={
               loading ||
               newPassword.length < 8 ||
-              newPassword !== confirmPassword
+              newPassword !== confirmPassword ||
+              (totpRequired && totpCode.length !== 6)
             }
             className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >

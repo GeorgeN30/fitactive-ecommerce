@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import api from '../services/api';
+import { useFavorites } from "../context/FavoritesContext";
 
 export default function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
+  const navigate = useNavigate();
+
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   const [selectedGender, setSelectedGender] = useState('Todos');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -13,6 +17,7 @@ export default function CatalogPage() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState<number>(250);
   const [inStock, setInStock] = useState(false);
+  const [sortOrder, setSortOrder] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   const [productos, setProductos] = useState<any[]>([]);
 
@@ -79,6 +84,7 @@ export default function CatalogPage() {
     setSelectedSizes([]);
     setMaxPrice(250);
     setInStock(false);
+    setSortOrder('default');
     setCurrentPage(1);
     if (queryParam) {
       const newParams = new URLSearchParams(searchParams);
@@ -105,23 +111,35 @@ export default function CatalogPage() {
     const coincidePrecio = precioProd <= maxPrice;
 
     let coincideTalla = true;
+    const tallasDelProducto = item.producto_tallas || [];
     if (selectedSizes.length > 0) {
-      const tallasDelProducto = item.producto_tallas || [];
       coincideTalla = tallasDelProducto.some(
         (t: any) => selectedSizes.includes(t.talla) && Number(t.stock) > 0
       );
     }
 
-    const coincideStock = !inStock || precioProd > 0;
+    let coincideStock = true;
+    if (inStock) {
+      const stockTotal = tallasDelProducto.reduce((acc: number, t: any) => acc + Number(t.stock || 0), 0);
+      coincideStock = stockTotal > 0;
+    }
 
     return coincideBusqueda && coincideGenero && coincideCategoria && coincideMarca && coincidePrecio && coincideTalla && coincideStock;
+  });
+
+  const productosOrdenados = [...productosFiltrados].sort((a, b) => {
+    const precioA = Number(a.precio || a.price || 0);
+    const precioB = Number(b.precio || b.price || 0);
+    if (sortOrder === 'asc') return precioA - precioB;
+    if (sortOrder === 'desc') return precioB - precioA;
+    return 0;
   });
 
   const productosPorPagina = 9;
   const indexUltimo = currentPage * productosPorPagina;
   const indexPrimer = indexUltimo - productosPorPagina;
-  const productosActuales = productosFiltrados.slice(indexPrimer, indexUltimo);
-  const totalPaginas = Math.ceil(productosFiltrados.length / productosPorPagina) || 1;
+  const productosActuales = productosOrdenados.slice(indexPrimer, indexUltimo);
+  const totalPaginas = Math.ceil(productosOrdenados.length / productosPorPagina) || 1;
   
   const categoriasDisponibles = selectedGender === 'Hombre' ? categoriasHombre : 
                                 selectedGender === 'Mujer' ? categoriasMujer : 
@@ -226,7 +244,7 @@ export default function CatalogPage() {
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Talla</h4>
                   <div className="flex flex-wrap gap-2">
-                    {['S', 'M', 'L', 'XL', 'XXL'].map(size => (
+                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
                       <button
                         key={size}
                         onClick={() => {
@@ -277,8 +295,20 @@ export default function CatalogPage() {
             <div className="flex-1">
               <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-brand-card-dark rounded-xl p-4 mb-6 shadow-sm border border-gray-100 dark:border-gray-800">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4 sm:mb-0">
-                  Mostrando <span className="font-bold text-black dark:text-white">{productosFiltrados.length}</span> productos
+                  Mostrando <span className="font-bold text-black dark:text-white">{productosOrdenados.length}</span> productos
                 </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Ordenar por:</span>
+                  <select 
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value)}
+                    className="text-sm font-bold bg-transparent dark:bg-brand-card-dark text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-brand-green cursor-pointer outline-none"
+                  >
+                    <option value="default" className="bg-white dark:bg-brand-card-dark">Más destacados</option>
+                    <option value="asc" className="bg-white dark:bg-brand-card-dark">Precio: Menor a Mayor</option>
+                    <option value="desc" className="bg-white dark:bg-brand-card-dark">Precio: Mayor a Menor</option>
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -293,6 +323,32 @@ export default function CatalogPage() {
                         <span className="absolute top-3 left-3 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-white rounded shadow-sm z-10 bg-gray-900/70 dark:bg-black/50">
                           IN STOCK
                         </span>
+                        
+                        <button
+                          onClick={() => {
+                            toggleFavorite({
+                              id: String(item.id),
+                              cat: item.categoria || 'General',
+                              name: item.nombre || item.name,
+                              price: Number(item.precio || item.price || 0),
+                              img: item.imagen_url || item.img || '',
+                            });
+                          }}
+                          className="absolute top-3 right-3 p-1.5 bg-white dark:bg-gray-700 rounded-full shadow-md hover:scale-110 transition-all z-10"
+                        >
+                          <svg
+                            className={`w-4 h-4 ${isFavorite(String(item.id))
+                              ? "text-red-500 fill-red-500"
+                              : "text-gray-400 dark:text-gray-300"
+                              }`}
+                            fill={isFavorite(String(item.id)) ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </button>
+
                         <Link to={`/producto/${item.id || 1}`} className="w-full h-full">
                           <img src={item.imagen_url || item.img || ''} alt={item.nombre || 'Producto'} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-500" />
                         </Link>
@@ -304,7 +360,7 @@ export default function CatalogPage() {
                       <h3 className="font-extrabold text-sm text-gray-900 dark:text-white leading-tight mb-2 truncate">
                         <Link to={`/producto/${item.id || 1}`}>{item.nombre || item.name}</Link>
                       </h3>
-                      <div className="font-black text-lg mb-3 dark:text-gray-200">${item.precio || item.price}</div>
+                      <div className="font-black text-lg mb-3 dark:text-gray-200">S/ {item.precio || item.price}</div>
 
                       <div className="flex gap-1 mb-4 mt-auto flex-wrap">
                         {tallasDisponibles.length > 0 ? (
@@ -322,6 +378,13 @@ export default function CatalogPage() {
                         <Link to={`/producto/${item.id || 1}`} className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition text-center flex items-center justify-center">
                           Ver Detalle
                         </Link>
+                        <button 
+                          onClick={() => navigate(`/probador-virtual?producto=${item.id}`)}
+                          className="flex-1 py-2 bg-white border border-brand-green text-brand-green text-xs font-bold rounded-md hover:bg-brand-green hover:text-black transition flex items-center justify-center shadow-sm cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          Probar AR
+                        </button>
                       </div>
                     </div>
                   );

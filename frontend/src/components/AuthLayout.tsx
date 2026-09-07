@@ -16,7 +16,7 @@ function DarkPanel() {
         Bienvenido de vuelta
       </h2>
       <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-        Inicia sesion para acceder a tu armario virtual, sincroniza tus
+        Inicia sesión para acceder a tu armario virtual, sincroniza tus
         medidas AR y gestionar tus pedidos.
       </p>
       <div className="mt-10 grid grid-cols-3 gap-6">
@@ -25,7 +25,7 @@ function DarkPanel() {
             <i className="fa-solid fa-cube text-brand-green text-lg" />
           </div>
           <span className="text-[10px] text-slate-500 font-medium">
-            Probador 3D
+            Probador 2D
           </span>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -41,7 +41,7 @@ function DarkPanel() {
             <i className="fa-solid fa-truck-fast text-brand-green text-lg" />
           </div>
           <span className="text-[10px] text-slate-500 font-medium">
-            Envio rapido
+            Envío rápido
           </span>
         </div>
       </div>
