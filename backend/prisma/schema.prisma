@@ -61,7 +61,7 @@ model usuarios {
   passwordHash     String?   @map("password_hash") @db.VarChar(255)
   provider         String?   @default("LOCAL") @map("auth_provider") @db.VarChar(50)
   providerId       String?   @unique @map("google_id") @db.VarChar(255)
-  role             String?   @default("CLIENT") @map("rol") @db.VarChar(50)
+  role             String?   @default("customer") @map("rol") @db.VarChar(50)
   
   // Datos biométricos
   medida_pecho     Decimal?  @db.Decimal(5, 2)

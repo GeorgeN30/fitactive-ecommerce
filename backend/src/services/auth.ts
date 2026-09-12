@@ -85,6 +85,17 @@ function resolveRole(email: string): string {
   return ROLES.CUSTOMER;
 }
 
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_BYTES = 72;
+
+function validatePassword(password: string): void {
+  if (typeof password !== "string") throw new Error("INVALID_PASSWORD_FORMAT");
+  if (password.length < MIN_PASSWORD_LENGTH) throw new Error("PASSWORD_TOO_SHORT");
+  if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
+    throw new Error("PASSWORD_TOO_LONG");
+  }
+}
+
 function sanitizeUser(user: {
   id: string;
   email: string;
@@ -99,7 +110,7 @@ function sanitizeUser(user: {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role || "CLIENT",
+    role: user.role || ROLES.CUSTOMER,
     picture: user.picture,
     twoFactorEnabled: user.twoFactorEnabled,
     points: user.points,
@@ -118,6 +129,7 @@ export const authService = {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
     }
+    validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
     if (existing) {
@@ -137,7 +149,7 @@ export const authService = {
       },
     });
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
@@ -153,6 +165,7 @@ export const authService = {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
     }
+    validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
     if (existing) {
@@ -196,7 +209,7 @@ export const authService = {
       },
     });
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
@@ -245,7 +258,7 @@ export const authService = {
       }
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
@@ -327,7 +340,7 @@ export const authService = {
       }
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
@@ -373,7 +386,7 @@ export const authService = {
       });
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
@@ -411,9 +424,7 @@ export const authService = {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
     }
-    if (newPassword.length < 8) {
-      throw new Error("PASSWORD_TOO_SHORT");
-    }
+    validatePassword(newPassword);
 
     const user = await prisma.usuarios.findUnique({ where: { email } });
     if (!user) {
@@ -452,9 +463,7 @@ export const authService = {
     userId: string,
     newPassword: string
   ): Promise<{ success: boolean }> {
-    if (newPassword.length < 8) {
-      throw new Error("PASSWORD_TOO_SHORT");
-    }
+    validatePassword(newPassword);
 
     const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user) {
@@ -476,9 +485,7 @@ export const authService = {
     newPassword: string,
     totpCode?: string
   ): Promise<{ success: boolean }> {
-    if (newPassword.length < 8) {
-      throw new Error("PASSWORD_TOO_SHORT");
-    }
+    validatePassword(newPassword);
 
     const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.passwordHash) {
@@ -664,7 +671,7 @@ export const authService = {
         where: { id: userId },
         data: { twoFactorEnabled: false },
       });
-      const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+      const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
       return {
         token: jwtResult.token,
         user: sanitizeUser({ ...user, twoFactorEnabled: false }),
@@ -676,7 +683,7 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || "CLIENT" });
+    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
 
     return {
       token: jwtResult.token,
