@@ -1,3 +1,5 @@
+name: fitactive-ecommerce-local
+
 services:
   db:
     image: postgres:17
@@ -30,8 +32,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/fitactive}
       - DIRECT_URL=${DIRECT_URL:-postgresql://postgres:postgres@db:5432/fitactive}
       - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-${SUPABASE_KEY}}
-      - SUPABASE_KEY=${SUPABASE_KEY:-${SUPABASE_ANON_KEY}}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SEED_ON_START=${SEED_ON_START:-false}
       - CLIENT_URL=${CLIENT_URL:-http://localhost}
       - EXTERNAL_BAAS_URL=${EXTERNAL_BAAS_URL:-https://core.geozns.com}

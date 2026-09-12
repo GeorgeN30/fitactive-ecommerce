@@ -1,7 +1,11 @@
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+// Load backend/.env first and use the root .env as a fallback so local host
+// development can keep its database settings separate from Docker production.
+// Existing values are never overwritten by the fallback file.
+dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env"), quiet: true });
 
 export const config = {
   port: parseInt(process.env.PORT || "4000", 10),
