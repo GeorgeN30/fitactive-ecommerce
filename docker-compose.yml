@@ -1,23 +1,47 @@
+name: fitactive-ecommerce-local
+
 services:
+  db:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-fitactive}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fitactive}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "4000:4000"
     environment:
       - PORT=4000
-      - DATABASE_URL=file:/app/prisma/data/dev.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/fitactive}
+      - DIRECT_URL=${DIRECT_URL:-postgresql://postgres:postgres@db:5432/fitactive}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SEED_ON_START=${SEED_ON_START:-false}
       - CLIENT_URL=${CLIENT_URL:-http://localhost}
       - EXTERNAL_BAAS_URL=${EXTERNAL_BAAS_URL:-https://core.geozns.com}
       - EXTERNAL_BAAS_API_KEY=${EXTERNAL_BAAS_API_KEY}
       - JWT_APP_ID=${JWT_APP_ID:-integrador2_web}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - INVENTORY_EMAIL=${INVENTORY_EMAIL:-${RECEPTIONIST_EMAIL}}
-      - INVENTORY_PASSWORD=${INVENTORY_PASSWORD:-${RECEPTIONIST_PASSWORD}}
-    volumes:
-      - backend-data:/app/prisma/data
+      - INVENTORY_EMAIL=${INVENTORY_EMAIL}
+      - INVENTORY_PASSWORD=${INVENTORY_PASSWORD}
     restart: unless-stopped
 
   frontend:
@@ -33,4 +57,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  backend-data:
+  pg-data:

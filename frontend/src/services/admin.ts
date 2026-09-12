@@ -54,9 +54,16 @@ export async function fetchProducts(): Promise<Product[]> {
   return data;
 }
 
-export async function createProduct(product: Omit<Product, "id" | "sku" | "totalStock">): Promise<Product> {
+export async function createProduct(
+  product: Omit<Product, "id" | "sku" | "totalStock">,
+): Promise<Product> {
   if (USE_MOCK) {
-    return { ...product, id: String(Date.now()), sku: `FT-${product.sport.slice(0, 3).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`, totalStock: product.sizes.reduce((sum, s) => sum + s.stock, 0) };
+    return {
+      ...product,
+      id: String(Date.now()),
+      sku: `FT-${product.sport.slice(0, 3).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      totalStock: product.sizes.reduce((sum, s) => sum + s.stock, 0),
+    };
   }
   const { data } = await api.post("/admin/products", product);
   return data;
@@ -73,7 +80,10 @@ export async function fetchOrders(): Promise<Order[]> {
   return data;
 }
 
-export async function updateOrderStatus(id: string, status: string): Promise<void> {
+export async function updateOrderStatus(
+  id: string,
+  status: string,
+): Promise<void> {
   if (USE_MOCK) return;
   await api.put(`/admin/orders/${id}/status`, { status });
 }
@@ -89,7 +99,10 @@ export async function toggleCustomerStatus(id: string): Promise<void> {
   await api.put(`/admin/customers/${id}/status`);
 }
 
-export async function updateCustomerRole(id: string, role: string): Promise<void> {
+export async function updateCustomerRole(
+  id: string,
+  role: string,
+): Promise<void> {
   if (USE_MOCK) return;
   await api.put(`/admin/customers/${id}/role`, { role });
 }
@@ -100,7 +113,11 @@ export async function fetchInventory(): Promise<Product[]> {
   return data;
 }
 
-export async function updateStock(productId: string, size: string, quantity: number): Promise<void> {
+export async function updateStock(
+  productId: string,
+  size: string,
+  quantity: number,
+): Promise<void> {
   if (USE_MOCK) return;
   await api.put(`/admin/inventory/${productId}/stock`, { size, quantity });
 }

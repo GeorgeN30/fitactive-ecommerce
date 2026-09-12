@@ -1,5 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
+
+beforeAll(() => {
+  window.matchMedia =
+    window.matchMedia ||
+    (() => ({
+      matches: false,
+      media: "",
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+});
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import AdminDashboard from "../../src/pages/admin/AdminDashboard";
 
 vi.mock("react-chartjs-2", () => ({
@@ -7,16 +25,28 @@ vi.mock("react-chartjs-2", () => ({
   Doughnut: () => null,
 }));
 
+function renderDashboard() {
+  return render(
+    <ThemeProvider attribute="class" defaultTheme="light">
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    </ThemeProvider>
+  );
+}
+
 describe("AdminDashboard", () => {
-  it("carga las estadisticas del dashboard de forma asincrona", async () => {
-    render(<AdminDashboard />);
-    expect(await screen.findByText("Panel de Control")).toBeInTheDocument();
-    expect(await screen.findByText("Ventas Totales")).toBeInTheDocument();
+  it("muestra el dashboard financiero por defecto", async () => {
+    renderDashboard();
+    expect(screen.getByText("Dashboard Financiero")).toBeInTheDocument();
+    expect(screen.getByText("Últimos pedidos")).toBeInTheDocument();
   });
 
-  it("muestra las ultimas ventas en la tabla", async () => {
-    render(<AdminDashboard />);
-    expect(await screen.findByText("Últimas Ventas")).toBeInTheDocument();
-    expect(await screen.findByText("#FL-2026-00847")).toBeInTheDocument();
+  it("navega a la vista de pedidos desde el sidebar", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await user.click(screen.getByRole("button", { name: "Pedidos" }));
+    expect(await screen.findByText("Gestión de Pedidos")).toBeInTheDocument();
+    expect(screen.getByText("ORD-2026-001")).toBeInTheDocument();
   });
 });

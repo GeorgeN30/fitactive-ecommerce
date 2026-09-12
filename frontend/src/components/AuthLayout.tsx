@@ -16,8 +16,8 @@ function DarkPanel() {
         Bienvenido de vuelta
       </h2>
       <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-        Inicia sesión para acceder a tu armario virtual, sincroniza tus
-        medidas AR y gestionar tus pedidos.
+        Inicia sesión para acceder a tu armario virtual, sincroniza tus medidas
+        AR y gestionar tus pedidos.
       </p>
       <div className="mt-10 grid grid-cols-3 gap-6">
         <div className="flex flex-col items-center gap-2">
@@ -25,7 +25,7 @@ function DarkPanel() {
             <i className="fa-solid fa-cube text-brand-green text-lg" />
           </div>
           <span className="text-[10px] text-slate-500 font-medium">
-            Probador 3D
+            Probador 2D
           </span>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -49,7 +49,11 @@ function DarkPanel() {
   );
 }
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-brand-light-bg dark:bg-brand-dark-bg flex">
       <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] bg-brand-dark-bg flex-col justify-between p-10 2xl:p-14">
@@ -66,9 +70,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute top-5 right-5 lg:hidden">
           <ThemeToggle />
         </div>
-        <div className="w-full max-w-md">
-          {children}
-        </div>
+        <div className="w-full max-w-md">{children}</div>
       </div>
     </div>
   );

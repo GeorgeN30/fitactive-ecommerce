@@ -16,6 +16,14 @@ export const otpVerifyLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "TOO_MANY_AUTH_ATTEMPTS" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const generalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,

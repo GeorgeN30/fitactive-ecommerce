@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "./ThemeToggle";
+import api from "../services/api";
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
@@ -11,19 +12,71 @@ export default function Header() {
   const navigate = useNavigate();
   const { cartCount } = useCart();
   const { favorites } = useFavorites();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await api.get('/products');
+        setAllProducts(Array.isArray(response.data) ? response.data : (response.data.data || []));
+      } catch (error) {
+        console.error("Error al cargar productos para la búsqueda:", error);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchOpen(false);
+    if (searchQuery.trim() !== "") {
+      navigate(`/catalogo?q=${encodeURIComponent(searchQuery)}`);
+    } else {
+      navigate(`/catalogo`);
+    }
+  };
+
+  const handleSelectResult = (path: string) => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    navigate(path);
+  };
+
+  const { filteredBrands, filteredProducts } = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return { filteredBrands: [], filteredProducts: [] };
+
+    const brands = Array.from(new Set(allProducts.map(p => p.marca).filter(Boolean)));
+    const matchingBrands = brands.filter(b => b.toLowerCase().includes(query)).slice(0, 3);
+
+    const matchingProducts = allProducts.filter(p =>
+      (p.nombre || p.name || '').toLowerCase().includes(query) ||
+      (p.marca || '').toLowerCase().includes(query)
+    ).slice(0, 4);
+
+    return { filteredBrands: matchingBrands, filteredProducts: matchingProducts };
+  }, [searchQuery, allProducts]);
 
   return (
     <header className="bg-white dark:bg-brand-card-dark border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-50">
@@ -46,12 +99,12 @@ export default function Header() {
           <Link to="/catalogo" className="hover:text-brand-green transition-colors">
             Catalogo
           </Link>
-          <Link to="/producto/1" className="hover:text-brand-green transition-colors">
+          <Link to="/probador-virtual" className="hover:text-brand-green transition-colors">
             Probador Virtual
           </Link>
           <Link to="/favoritos" className="hover:text-brand-green transition-colors flex items-center gap-1.5">
             Favoritos
-            {favorites.length > 0 && (
+            {favorites?.length > 0 && (
               <span className="bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
                 {favorites.length}
               </span>
@@ -62,19 +115,83 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <ThemeToggle />
 
-          <div
-            className={`relative hidden sm:block w-64 lg:w-80 transition-all ${searchFocused ? "w-80 lg:w-96" : ""
-              }`}
+          <form
+            ref={searchContainerRef}
+            onSubmit={handleSearchSubmit}
+            className={`relative hidden sm:block w-64 lg:w-80 transition-all z-50 ${
+              searchFocused ? "w-80 lg:w-96" : ""
+            }`}
           >
             <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
             <input
               type="text"
               placeholder="Buscar productos..."
-              onFocus={() => setSearchFocused(true)}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => {
+                setSearchFocused(true);
+                if (searchQuery.trim() !== "") setSearchOpen(true);
+              }}
               onBlur={() => setSearchFocused(false)}
               className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50 transition-all"
             />
-          </div>
+
+            {searchOpen && searchQuery.trim() !== "" && (
+              <div className="absolute top-full left-0 mt-3 w-full bg-white dark:bg-brand-card-dark rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-white/5 py-3 overflow-hidden">
+                {filteredBrands.length > 0 && (
+                  <div className="mb-2">
+                    <h4 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Marcas</h4>
+                    {filteredBrands.map(marca => (
+                      <button
+                        key={marca}
+                        type="button"
+                        onClick={() => handleSelectResult(`/catalogo?q=${encodeURIComponent(marca)}`)}
+                        className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <i className="fa-solid fa-tag text-xs text-brand-green/70"></i>
+                        {marca}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {filteredBrands.length > 0 && filteredProducts.length > 0 && (
+                  <div className="border-t border-slate-100 dark:border-white/5 my-2"></div>
+                )}
+
+                {filteredProducts.length > 0 && (
+                  <div>
+                    <h4 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 mt-1">Productos</h4>
+                    {filteredProducts.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectResult(`/producto/${p.id}`)}
+                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
+                      >
+                        <div className="w-10 h-12 bg-slate-100 dark:bg-black/20 rounded-md overflow-hidden flex-shrink-0">
+                          <img src={p.imagen_url || p.img} alt={p.nombre} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{p.nombre || p.name}</p>
+                          <p className="text-[10px] font-black text-brand-green mt-0.5">${p.precio || p.price}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {filteredBrands.length === 0 && filteredProducts.length === 0 && (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-xs font-medium text-slate-500">No encontramos resultados para "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
 
           {isAdmin && (
             <Link
@@ -97,7 +214,7 @@ export default function Header() {
           )}
 
           {user ? (
-            <div className="relative" ref={ref}>
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
@@ -182,7 +299,7 @@ export default function Header() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2" ref={ref}>
+            <div className="flex items-center gap-2">
               <Link
                 to="/login"
                 className="hidden sm:inline-flex items-center px-4 py-2 text-xs font-semibold text-brand-green border border-brand-green/30 rounded-lg hover:bg-brand-green/5 transition-colors"
@@ -204,7 +321,6 @@ export default function Header() {
             title="Carrito"
           >
             <i className="fa-solid fa-bag-shopping text-lg" />
-
             {cartCount > 0 && (
               <span className="absolute top-1 right-1 bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-brand-card-dark">
                 {cartCount}

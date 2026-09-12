@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -8,7 +14,7 @@ import OtpPage from "./pages/OtpPage";
 import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import HomePage from "./pages/HomePage";
 import AdminLayout from "./components/admin/AdminLayout";
-import ReceptionistLayout from "./components/receptionist/ReceptionistLayout";
+import InventoryDashboard from "./pages/inventory/InventoryDashboard";
 import SettingsPage from "./pages/SettingsPage";
 import TwoFaSetupPage from "./pages/TwoFaSetupPage";
 import TwoFaVerifyPage from "./pages/TwoFaVerifyPage";
@@ -16,6 +22,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import CatalogPage from "./pages/CatalogPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
+import ProbadorVirtual from "./pages/ProbadorVirtual";
 import { CartProvider } from "./context/CartContext";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
@@ -47,6 +54,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/catalogo" element={<CatalogPage />} />
         <Route path="/producto/:id" element={<ProductDetailPage />} />
+        <Route path="/probador-virtual" element={<ProbadorVirtual />} />
         <Route path="/favoritos" element={<FavoritesPage />} />
         <Route path="/carrito" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
@@ -64,7 +72,7 @@ function AnimatedRoutes() {
           path="/recepcion"
           element={
             <ProtectedRoute requiredRole="inventory">
-              <ReceptionistLayout />
+              <InventoryDashboard />
             </ProtectedRoute>
           }
         />
@@ -73,7 +81,7 @@ function AnimatedRoutes() {
           path="/inventory"
           element={
             <ProtectedRoute requiredRole="inventory">
-              <ReceptionistLayout />
+              <InventoryDashboard />
             </ProtectedRoute>
           }
         />
@@ -93,18 +101,24 @@ function AnimatedRoutes() {
   );
 }
 
+import { ThemeProvider } from "next-themes";
+
 function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <CartProvider>
-          <FavoritesProvider>
-            <ScrollToTop />
-            <AnimatedRoutes />
-          </FavoritesProvider>
-        </CartProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider attribute="class" defaultTheme="light">
+      <BrowserRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <AuthProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <ScrollToTop />
+              <AnimatedRoutes />
+            </FavoritesProvider>
+          </CartProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

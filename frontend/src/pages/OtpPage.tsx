@@ -16,7 +16,11 @@ export default function OtpPage() {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [success, setSuccess] = useState<{ message: string; subtitle: string; target: string } | null>(null);
+  const [success, setSuccess] = useState<{
+    message: string;
+    subtitle: string;
+    target: string;
+  } | null>(null);
   const { loginWithOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,7 +147,9 @@ export default function OtpPage() {
         <p className="text-xs text-slate-500 dark:text-slate-400">
           Ingresa el codigo de 6 digitos enviado a
         </p>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white mt-1">{email}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white mt-1">
+          {email}
+        </p>
       </div>
 
       <form
@@ -190,7 +196,9 @@ export default function OtpPage() {
         <p className="text-xs text-slate-500 dark:text-slate-400">
           No recibiste el codigo?{" "}
           {countdown > 0 ? (
-            <span className="text-slate-400 dark:text-slate-500">Reenviar en {countdown}s</span>
+            <span className="text-slate-400 dark:text-slate-500">
+              Reenviar en {countdown}s
+            </span>
           ) : (
             <button
               onClick={handleResend}

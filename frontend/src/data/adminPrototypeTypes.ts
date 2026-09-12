@@ -1,10 +1,19 @@
 export type ViewName =
-  | 'home' | 'login' | 'register'
-  | 'catalog' | 'product'
-  | 'favorites' | 'profile'
-  | 'fitter' | 'cart' | 'checkout'
-  | 'order-success' | 'order-tracking' | 'notifications'
-  | 'admin' | 'inventory';
+  | "home"
+  | "login"
+  | "register"
+  | "catalog"
+  | "product"
+  | "favorites"
+  | "profile"
+  | "fitter"
+  | "cart"
+  | "checkout"
+  | "order-success"
+  | "order-tracking"
+  | "notifications"
+  | "admin"
+  | "inventory";
 
 export interface Product {
   id: string;
@@ -19,8 +28,8 @@ export interface Product {
   availableColors: { name: string; hex: string }[];
   description: string;
   stock: Record<string, number>;
-  gender: 'male' | 'female' | 'unisex';
-  tag?: 'new' | 'sale' | 'trending';
+  gender: "male" | "female" | "unisex";
+  tag?: "new" | "sale" | "trending";
   measurements: {
     chest: [number, number];
     waist: [number, number];
@@ -44,7 +53,7 @@ export interface UserMeasurements {
   waist: number;
   hips: number;
   inseam: number;
-  build: 'slim' | 'regular' | 'athletic' | 'plus';
+  build: "slim" | "regular" | "athletic" | "plus";
   updatedAt: string;
 }
 
@@ -54,7 +63,7 @@ export interface User {
   email: string;
   phone: string;
   avatar: string;
-  role: 'client' | 'admin' | 'inventory';
+  role: "client" | "admin" | "inventory";
   measurements?: UserMeasurements;
   blocked?: boolean;
   registeredAt: string;
@@ -70,7 +79,14 @@ export interface Order {
   discount: number;
   date: string;
   estimatedDelivery: string;
-  status: 'pending' | 'confirmed' | 'preparing' | 'shipped' | 'delivered' | 'cancelled' | 'return';
+  status:
+    | "pending"
+    | "confirmed"
+    | "preparing"
+    | "shipped"
+    | "delivered"
+    | "cancelled"
+    | "return";
   address: string;
   district: string;
   city: string;
@@ -80,7 +96,8 @@ export interface Order {
 
 export interface Notification {
   id: string;
-  type: 'order' | 'stock' | 'recommendation' | 'return' | 'payment' | 'delivery';
+  type:
+    "order" | "stock" | "recommendation" | "return" | "payment" | "delivery";
   title: string;
   message: string;
   date: string;

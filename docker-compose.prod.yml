@@ -1,0 +1,37 @@
+name: fitactive-ecommerce-prod
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    expose:
+      - "4000"
+    environment:
+      PORT: 4000
+      CLIENT_URL: ${CLIENT_URL:?CLIENT_URL is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DIRECT_URL: ${DIRECT_URL:?DIRECT_URL is required}
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL is required}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}
+      SEED_ON_START: ${SEED_ON_START:-false}
+      EXTERNAL_BAAS_URL: ${EXTERNAL_BAAS_URL:-https://core.geozns.com}
+      EXTERNAL_BAAS_API_KEY: ${EXTERNAL_BAAS_API_KEY:?EXTERNAL_BAAS_API_KEY is required}
+      JWT_APP_ID: ${JWT_APP_ID:-integrador2_web}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      INVENTORY_EMAIL: ${INVENTORY_EMAIL:?INVENTORY_EMAIL is required}
+      INVENTORY_PASSWORD: ${INVENTORY_PASSWORD:?INVENTORY_PASSWORD is required}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID is required}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

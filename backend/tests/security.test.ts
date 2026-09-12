@@ -4,7 +4,7 @@ vi.mock("../src/config/env", () => ({
   config: {
     port: 4000,
     clientUrl: "http://localhost:5173",
-    databaseUrl: "file:./dev.db",
+    databaseUrl: "postgresql://postgres:postgres@localhost:5432/fitactive",
     baas: { url: "https://mock.com", apiKey: "mock-key" },
     jwtAppId: "test-app",
     adminEmail: "admin@test.com",
@@ -31,7 +31,7 @@ vi.mock("../src/services/baas", () => ({
 
 vi.mock("../src/config/prisma", () => ({
   prisma: {
-    user: {
+    usuarios: {
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -72,7 +72,7 @@ const MALFORMED_EMAILS = [
 ];
 
 function expectPrismaLiteralEmail(method: "findUnique" | "create", value: string) {
-  const calls = mockPrisma.user[method as "findUnique"].mock.calls;
+  const calls = mockPrisma.usuarios[method as "findUnique"].mock.calls;
   const arg = calls[0]?.[0] as { where?: { email?: string }; data?: { email?: string } };
   const passed =
     method === "findUnique"
@@ -92,29 +92,29 @@ describe("Security: SQL injection protection", () => {
   it.each(SQL_INJECTION_EMAILS)(
     "rejects SQL injection attempts in register email: %s",
     async (payload) => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.usuarios.findUnique.mockResolvedValue(null);
       await expect(
         authService.register(payload, "password123")
       ).rejects.toThrow("INVALID_EMAIL");
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.usuarios.create).not.toHaveBeenCalled();
     }
   );
 
   it.each(SQL_INJECTION_EMAILS)(
     "rejects SQL injection attempts in requestRegisterOtp email: %s",
     async (payload) => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.usuarios.findUnique.mockResolvedValue(null);
       await expect(
         authService.requestRegisterOtp(payload, "password123")
       ).rejects.toThrow("INVALID_EMAIL");
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.usuarios.create).not.toHaveBeenCalled();
     }
   );
 
   it.each(SQL_INJECTION_EMAILS)(
     "rejects SQL injection in forgotPassword email: %s",
     async (payload) => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.usuarios.findUnique.mockResolvedValue(null);
       await expect(
         authService.forgotPassword(payload)
       ).rejects.toThrow("INVALID_EMAIL");
@@ -148,7 +148,7 @@ describe("Security: SQL injection does not alter DB queries", () => {
 
   it("passes SQL injection payload as a literal value to loginWithPassword", async () => {
     // loginWithPassword does not validate email format, but must not build raw SQL.
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await expect(
       authService.loginWithPassword("' OR '1'='1", "password123")
     ).rejects.toThrow("INVALID_CREDENTIALS");
@@ -156,7 +156,7 @@ describe("Security: SQL injection does not alter DB queries", () => {
   });
 
   it("passes SQL injection payload as a literal value to emailExists", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await authService.emailExists("\"; DROP TABLE users;--");
     expectPrismaLiteralEmail("findUnique", "\"; DROP TABLE users;--");
   });
@@ -171,11 +171,11 @@ describe("Security: malformed emails are rejected", () => {
   it.each([...MALFORMED_EMAILS, ...SQL_INJECTION_EMAILS])(
     "rejects register with malformed email: %j",
     async (payload) => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.usuarios.findUnique.mockResolvedValue(null);
       await expect(
         authService.register(payload, "password123", "Test")
       ).rejects.toThrow("INVALID_EMAIL");
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.usuarios.create).not.toHaveBeenCalled();
     }
   );
 });
@@ -187,20 +187,20 @@ describe("Security: fake / invalid data is rejected", () => {
   });
 
   it("rejects register with malformed email even when other fields are valid", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await expect(
       authService.register("user@ example.com", "password123", "Fake")
     ).rejects.toThrow("INVALID_EMAIL");
-    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    expect(mockPrisma.usuarios.create).not.toHaveBeenCalled();
   });
 
   it("does not create users for fake emails with non-alphanumeric injection", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     for (const payload of ["a@b..c", "..@x.com", "a..b@c.com", "user@-x.com"]) {
       await expect(
         authService.register(payload, "password123")
       ).rejects.toThrow("INVALID_EMAIL");
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.usuarios.create).not.toHaveBeenCalled();
     }
   });
 
@@ -211,7 +211,7 @@ describe("Security: fake / invalid data is rejected", () => {
   });
 
   it("rejects changePassword with too-short new password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "u1",
       passwordHash: "some-hash",
     } as never);
@@ -221,7 +221,7 @@ describe("Security: fake / invalid data is rejected", () => {
   });
 
   it("rejects setPassword with too-short password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "u1",
     } as never);
     await expect(authService.setPassword("u1", "short")).rejects.toThrow(
@@ -231,7 +231,7 @@ describe("Security: fake / invalid data is rejected", () => {
 
   it("does not reveal whether a user exists via OTP name retention", async () => {
     // requestOtp with a name for a non-existent user still sends generic OTP
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     mockBaas.generateOtp.mockResolvedValue({ message: "OTP sent" });
     const result = await authService.requestOtp("nonexistent@example.com", "Attacker");
     expect(result.message).toBe("OTP sent");
@@ -245,7 +245,7 @@ describe("Security: missing required fields", () => {
   });
 
   it("rejects register with missing email (empty/whitespace)", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await expect(
       authService.register("   ", "password123")
     ).rejects.toThrow("INVALID_EMAIL");
@@ -255,7 +255,7 @@ describe("Security: missing required fields", () => {
   });
 
   it("rejects requestRegisterOtp with missing email", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await expect(
       authService.requestRegisterOtp("", "password123")
     ).rejects.toThrow("INVALID_EMAIL");

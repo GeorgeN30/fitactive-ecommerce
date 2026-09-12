@@ -20,7 +20,8 @@ export const mockProducts: Product[] = [
     id: "1",
     sku: "AT-COMP-TEE-01",
     name: "AeroTech Compression Tee",
-    description: "Camiseta de compresion de alto rendimiento con tecnologia de absorcion de humedad.",
+    description:
+      "Camiseta de compresion de alto rendimiento con tecnologia de absorcion de humedad.",
     category: "Clothing",
     sport: "Running",
     price: 59.0,
@@ -32,7 +33,8 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 24,
     status: "Active",
-    imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=100&h=100&fit=crop",
     isPublished: true,
   },
   {
@@ -51,7 +53,8 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 8,
     status: "Active",
-    imageUrl: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=100&h=100&fit=crop",
     isPublished: true,
   },
   {
@@ -70,14 +73,16 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 15,
     status: "Active",
-    imageUrl: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=100&h=100&fit=crop",
     isPublished: true,
   },
   {
     id: "4",
     sku: "VX-WGHT-SHOE-04",
     name: "Vortex Weightlifting Shoes",
-    description: "Zapatos profesionales de levantamiento de pesas con talon elevado.",
+    description:
+      "Zapatos profesionales de levantamiento de pesas con talon elevado.",
     category: "Footwear",
     sport: "CrossFit",
     price: 149.0,
@@ -89,7 +94,8 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 2,
     status: "OutOfStock",
-    imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop",
     isPublished: true,
   },
   {
@@ -108,7 +114,8 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 45,
     status: "Active",
-    imageUrl: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=100&h=100&fit=crop",
     isPublished: true,
   },
   {
@@ -127,7 +134,8 @@ export const mockProducts: Product[] = [
     ],
     totalStock: 0,
     status: "Inactive",
-    imageUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=100&h=100&fit=crop",
+    imageUrl:
+      "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=100&h=100&fit=crop",
     isPublished: false,
   },
 ];
@@ -140,8 +148,20 @@ export const mockOrders: Order[] = [
     clientEmail: "a.ruiz@gmail.com",
     date: "2026-10-25T16:15:00",
     items: [
-      { name: "AeroTech Compression Tee", size: "M", quantity: 1, price: 59.0, sku: "AT-COMP-TEE-01" },
-      { name: "Apex Performance Shorts", size: "L", quantity: 1, price: 45.0, sku: "AP-PERF-SHRT-02" },
+      {
+        name: "AeroTech Compression Tee",
+        size: "M",
+        quantity: 1,
+        price: 59.0,
+        sku: "AT-COMP-TEE-01",
+      },
+      {
+        name: "Apex Performance Shorts",
+        size: "L",
+        quantity: 1,
+        price: 45.0,
+        sku: "AP-PERF-SHRT-02",
+      },
     ],
     total: 104.0,
     status: "Confirmed",
@@ -155,7 +175,13 @@ export const mockOrders: Order[] = [
     clientEmail: "s.montenegro@outlook.com",
     date: "2026-10-25T15:02:00",
     items: [
-      { name: "AeroTech Compression Tee", size: "S", quantity: 1, price: 59.0, sku: "AT-COMP-TEE-01" },
+      {
+        name: "AeroTech Compression Tee",
+        size: "S",
+        quantity: 1,
+        price: 59.0,
+        sku: "AT-COMP-TEE-01",
+      },
     ],
     total: 59.0,
     status: "Preparing",
@@ -169,8 +195,20 @@ export const mockOrders: Order[] = [
     clientEmail: "m.silva@hotmail.com",
     date: "2026-10-25T13:40:00",
     items: [
-      { name: "Nova Carbon Windbreaker", size: "L", quantity: 1, price: 129.0, sku: "NV-CARB-WND-03" },
-      { name: "Zen Ultra Breathable Crop", size: "M", quantity: 1, price: 39.0, sku: "ZN-BREATH-CRP-05" },
+      {
+        name: "Nova Carbon Windbreaker",
+        size: "L",
+        quantity: 1,
+        price: 129.0,
+        sku: "NV-CARB-WND-03",
+      },
+      {
+        name: "Zen Ultra Breathable Crop",
+        size: "M",
+        quantity: 1,
+        price: 39.0,
+        sku: "ZN-BREATH-CRP-05",
+      },
     ],
     total: 189.0,
     status: "Pending",
@@ -184,7 +222,13 @@ export const mockOrders: Order[] = [
     clientEmail: "e.rostova@gmail.com",
     date: "2026-10-24T11:20:00",
     items: [
-      { name: "Zen Ultra Breathable Crop", size: "S", quantity: 2, price: 39.0, sku: "ZN-BREATH-CRP-05" },
+      {
+        name: "Zen Ultra Breathable Crop",
+        size: "S",
+        quantity: 2,
+        price: 39.0,
+        sku: "ZN-BREATH-CRP-05",
+      },
     ],
     total: 75.0,
     status: "Shipped",
@@ -198,7 +242,13 @@ export const mockOrders: Order[] = [
     clientEmail: "r.carlos@yahoo.com",
     date: "2026-10-23T09:15:00",
     items: [
-      { name: "Vortex Weightlifting Shoes", size: "M", quantity: 1, price: 149.0, sku: "VX-WGHT-SHOE-04" },
+      {
+        name: "Vortex Weightlifting Shoes",
+        size: "M",
+        quantity: 1,
+        price: 149.0,
+        sku: "VX-WGHT-SHOE-04",
+      },
     ],
     total: 120.0,
     status: "Confirmed",
@@ -212,7 +262,13 @@ export const mockOrders: Order[] = [
     clientEmail: "f.mora@gmail.com",
     date: "2026-10-22T16:45:00",
     items: [
-      { name: "Apex Performance Shorts", size: "M", quantity: 1, price: 45.0, sku: "AP-PERF-SHRT-02" },
+      {
+        name: "Apex Performance Shorts",
+        size: "M",
+        quantity: 1,
+        price: 45.0,
+        sku: "AP-PERF-SHRT-02",
+      },
     ],
     total: 45.0,
     status: "Cancelled",
@@ -226,7 +282,13 @@ export const mockOrders: Order[] = [
     clientEmail: "g.tell@outlook.com",
     date: "2026-10-21T14:30:00",
     items: [
-      { name: "Nova Carbon Windbreaker", size: "M", quantity: 1, price: 129.0, sku: "NV-CARB-WND-03" },
+      {
+        name: "Nova Carbon Windbreaker",
+        size: "M",
+        quantity: 1,
+        price: 129.0,
+        sku: "NV-CARB-WND-03",
+      },
     ],
     total: 129.0,
     status: "Returned",
@@ -248,8 +310,18 @@ export const mockCustomers: Customer[] = [
     status: "Active",
     role: "Customer",
     recentOrders: [
-      { id: "FL-2026-00830", date: "2026-10-20", total: 129.0, status: "Delivered" },
-      { id: "FL-2026-00815", date: "2026-10-15", total: 59.0, status: "Delivered" },
+      {
+        id: "FL-2026-00830",
+        date: "2026-10-20",
+        total: 129.0,
+        status: "Delivered",
+      },
+      {
+        id: "FL-2026-00815",
+        date: "2026-10-15",
+        total: 59.0,
+        status: "Delivered",
+      },
     ],
   },
   {
@@ -264,7 +336,12 @@ export const mockCustomers: Customer[] = [
     status: "Blocked",
     role: "Customer",
     recentOrders: [
-      { id: "FL-2026-00802", date: "2026-10-10", total: 59.0, status: "Cancelled" },
+      {
+        id: "FL-2026-00802",
+        date: "2026-10-10",
+        total: 59.0,
+        status: "Cancelled",
+      },
     ],
   },
   {
@@ -292,7 +369,12 @@ export const mockCustomers: Customer[] = [
     status: "Active",
     role: "Customer",
     recentOrders: [
-      { id: "FL-2026-00838", date: "2026-10-22", total: 149.0, status: "Delivered" },
+      {
+        id: "FL-2026-00838",
+        date: "2026-10-22",
+        total: 149.0,
+        status: "Delivered",
+      },
     ],
   },
   {
@@ -320,7 +402,12 @@ export const mockCustomers: Customer[] = [
     status: "Active",
     role: "Customer",
     recentOrders: [
-      { id: "FL-2026-00820", date: "2026-10-16", total: 45.0, status: "Delivered" },
+      {
+        id: "FL-2026-00820",
+        date: "2026-10-16",
+        total: 45.0,
+        status: "Delivered",
+      },
     ],
   },
   {
@@ -335,18 +422,69 @@ export const mockCustomers: Customer[] = [
     status: "Active",
     role: "Customer",
     recentOrders: [
-      { id: "FL-2026-00835", date: "2026-10-21", total: 115.0, status: "Shipped" },
+      {
+        id: "FL-2026-00835",
+        date: "2026-10-21",
+        total: 115.0,
+        status: "Shipped",
+      },
     ],
   },
 ];
 
 export const mockMovements: InventoryMovement[] = [
-  { id: "m1", datetime: "2026-10-25T10:15:00", productName: "AeroTech Compression Tee", type: "Entry", quantity: 50, responsible: "George" },
-  { id: "m2", datetime: "2026-10-25T09:30:00", productName: "Apex Performance Shorts", type: "Exit", quantity: -1, responsible: "Sistema", note: "Pedido #4922" },
-  { id: "m3", datetime: "2026-10-24T16:45:00", productName: "Nova Carbon Windbreaker", type: "Exit", quantity: -2, responsible: "Sistema", note: "Pedido #4918" },
-  { id: "m4", datetime: "2026-10-24T11:20:00", productName: "Vortex Weightlifting Shoes", type: "Entry", quantity: 10, responsible: "George", note: "Ajuste" },
-  { id: "m5", datetime: "2026-10-23T08:00:00", productName: "Zen Ultra Breathable Crop", type: "Entry", quantity: 30, responsible: "George" },
-  { id: "m6", datetime: "2026-10-22T14:10:00", productName: "AeroTech Compression Tee", type: "Exit", quantity: -3, responsible: "Sistema", note: "Pedido #4910" },
+  {
+    id: "m1",
+    datetime: "2026-10-25T10:15:00",
+    productName: "AeroTech Compression Tee",
+    type: "Entry",
+    quantity: 50,
+    responsible: "George",
+  },
+  {
+    id: "m2",
+    datetime: "2026-10-25T09:30:00",
+    productName: "Apex Performance Shorts",
+    type: "Exit",
+    quantity: -1,
+    responsible: "Sistema",
+    note: "Pedido #4922",
+  },
+  {
+    id: "m3",
+    datetime: "2026-10-24T16:45:00",
+    productName: "Nova Carbon Windbreaker",
+    type: "Exit",
+    quantity: -2,
+    responsible: "Sistema",
+    note: "Pedido #4918",
+  },
+  {
+    id: "m4",
+    datetime: "2026-10-24T11:20:00",
+    productName: "Vortex Weightlifting Shoes",
+    type: "Entry",
+    quantity: 10,
+    responsible: "George",
+    note: "Ajuste",
+  },
+  {
+    id: "m5",
+    datetime: "2026-10-23T08:00:00",
+    productName: "Zen Ultra Breathable Crop",
+    type: "Entry",
+    quantity: 30,
+    responsible: "George",
+  },
+  {
+    id: "m6",
+    datetime: "2026-10-22T14:10:00",
+    productName: "AeroTech Compression Tee",
+    type: "Exit",
+    quantity: -3,
+    responsible: "Sistema",
+    note: "Pedido #4910",
+  },
 ];
 
 export const mockDashboardStats: DashboardStats = {
@@ -422,15 +560,59 @@ export const mockConversionByCategory: ConversionCategory[] = [
 ];
 
 export const mockConversionFunnel: ConversionFunnel[] = [
-  { step: "VISITARON", count: 12458, percentage: 100, description: "Ficha del producto" },
-  { step: "PROBARON", count: 8234, percentage: 66.1, description: "Probador AR Activado" },
-  { step: "CARRITO", count: 4218, percentage: 51.2, description: "Anadido desde AR" },
-  { step: "COMPRARON", count: 2847, percentage: 67.5, description: "Transaccion Completa" },
+  {
+    step: "VISITARON",
+    count: 12458,
+    percentage: 100,
+    description: "Ficha del producto",
+  },
+  {
+    step: "PROBARON",
+    count: 8234,
+    percentage: 66.1,
+    description: "Probador AR Activado",
+  },
+  {
+    step: "CARRITO",
+    count: 4218,
+    percentage: 51.2,
+    description: "Anadido desde AR",
+  },
+  {
+    step: "COMPRARON",
+    count: 2847,
+    percentage: 67.5,
+    description: "Transaccion Completa",
+  },
 ];
 
 export const mockNotifications: Notification[] = [
-  { id: "n1", type: "order", title: "Nuevo Pedido #FL-2026-00847", detail: "Alejandro Ruiz - $104.00", targetTab: "orders" },
-  { id: "n2", type: "alert", title: "Alerta de Stock Bajo", detail: "6 productos requieren atencion", targetTab: "inventory" },
-  { id: "n3", type: "order", title: "Nuevo Pedido #FL-2026-00846", detail: "Sofia Montenegro - $59.00", targetTab: "orders" },
-  { id: "n4", type: "alert", title: "Solicitud de Devolucion", detail: "Pedido #FL-2026-00841 pendiente de revision", targetTab: "returns" },
+  {
+    id: "n1",
+    type: "order",
+    title: "Nuevo Pedido #FL-2026-00847",
+    detail: "Alejandro Ruiz - $104.00",
+    targetTab: "orders",
+  },
+  {
+    id: "n2",
+    type: "alert",
+    title: "Alerta de Stock Bajo",
+    detail: "6 productos requieren atencion",
+    targetTab: "inventory",
+  },
+  {
+    id: "n3",
+    type: "order",
+    title: "Nuevo Pedido #FL-2026-00846",
+    detail: "Sofia Montenegro - $59.00",
+    targetTab: "orders",
+  },
+  {
+    id: "n4",
+    type: "alert",
+    title: "Solicitud de Devolucion",
+    detail: "Pedido #FL-2026-00841 pendiente de revision",
+    targetTab: "returns",
+  },
 ];

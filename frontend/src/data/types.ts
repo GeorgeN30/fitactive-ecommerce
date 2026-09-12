@@ -1,7 +1,14 @@
 export type Sport = "Running" | "Gym" | "Cycling" | "CrossFit" | "Yoga";
 export type ProductCategory = "Clothing" | "Footwear" | "Accessories";
 export type ProductStatus = "Active" | "OutOfStock" | "Inactive";
-export type OrderStatus = "Confirmed" | "Preparing" | "Pending" | "Shipped" | "Delivered" | "Cancelled" | "Returned";
+export type OrderStatus =
+  | "Confirmed"
+  | "Preparing"
+  | "Pending"
+  | "Shipped"
+  | "Delivered"
+  | "Cancelled"
+  | "Returned";
 export type CustomerStatus = "Active" | "Blocked";
 export type CustomerRole = "Customer" | "Admin";
 export type MovementType = "Entry" | "Exit" | "Adjustment";

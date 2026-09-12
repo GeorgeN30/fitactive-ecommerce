@@ -58,8 +58,8 @@ export default function TwoFaSetupPage() {
               2FA Activado
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              La autenticacion de doble factor esta habilitada en tu cuenta. Ahora
-              se te pedira un codigo de 6 digitos al iniciar sesion.
+              La autenticacion de doble factor esta habilitada en tu cuenta.
+              Ahora se te pedira un codigo de 6 digitos al iniciar sesion.
             </p>
             <a
               href="/"
@@ -203,9 +203,7 @@ export default function TwoFaSetupPage() {
                     type="text"
                     value={code}
                     onChange={(e) => {
-                      const val = e.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 6);
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
                       setCode(val);
                     }}
                     required

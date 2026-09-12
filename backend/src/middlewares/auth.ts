@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { authService } from "../services/auth";
-import { HTTP_STATUS } from "../constants";
+import { HTTP_STATUS, ROLES } from "../constants";
 import { prisma } from "../config/prisma";
 
 export interface AuthRequest extends Request {
@@ -60,19 +60,19 @@ function validateToken(
 
       const userId = claims.sub as string;
 
-      const dbUser = await prisma.user.findUnique({
+      const dbUser = await prisma.usuarios.findUnique({
         where: { id: userId },
-        select: { role: true, isActive: true },
+        select: { role: true },
       });
 
-      if (!dbUser || !dbUser.isActive) {
-        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "USER_INACTIVE" });
+      if (!dbUser) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "USER_NOT_FOUND" });
         return;
       }
 
       req.user = {
         userId,
-        role: dbUser.role,
+        role: dbUser.role || ROLES.CUSTOMER,
       };
 
       next();

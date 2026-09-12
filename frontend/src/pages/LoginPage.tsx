@@ -30,7 +30,8 @@ export default function LoginPage() {
   }, [step]);
 
   const navigateToHome = useCallback(() => {
-    const role = user?.role;
+    // Convertimos el rol a minúsculas para evitar errores (Ej: ADMIN vs admin)
+    const role = user?.role?.toLowerCase() || "client";
     const path = role === "admin" ? "/admin" : role === "inventory" || role === "receptionist" ? "/inventory" : "/";
     window.location.href = path;
   }, [user]);
