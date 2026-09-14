@@ -496,6 +496,7 @@ export const mockDashboardStats: DashboardStats = {
   customersGrowth: 15.3,
   productsSold: 1205,
   productsGrowth: 5.7,
+  totalReturns: 0,
 };
 
 export const mockTopProducts: TopProduct[] = [

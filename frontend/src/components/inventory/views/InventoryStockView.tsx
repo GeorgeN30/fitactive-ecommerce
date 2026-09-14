@@ -1,48 +1,65 @@
 import React, { useState } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
 
 export default function InventoryStockView({
   products,
   setProducts,
+  onUpdateStock,
 }: {
-  products: any[];
-  setProducts: any;
+  products: Product[];
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  onUpdateStock?: (
+    productId: string,
+    size: string,
+    quantity: number,
+    motivo: string,
+  ) => Promise<void>;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [toastMessage, setToastMessage] = useState("");
   const [stockInput, setStockInput] = useState("");
+  const [motivo, setMotivo] = useState("Recepción de mercadería (Entrada)");
 
+  const totalUnits = products.reduce(
+    (total, product) => total + Object.values(product.stock).reduce((sum, stock) => sum + stock, 0),
+    0,
+  );
+  const inventoryValue = products.reduce(
+    (total, product) => total + product.price * Object.values(product.stock).reduce((sum, stock) => sum + stock, 0),
+    0,
+  );
+  const lowStockProducts = products.filter(
+    (product) => Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <= 5,
+  ).length;
   const metrics = [
-    { label: "Total productos", value: "8", desc: "" },
+    { label: "Total productos", value: products.length.toString(), desc: "" },
     {
       label: "Unidades totales",
-      value: "205 uds.",
+      value: `${totalUnits} uds.`,
       desc: "",
       color: "text-[#00FF66]",
     },
     {
       label: "Valor del inventario",
-      value: "S/ 22900",
+      value: `S/ ${inventoryValue.toFixed(2)}`,
       desc: "",
       color: "text-[#F59E0B]",
     },
     {
       label: "Requieren atención",
-      value: "3",
+      value: lowStockProducts.toString(),
       desc: "",
       color: "text-red-500",
     },
   ];
 
-  const handleEditClick = (product: any) => {
+  const handleEditClick = (product: Product) => {
     setEditingProduct(product);
     setStockInput(
-      Object.values(product.stock).reduce(
-        (a: any, b: any) => a + b,
-        0,
-      ) as string,
+      Object.values(product.stock).reduce((sum, stock) => sum + stock, 0).toString(),
     );
     setIsEditModalOpen(true);
   };
@@ -52,18 +69,35 @@ export default function InventoryStockView({
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const handleSaveStock = () => {
+  const handleSaveStock = async () => {
+    if (!editingProduct) return;
     if (!stockInput || isNaN(Number(stockInput))) {
       alert("Debe ingresar un número válido");
       return;
     }
 
+    if (onUpdateStock) {
+      try {
+        const sizeKey = Object.keys(editingProduct.stock)[0] || "Única";
+        await onUpdateStock(
+          String(editingProduct.id),
+          sizeKey,
+          Number(stockInput),
+          motivo,
+        );
+      } catch {
+        alert("No se pudo actualizar el stock. Intenta nuevamente.");
+        return;
+      }
+    }
+
     setProducts(
       products.map((p) => {
         if (p.id === editingProduct.id) {
+          const sizeKey = Object.keys(p.stock)[0] || "Única";
           return {
             ...p,
-            stock: { S: 0, M: 0, L: Number(stockInput) },
+            stock: { ...p.stock, [sizeKey]: Number(stockInput) },
           };
         }
         return p;
@@ -151,7 +185,11 @@ export default function InventoryStockView({
                 <label className="text-xs font-bold text-gray-500 uppercase">
                   Motivo del ajuste
                 </label>
-                <select className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm">
+                <select
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm"
+                >
                   <option>Recepción de mercadería (Entrada)</option>
                   <option>Venta offline (Salida)</option>
                   <option>Producto defectuoso (Baja)</option>
@@ -262,9 +300,9 @@ export default function InventoryStockView({
                 )
                 .map((p) => {
                   const totalStock = Object.values(p.stock).reduce(
-                    (a: any, b: any) => a + b,
+                    (sum, stock) => sum + stock,
                     0,
-                  ) as number;
+                  );
                   const minStock = 15;
                   const status =
                     totalStock === 0

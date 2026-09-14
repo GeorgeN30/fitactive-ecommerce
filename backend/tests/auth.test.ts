@@ -4,7 +4,7 @@ vi.mock("../src/config/env", () => ({
   config: {
     port: 4000,
     clientUrl: "http://localhost:5173",
-    databaseUrl: "file:./dev.db",
+    databaseUrl: "postgresql://postgres:postgres@localhost:5432/fitactive",
     baas: { url: "https://mock.com", apiKey: "mock-key" },
     jwtAppId: "test-app",
     adminEmail: "admin@test.com",
@@ -30,7 +30,7 @@ vi.mock("../src/services/baas", () => ({
 
 vi.mock("../src/config/prisma", () => ({
   prisma: {
-    user: {
+    usuarios: {
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -53,8 +53,8 @@ describe("authService.register", () => {
   });
 
   it("should register a new user with valid data", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.create.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       name: "Test User",
@@ -74,7 +74,7 @@ describe("authService.register", () => {
     expect(result.token).toBe("mock-jwt-token");
     expect(result.user.email).toBe("test@example.com");
     expect(result.user.hasPassword).toBe(true);
-    expect(mockPrisma.user.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.usuarios.create).toHaveBeenCalledOnce();
   });
 
   it("should throw INVALID_EMAIL for invalid email", async () => {
@@ -84,7 +84,7 @@ describe("authService.register", () => {
   });
 
   it("should throw EMAIL_EXISTS for duplicate email", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "existing",
       email: "test@example.com",
     } as never);
@@ -97,8 +97,8 @@ describe("authService.register", () => {
   it("should assign admin role for admin email", async () => {
     const originalEmail = process.env.ADMIN_EMAIL;
     process.env.ADMIN_EMAIL = "admin@test.com";
-    mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.create.mockResolvedValue({
       id: "admin-1",
       email: "admin@test.com",
       name: "Admin",
@@ -116,14 +116,14 @@ describe("authService.register", () => {
     );
 
     expect(result.user.role).toBe("admin");
-    const createCall = mockPrisma.user.create.mock.calls[0][0];
+    const createCall = mockPrisma.usuarios.create.mock.calls[0][0];
     expect(createCall.data.role).toBe("admin");
     process.env.ADMIN_EMAIL = originalEmail;
   });
 
   it("should assign receptionist role for receptionist email", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.create.mockResolvedValue({
       id: "recep-1",
       email: "receptionist@test.com",
       name: "Receptionist",
@@ -141,7 +141,7 @@ describe("authService.register", () => {
     );
 
     expect(result.user.role).toBe("receptionist");
-    const createCall = mockPrisma.user.create.mock.calls[0][0];
+    const createCall = mockPrisma.usuarios.create.mock.calls[0][0];
     expect(createCall.data.role).toBe("receptionist");
   });
 });
@@ -156,7 +156,7 @@ describe("authService.loginWithPassword", () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
 
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       passwordHash: hash,
@@ -180,7 +180,7 @@ describe("authService.loginWithPassword", () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("correct-password", 12);
 
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       passwordHash: hash,
@@ -195,7 +195,7 @@ describe("authService.loginWithPassword", () => {
   });
 
   it("should throw INVALID_CREDENTIALS for user without password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       passwordHash: null,
@@ -213,7 +213,7 @@ describe("authService.loginWithPassword", () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
 
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       passwordHash: hash,
@@ -235,7 +235,7 @@ describe("authService.loginWithPassword", () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
 
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       passwordHash: hash,
@@ -250,7 +250,7 @@ describe("authService.loginWithPassword", () => {
     );
 
     expect("token" in result).toBe(true);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: { twoFactorEnabled: false },
     });
@@ -261,7 +261,7 @@ describe("authService.hasPassword", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should return true when user has password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       passwordHash: "some-hash",
     } as never);
 
@@ -270,7 +270,7 @@ describe("authService.hasPassword", () => {
   });
 
   it("should return false when user has no password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       passwordHash: null,
     } as never);
 
@@ -279,7 +279,7 @@ describe("authService.hasPassword", () => {
   });
 
   it("should return false when user does not exist", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
 
     const result = await authService.hasPassword("nonexistent@example.com");
     expect(result).toBe(false);
@@ -294,8 +294,8 @@ describe("authService.verifyOtp", () => {
 
   it("should create new user and login via OTP", async () => {
     mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
-    mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.create.mockResolvedValue({
       id: "new-user",
       email: "new@example.com",
       name: null,
@@ -309,7 +309,7 @@ describe("authService.verifyOtp", () => {
     const result = await authService.verifyOtp("new@example.com", "123456");
 
     expect(result.token).toBe("mock-jwt-token");
-    expect(mockPrisma.user.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.usuarios.create).toHaveBeenCalledOnce();
   });
 
   it("should throw INVALID_OTP for wrong code", async () => {
@@ -325,7 +325,7 @@ describe("authService.verifyOtp", () => {
 
   it("should return requires2Fa when user has 2FA enabled with valid totpSecret", async () => {
     mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       role: "customer",
@@ -341,7 +341,7 @@ describe("authService.verifyOtp", () => {
 
   it("should disable 2FA when twoFactorEnabled=true but totpSecret=null", async () => {
     mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       role: "customer",
@@ -352,7 +352,7 @@ describe("authService.verifyOtp", () => {
     const result = await authService.verifyOtp("test@example.com", "123456");
 
     expect("token" in result).toBe(true);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: { twoFactorEnabled: false },
     });
@@ -363,7 +363,7 @@ describe("authService.requestRegisterOtp", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should send OTP for registration", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
 
     const result = await authService.requestRegisterOtp(
       "new@example.com",
@@ -376,7 +376,7 @@ describe("authService.requestRegisterOtp", () => {
   });
 
   it("should throw EMAIL_EXISTS if email is already taken", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "existing",
       email: "taken@example.com",
     } as never);
@@ -400,7 +400,7 @@ describe("authService.verifyRegisterOtp", () => {
   });
 
   it("should throw INVALID_OTP for wrong code", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await authService.requestRegisterOtp("test@example.com", "password123");
     mockBaas.verifyOtp.mockResolvedValue({
       valido: false,
@@ -413,14 +413,14 @@ describe("authService.verifyRegisterOtp", () => {
   });
 
   it("should create user after successful OTP verification", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
     await authService.requestRegisterOtp(
       "new@example.com",
       "password123",
       "New User"
     );
     mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
-    mockPrisma.user.create.mockResolvedValue({
+    mockPrisma.usuarios.create.mockResolvedValue({
       id: "new-user",
       email: "new@example.com",
       name: "New User",
@@ -439,7 +439,7 @@ describe("authService.verifyRegisterOtp", () => {
     expect(result.token).toBe("mock-jwt-token");
     expect(result.user.email).toBe("new@example.com");
     expect(result.user.hasPassword).toBe(true);
-    expect(mockPrisma.user.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.usuarios.create).toHaveBeenCalledOnce();
   });
 });
 
@@ -450,7 +450,7 @@ describe("authService.verify2Fa", () => {
   });
 
   it("should verify TOTP and return session", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       role: "customer",
@@ -465,7 +465,7 @@ describe("authService.verify2Fa", () => {
   });
 
   it("should throw INVALID_TOTP for wrong code", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       role: "customer",
@@ -480,7 +480,7 @@ describe("authService.verify2Fa", () => {
   });
 
   it("should auto-disable 2FA when totpSecret is null", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
       role: "customer",
@@ -491,7 +491,7 @@ describe("authService.verify2Fa", () => {
     const result = await authService.verify2Fa("user-1", "123456");
 
     expect(result.token).toBe("mock-jwt-token");
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
       data: { twoFactorEnabled: false },
     });
@@ -504,7 +504,7 @@ describe("authService.changePassword", () => {
   it("should change password with valid current password", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("old-password", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       passwordHash: hash,
     } as never);
@@ -516,13 +516,13 @@ describe("authService.changePassword", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(mockPrisma.user.update).toHaveBeenCalledOnce();
+    expect(mockPrisma.usuarios.update).toHaveBeenCalledOnce();
   });
 
   it("should throw INVALID_CURRENT_PASSWORD for wrong password", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("correct-password", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       passwordHash: hash,
     } as never);
@@ -533,7 +533,7 @@ describe("authService.changePassword", () => {
   });
 
   it("should throw NO_PASSWORD_SET for user without password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       passwordHash: null,
     } as never);
@@ -544,7 +544,7 @@ describe("authService.changePassword", () => {
   });
 
   it("should throw PASSWORD_TOO_SHORT for short password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       passwordHash: "some-hash",
     } as never);
@@ -559,7 +559,7 @@ describe("authService.emailExists", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should return true when user exists", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
     } as never);
@@ -569,7 +569,7 @@ describe("authService.emailExists", () => {
   });
 
   it("should return false when user does not exist", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
 
     const result = await authService.emailExists("nonexistent@example.com");
     expect(result).toBe(false);
@@ -580,7 +580,7 @@ describe("authService.deleteAccount", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should delete account without password for Google user (no passwordHash)", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "google-user",
       email: "google@example.com",
       passwordHash: null,
@@ -590,7 +590,7 @@ describe("authService.deleteAccount", () => {
 
     const result = await authService.deleteAccount("google-user");
     expect(result.success).toBe(true);
-    expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+    expect(mockPrisma.usuarios.delete).toHaveBeenCalledWith({
       where: { id: "google-user" },
     });
   });
@@ -598,7 +598,7 @@ describe("authService.deleteAccount", () => {
   it("should delete account with valid password for password user", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "pw-user",
       email: "pw@example.com",
       passwordHash: hash,
@@ -613,7 +613,7 @@ describe("authService.deleteAccount", () => {
   it("should throw PASSWORD_REQUIRED when password user provides no password", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "pw-user",
       email: "pw@example.com",
       passwordHash: hash,
@@ -627,7 +627,7 @@ describe("authService.deleteAccount", () => {
   });
 
   it("should throw USER_NOT_FOUND for non-existent user", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
 
     await expect(authService.deleteAccount("ghost")).rejects.toThrow(
       "USER_NOT_FOUND"
@@ -639,7 +639,7 @@ describe("authService.requestDeleteOtp", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should send OTP for Google user without password", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "google-user",
       email: "google@example.com",
       passwordHash: null,
@@ -655,7 +655,7 @@ describe("authService.requestDeleteOtp", () => {
   it("should throw PASSWORD_REQUIRED when password user provides no password", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "pw-user",
       email: "pw@example.com",
       passwordHash: hash,
@@ -671,7 +671,7 @@ describe("authService.requestDeleteOtp", () => {
   it("should send OTP after valid password verification", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "pw-user",
       email: "pw@example.com",
       passwordHash: hash,
@@ -686,7 +686,7 @@ describe("authService.requestDeleteOtp", () => {
   it("should throw INVALID_PASSWORD for wrong password", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("correct-password", 12);
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "pw-user",
       email: "pw@example.com",
       passwordHash: hash,
@@ -706,7 +706,7 @@ describe("authService.verifyDeleteOtp", () => {
   });
 
   it("should delete account after valid OTP", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
     } as never);
@@ -714,11 +714,11 @@ describe("authService.verifyDeleteOtp", () => {
 
     const result = await authService.verifyDeleteOtp("user-1", "123456");
     expect(result.success).toBe(true);
-    expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
+    expect(mockPrisma.usuarios.delete).toHaveBeenCalledWith({ where: { id: "user-1" } });
   });
 
   it("should throw INVALID_OTP for wrong code", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
     } as never);
@@ -730,7 +730,7 @@ describe("authService.verifyDeleteOtp", () => {
   });
 
   it("should throw USER_NOT_FOUND for non-existent user", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.usuarios.findUnique.mockResolvedValue(null);
 
     await expect(authService.verifyDeleteOtp("ghost", "123456")).rejects.toThrow(
       "USER_NOT_FOUND"

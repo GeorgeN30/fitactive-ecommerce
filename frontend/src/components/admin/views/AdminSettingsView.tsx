@@ -1,10 +1,31 @@
-import React, { useState } from "react";
+import { useState } from "react";
+
+interface AdminSettingsForm {
+  storeName: string;
+  email: string;
+  currency: string;
+  gateway: string;
+  sandbox: boolean;
+  tax: number;
+  tolerance: string;
+  hqRender: boolean;
+  limit: number;
+  twoFactor: boolean;
+  timeout: number;
+}
+
+interface SettingField {
+  key: keyof AdminSettingsForm;
+  label: string;
+  type: "text" | "email" | "number" | "select" | "toggle";
+  options?: string[];
+}
 
 export default function AdminSettingsView() {
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AdminSettingsForm>({
     storeName: "FITLOOK Perú",
     email: "contacto@fitlook.com",
     currency: "PEN - Sol Peruano",
@@ -27,7 +48,10 @@ export default function AdminSettingsView() {
     }, 800);
   };
 
-  const handleChange = (key: string, value: any) => {
+  const handleChange = (
+    key: keyof AdminSettingsForm,
+    value: AdminSettingsForm[keyof AdminSettingsForm],
+  ) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -46,7 +70,7 @@ export default function AdminSettingsView() {
           type: "select",
           options: ["PEN - Sol Peruano", "USD - Dólar", "EUR - Euro"],
         },
-      ],
+      ] satisfies SettingField[],
     },
     {
       id: "payments",
@@ -62,7 +86,7 @@ export default function AdminSettingsView() {
         },
         { key: "sandbox", label: "Modo Pruebas (Sandbox)", type: "toggle" },
         { key: "tax", label: "Tasa de Impuesto (%)", type: "number" },
-      ],
+      ] satisfies SettingField[],
     },
     {
       id: "tryon",
@@ -86,7 +110,7 @@ export default function AdminSettingsView() {
           label: "Límite de intentos diarios por IP",
           type: "number",
         },
-      ],
+      ] satisfies SettingField[],
     },
     {
       id: "security",
@@ -104,7 +128,7 @@ export default function AdminSettingsView() {
           label: "Cierre de sesión automático (min)",
           type: "number",
         },
-      ],
+      ] satisfies SettingField[],
     },
   ];
 
@@ -157,7 +181,7 @@ export default function AdminSettingsView() {
                   f.type === "number" ? (
                     <input
                       type={f.type}
-                      value={formData[f.key as keyof typeof formData] as any}
+                      value={String(formData[f.key])}
                       onChange={(e) =>
                         handleChange(
                           f.key,
@@ -170,7 +194,7 @@ export default function AdminSettingsView() {
                     />
                   ) : f.type === "select" ? (
                     <select
-                      value={formData[f.key as keyof typeof formData] as string}
+                      value={String(formData[f.key])}
                       onChange={(e) => handleChange(f.key, e.target.value)}
                       className="px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66] transition-all appearance-none cursor-pointer"
                     >
@@ -186,17 +210,17 @@ export default function AdminSettingsView() {
                         onClick={() =>
                           handleChange(
                             f.key,
-                            !formData[f.key as keyof typeof formData],
+                            !formData[f.key],
                           )
                         }
-                        className={`w-12 h-6 rounded-full relative transition-colors ${formData[f.key as keyof typeof formData] ? "bg-[#00FF66]" : "bg-gray-300 dark:bg-zinc-700"}`}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${formData[f.key] ? "bg-[#00FF66]" : "bg-gray-300 dark:bg-zinc-700"}`}
                       >
                         <div
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${formData[f.key as keyof typeof formData] ? "translate-x-6" : ""}`}
+                          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${formData[f.key] ? "translate-x-6" : ""}`}
                         />
                       </button>
                       <span className="ml-3 text-sm font-medium text-gray-500">
-                        {formData[f.key as keyof typeof formData]
+                        {formData[f.key]
                           ? "Activado"
                           : "Desactivado"}
                       </span>

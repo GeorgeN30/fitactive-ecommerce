@@ -1,69 +1,32 @@
 import React, { useState } from "react";
+import type { AdminNotification } from "../../../services/notifications";
 
-export default function AdminNotificationsView() {
-  const [adminNotifications, setAdminNotifications] = useState([
-    {
-      id: "sys-1",
-      title: "Alerta de Inventario Crítico",
-      message:
-        'El producto "Polo Dry-Fit" (Talla M) ha alcanzado el stock mínimo (quedan 2 unidades).',
-      type: "stock",
-      date: "Hace 10 min",
-      read: false,
-      priority: "high",
-    },
-    {
-      id: "sys-2",
-      title: "Pico de Tráfico en Probador Virtual",
-      message:
-        "El uso del servidor de renderizado 3D ha superado el 85% de capacidad en la última hora.",
-      type: "system",
-      date: "Hace 45 min",
-      read: false,
-      priority: "medium",
-    },
-    {
-      id: "sys-3",
-      title: "Nueva Integración: MercadoPago",
-      message:
-        "Las credenciales de producción de MercadoPago fueron actualizadías exitosamente por el usuario admin.",
-      type: "security",
-      date: "Hace 2 horas",
-      read: true,
-      priority: "low",
-    },
-    {
-      id: "sys-4",
-      title: "Devolución Procesada Manualmente",
-      message:
-        "El reembolso para la orden FIT-2024-1782 fue procesado a través de la paísarela y está pendiente de liquidación.",
-      type: "payment",
-      date: "Hace 3 horas",
-      read: true,
-      priority: "medium",
-    },
-    {
-      id: "sys-5",
-      title: "Reporte Semanal Generado",
-      message:
-        "El reporte de conversión del probador de la última semana está listo para su descarga.",
-      type: "report",
-      date: "Ayer",
-      read: true,
-      priority: "low",
-    },
-  ]);
+export default function AdminNotificationsView({
+  notifications,
+  setNotifications,
+}: {
+  notifications?: AdminNotification[];
+  setNotifications?: (updater: (prev: AdminNotification[]) => AdminNotification[]) => void;
+} = {}) {
+  const [internalNotifications, setInternalNotifications] = useState<AdminNotification[]>([]);
 
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
+  const display = notifications !== undefined ? notifications : internalNotifications;
+
+  const apply = (updater: (prev: AdminNotification[]) => AdminNotification[]) => {
+    if (setNotifications) setNotifications(updater);
+    else setInternalNotifications(updater);
+  };
+
   const markAllRead = () => {
-    setAdminNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    apply((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const takeAction = (id: string) => {
     setResolvingId(id);
     setTimeout(() => {
-      setAdminNotifications((prev) =>
+      apply((prev) =>
         prev.map((n) =>
           n.id === id
             ? {
@@ -113,7 +76,7 @@ export default function AdminNotificationsView() {
       </div>
 
       <div className="space-y-4 max-w-4xl">
-        {adminNotifications.map((n) => (
+        {display.map((n) => (
           <div
             key={n.id}
             className={`bg-white dark:bg-zinc-900 rounded-2xl p-5 border transition-all shadow-sm ${!n.read ? (n.priority === "high" ? "border-l-4 border-l-red-500 border-gray-100 dark:border-zinc-800" : "border-l-4 border-l-[#00FF66] border-gray-100 dark:border-zinc-800") : "border-gray-100 dark:border-zinc-800 opacity-70 hover:opacity-100"}`}
@@ -162,7 +125,7 @@ export default function AdminNotificationsView() {
                     ) : (
                       <button
                         onClick={() =>
-                          setAdminNotifications((prev) =>
+                          apply((prev) =>
                             prev.map((item) =>
                               item.id === n.id ? { ...item, read: true } : item,
                             ),
@@ -184,6 +147,11 @@ export default function AdminNotificationsView() {
             </div>
           </div>
         ))}
+        {display.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+            No hay notificaciones nuevas.
+          </div>
+        )}
       </div>
     </div>
   );

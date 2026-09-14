@@ -165,6 +165,45 @@ class BaasClient {
     });
     return data;
   }
+
+  // Live events (WebSocket)
+
+  async notify(
+    appId: string,
+    userId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ status: string; method: string }> {
+    const { data: response } = await this.http.post("/v1/notify", {
+      app_id: appId,
+      user_id: userId,
+      payload,
+    });
+    return response;
+  }
+
+  getWebSocketUrl(appId: string): string {
+    const websocketBase = config.baas.url.replace(/^http/, "ws").replace(/\/$/, "");
+    return `${websocketBase}/v1/ws?app_id=${encodeURIComponent(appId)}`;
+  }
+
+  async compressImage(buffer: Buffer, preset: string): Promise<Buffer> {
+    const form = new FormData();
+    const bytes = new Uint8Array(buffer.byteLength);
+    bytes.set(buffer);
+    form.append("file", new Blob([bytes.buffer as ArrayBuffer]), "product-image");
+
+    const { data } = await this.http.post<ArrayBuffer>(
+      "/v1/image/preset",
+      form,
+      {
+        params: { preset },
+        responseType: "arraybuffer",
+        headers: form instanceof FormData ? undefined : {},
+      },
+    );
+
+    return Buffer.from(data);
+  }
 }
 
 export const baas = new BaasClient();

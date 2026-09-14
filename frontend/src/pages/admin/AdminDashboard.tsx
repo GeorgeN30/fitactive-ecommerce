@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useTheme } from "next-themes";
-import DashboardView from "../../components/admin/views/DashboardView";
+import DashboardView, {
+  type DashboardMetric,
+  type DashboardSales,
+  type DashboardRecentOrder,
+} from "../../components/admin/views/DashboardView";
 import AdminOrdersView from "../../components/admin/views/AdminOrdersView";
 import AdminCustomersView from "../../components/admin/views/AdminCustomersView";
 import AdminNotificationsView from "../../components/admin/views/AdminNotificationsView";
@@ -11,12 +15,24 @@ import VirtualTryOnMetrics from "../../components/admin/views/VirtualTryOnMetric
 import InventoryDiscountsView from "../../components/inventory/views/InventoryDiscountsView";
 
 import {
-  PRODUCTS,
-  USERS,
-  DEMO_ORDERS,
-  DEMO_NOTIFICATIONS,
-} from "../../data/adminPrototype";
-import type { Order, Product } from "../../data/adminPrototypeTypes";
+  fetchOrders,
+  fetchProducts,
+  fetchCustomers,
+  fetchDashboardStats,
+  fetchSalesData,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  updateOrderStatus as updateOrderStatusApi,
+} from "../../services/admin";
+import type { ProductInput } from "../../services/admin";
+import {
+  connectAdminSocket,
+  mapLiveEventToAdminNotification,
+} from "../../services/notifications";
+import type { AdminNotification } from "../../services/notifications";
+import type { DashboardStats, SalesDataPoint } from "../../data/types";
+import type { Order, Product, User } from "../../data/adminPrototypeTypes";
 
 interface IconProps {
   size?: number;
@@ -123,6 +139,19 @@ const MONTHS = [
   "Dic",
 ];
 
+function timeAgo(dateString: string): string {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return "hace poco";
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `hace ${days} d`;
+}
+
 function BarChart({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...data);
   return (
@@ -148,25 +177,97 @@ export default function AdminDashboard() {
     localStorage.removeItem("preAuth_token");
     window.location.href = "/";
   };
-  const [notifications, setNotifications] = useState(DEMO_NOTIFICATIONS);
-  const [orders, setOrders] = useState(DEMO_ORDERS);
-  const [products, setProducts] = useState(PRODUCTS);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [sales, setSales] = useState<SalesDataPoint[]>([]);
+
   const navigate = (view: "home") => {
     if (view === "home") window.location.href = "/";
   };
-  const updateOrderStatus = (orderId: string, status: Order["status"]) => {
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === orderId ? { ...order, status } : order,
-      ),
-    );
+
+  const isAuthError = (error: unknown): boolean =>
+    (error as { response?: { status?: number } })?.response?.status === 401;
+
+  const handleUnauthorized = () => {
+    window.location.href = "/login";
   };
+
+  const refreshOrders = async () => {
+    try {
+      setOrders(await fetchOrders());
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAll = async () => {
+      try {
+        const [loadedOrders, loadedProducts, loadedCustomers, loadedStats, loadedSales] =
+          await Promise.all([
+            fetchOrders(),
+            fetchProducts(),
+            fetchCustomers(),
+            fetchDashboardStats(),
+            fetchSalesData(),
+          ]);
+        if (!cancelled) {
+          setOrders(loadedOrders);
+          setProducts(loadedProducts);
+          setCustomers(loadedCustomers);
+          setStats(loadedStats);
+          setSales(loadedSales);
+        }
+      } catch (error) {
+        if (isAuthError(error)) handleUnauthorized();
+      }
+    };
+    void loadAll();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const disconnect = connectAdminSocket((event) => {
+      const notification = mapLiveEventToAdminNotification(event);
+      setNotifications((prev) => [notification, ...prev]);
+      if (event.type === "NEW_ORDER" || event.type === "ORDER_STATUS") {
+        void refreshOrders();
+      }
+    });
+    return disconnect;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateOrderStatus = async (
+    orderId: string,
+    status: Order["status"],
+  ) => {
+    try {
+      await updateOrderStatusApi(orderId, status);
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId ? { ...order, status } : order,
+        ),
+      );
+    } catch (error) {
+      if (isAuthError(error)) {
+        handleUnauthorized();
+        return;
+      }
+      window.alert("No se pudo actualizar el estado del pedido.");
+    }
+  };
+
   const [section, setSection] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [selectedClient, setSelectedClient] = useState<
-    (typeof USERS)[0] | null
-  >(null);
+  const [selectedClient, setSelectedClient] = useState<User | null>(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormData>({
@@ -179,11 +280,48 @@ export default function AdminDashboard() {
   const [productSvg, setProductSvg] = useState<File | null>(null);
 
   const unread = notifications.filter((n) => !n.read).length;
-  const allOrders = [
-    ...orders,
-    ...DEMO_ORDERS.filter((o) => !orders.find((x) => x.id === o.id)),
-  ];
-  const clients = USERS.filter((u) => u.role === "client");
+  const allOrders = orders;
+  const clients = customers;
+
+  const dashboardMetrics: DashboardMetric[] | undefined = stats
+    ? [
+        {
+          label: "Ingresos Totales",
+          value: `S/ ${stats.totalSales.toLocaleString("es-PE", { maximumFractionDigits: 2 })}`,
+        },
+        { label: "Pedidos", value: stats.totalOrders.toLocaleString("es-PE") },
+        {
+          label: "Ticket Promedio",
+          value:
+            stats.totalOrders > 0
+              ? `S/ ${(stats.totalSales / stats.totalOrders).toFixed(2)}`
+              : "S/ 0.00",
+        },
+        {
+          label: "Productos en catálogo",
+          value: String(stats.productsSold),
+        },
+      ]
+    : undefined;
+
+  const dashboardSales: DashboardSales | undefined =
+    sales.length > 0
+      ? {
+          labels: sales.map((point) => point.label),
+          values: sales.map((point) => point.value),
+        }
+      : undefined;
+
+  const dashboardRecentOrders: DashboardRecentOrder[] | undefined =
+    orders.length > 0
+      ? orders.slice(0, 5).map((order) => ({
+          id: order.orderNumber || order.id,
+          client: order.customer.name,
+          total: `S/ ${order.total.toFixed(2)}`,
+          status: order.status,
+          time: timeAgo(order.date),
+        }))
+      : undefined;
 
   const openAddProductModal = () => {
     setEditingProductId(null);
@@ -230,7 +368,7 @@ export default function AdminDashboard() {
     }));
   };
 
-  const handleProductSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleProductSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const sizes = productForm.sizes.length > 0 ? productForm.sizes : ["M"];
     const totalStock = Math.max(0, Number(productForm.stock) || 0);
@@ -238,40 +376,51 @@ export default function AdminDashboard() {
     const image =
       productImagePreview ||
       "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=700&fit=crop";
-    const baseProduct: Omit<Product, "id"> = {
-      name: productForm.name.trim() || "Producto sin nombre",
-      category: productForm.category,
-      sport: productForm.sport,
-      price: Number(productForm.price) || 0,
-      image,
-      images: [image],
-      sizes,
-      availableColors: [{ name: "Negro", hex: "#1a1a1a" }],
-      description: productForm.description.trim(),
-      stock: Object.fromEntries(sizes.map((size) => [size, stockPerSize])),
-      gender: productForm.gender,
-      measurements: { chest: [80, 110], waist: [60, 100], hips: [80, 115] },
-      featured: false,
-      minStock: 3,
+    const input: ProductInput = {
+      nombre: productForm.name.trim() || "Producto sin nombre",
+      categoria: productForm.category,
+      genero: productForm.gender,
+      precio: Number(productForm.price) || 0,
+      descripcion: productForm.description.trim(),
+      imagenUrl: image,
+      tallas: sizes.map((size) => ({ talla: size, stock: stockPerSize })),
     };
 
-    setProducts((current) => {
+    try {
       if (editingProductId) {
-        return current.map((product) =>
-          product.id === editingProductId
-            ? { ...product, ...baseProduct }
-            : product,
+        const updated = await updateProduct(editingProductId, input);
+        setProducts((current) =>
+          current.map((product) =>
+            product.id === editingProductId ? updated : product,
+          ),
         );
+      } else {
+        const created = await createProduct(input);
+        setProducts((current) => [...current, created]);
       }
-      return [...current, { id: `p-${Date.now()}`, ...baseProduct }];
-    });
-    setProductModalOpen(false);
+      setProductModalOpen(false);
+    } catch (error) {
+      if (isAuthError(error)) {
+        handleUnauthorized();
+        return;
+      }
+      window.alert("No se pudo guardar el producto.");
+    }
   };
 
-  const handleProductDelete = (productId: string) => {
-    setProducts((current) =>
-      current.filter((product) => product.id !== productId),
-    );
+  const handleProductDelete = async (productId: string) => {
+    try {
+      await deleteProduct(productId);
+      setProducts((current) =>
+        current.filter((product) => product.id !== productId),
+      );
+    } catch (error) {
+      if (isAuthError(error)) {
+        handleUnauthorized();
+        return;
+      }
+      window.alert("No se pudo eliminar el producto.");
+    }
   };
 
   const navItems: { key: Section; label: string; icon: React.ReactNode }[] = [
@@ -436,7 +585,21 @@ export default function AdminDashboard() {
 
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto p-6 bg-[#F5F5F5] dark:bg-zinc-950">
           {section === "dashboard" && (
-            <DashboardView goToOrders={() => setSection("orders")} />
+            <DashboardView
+              goToOrders={() => setSection("orders")}
+              metrics={dashboardMetrics}
+              salesData={dashboardSales}
+              recentOrders={dashboardRecentOrders}
+              summary={
+                stats
+                  ? {
+                      activeCustomers: stats.activeCustomers,
+                      productsSold: stats.productsSold,
+                      totalReturns: stats.totalReturns,
+                    }
+                  : undefined
+              }
+            />
           )}
 
           {section === "orders" && (
@@ -450,7 +613,12 @@ export default function AdminDashboard() {
 
           {section === "metrics" && <VirtualTryOnMetrics />}
 
-          {section === "notifications" && <AdminNotificationsView />}
+          {section === "notifications" && (
+            <AdminNotificationsView
+              notifications={notifications}
+              setNotifications={setNotifications}
+            />
+          )}
           {section === "discounts" && <InventoryDiscountsView />}
 
           {section === "config" && <AdminSettingsView />}
@@ -797,7 +965,7 @@ export default function AdminDashboard() {
                 </p>
                 <div className="space-y-2">
                   {selectedOrder.items.map((item, index) => {
-                    const product = PRODUCTS.find(
+                    const product = products.find(
                       (candidate) => candidate.id === item.productId,
                     );
                     return (
@@ -818,7 +986,7 @@ export default function AdminDashboard() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {product?.name || item.productId}
+                            {product?.name || item.name || item.productId}
                           </p>
                           <p className="text-xs text-gray-500">
                             Talla {item.size} · Cantidad {item.quantity}

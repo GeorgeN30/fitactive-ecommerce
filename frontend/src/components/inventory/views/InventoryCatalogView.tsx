@@ -1,28 +1,49 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
+
+interface ProductFormErrors {
+  name?: string;
+  sku?: string;
+  price?: string;
+}
+
+interface ProductFormInput {
+  name: string;
+  sku: string;
+  price: number;
+}
+
 export default function InventoryCatalogView({
   products,
   setProducts,
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
 }: {
-  products: any[];
-  setProducts: any;
+  products: Product[];
+  setProducts: Dispatch<SetStateAction<Product[]>>;
+  onAddProduct?: (data: ProductFormInput) => Promise<Product>;
+  onUpdateProduct?: (product: Product, data: ProductFormInput) => Promise<Product>;
+  onDeleteProduct?: (id: string) => Promise<void>;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState("");
 
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({ name: "", sku: "", price: "" });
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<ProductFormErrors>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const handleSaveProduct = () => {
-    const newErrors: any = {};
+  const handleSaveProduct = async () => {
+    const newErrors: ProductFormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Requerido";
     if (!formData.sku.trim()) newErrors.sku = "Requerido";
     if (!formData.price || isNaN(Number(formData.price)))
@@ -33,28 +54,55 @@ export default function InventoryCatalogView({
       return;
     }
 
-    if (editingId) {
-      setProducts(
-        products.map((p) =>
-          p.id === editingId
-            ? { ...p, name: formData.name, price: Number(formData.price) }
-            : p,
-        ),
-      );
-      showToast("¡Producto editado exitosamente!");
+    if (editingId && onUpdateProduct) {
+      try {
+          const current = products.find((p) => p.id === editingId);
+          if (!current) {
+            setErrors({ name: "Producto no encontrado" });
+            return;
+          }
+          const updated = await onUpdateProduct(current, {
+            name: formData.name.trim(),
+            sku: formData.sku.trim(),
+            price: Number(formData.price),
+          });
+          if (updated) {
+            setProducts(
+              products.map((p) => (p.id === editingId ? updated : p)),
+            );
+          }
+          showToast("¡Producto editado exitosamente!");
+        setIsModalOpen(false);
+        setFormData({ name: "", sku: "", price: "" });
+        setErrors({});
+        setEditingId(null);
+      } catch {
+        showToast("No se pudo guardar el producto. Intenta nuevamente.");
+        return;
+      }
+    } else if (!editingId && onAddProduct) {
+      try {
+          const created = await onAddProduct({
+            name: formData.name.trim(),
+            sku: formData.sku.trim(),
+            price: Number(formData.price),
+          });
+          if (created) {
+            setProducts([created, ...products]);
+          }
+          showToast("Producto añadido al catálogo exitosamente.");
+        setIsModalOpen(false);
+        setFormData({ name: "", sku: "", price: "" });
+        setErrors({});
+        setEditingId(null);
+      } catch {
+        showToast("No se pudo guardar el producto. Intenta nuevamente.");
+        return;
+      }
+    } else if (editingId) {
+      showToast("No se pudo editar el producto.");
     } else {
-      const newProduct = {
-        id: Date.now(),
-        name: formData.name,
-        category: "Nueva Categoría",
-        price: Number(formData.price),
-        sales: 0,
-        image:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format",
-        stock: { S: 0, M: 0, L: 0 },
-      };
-      setProducts([newProduct, ...products]);
-      showToast("¡Producto añadido al catálogo exitosamente!");
+      showToast("No se pudo añadir el producto.");
     }
 
     setIsModalOpen(false);
@@ -63,18 +111,27 @@ export default function InventoryCatalogView({
     setEditingId(null);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     setDeleteId(id);
   };
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId) {
+      if (onDeleteProduct) {
+        try {
+          await onDeleteProduct(String(deleteId));
+        } catch {
+          showToast("No se pudo eliminar el producto.");
+          setDeleteId(null);
+          return;
+        }
+      }
       setProducts(products.filter((p) => p.id !== deleteId));
       showToast("Producto eliminado del catálogo.");
       setDeleteId(null);
     }
   };
 
-  const handleEdit = (p: any) => {
+  const handleEdit = (p: Product) => {
     setEditingId(p.id);
     setFormData({
       name: p.name,
@@ -326,10 +383,10 @@ export default function InventoryCatalogView({
                 )
                 .map((p) => {
                   const totalStock = Object.values(p.stock).reduce(
-                    (a: any, b: any) => a + b,
+                    (sum, stock) => sum + stock,
                     0,
-                  ) as number;
-                  const minStock = 15;
+                  );
+                  const minStock = p.minStock;
                   const status =
                     totalStock === 0
                       ? "Agotado"
@@ -365,12 +422,12 @@ export default function InventoryCatalogView({
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         <div className="flex gap-1">
-                          {p.sizes.map((s: any) => (
+                          {p.sizes.map((size) => (
                             <span
-                              key={s}
+                              key={size}
                               className="px-1 border border-gray-200 dark:border-zinc-700 rounded text-[9px]"
                             >
-                              {s}
+                              {size}
                             </span>
                           ))}
                         </div>

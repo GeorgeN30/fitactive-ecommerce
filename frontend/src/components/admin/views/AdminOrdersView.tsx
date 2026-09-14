@@ -115,7 +115,7 @@ export default function AdminOrdersView({
                     }`}
                   >
                     <td className="px-5 py-4 font-bold text-gray-900 dark:text-gray-200">
-                      {order.id}
+                      {order.orderNumber || order.id}
                     </td>
                     <td className="px-5 py-4">{order.customer.name}</td>
                     <td className="px-5 py-4 text-gray-500 dark:text-gray-400">
@@ -148,7 +148,7 @@ export default function AdminOrdersView({
         <div className="w-full lg:w-96 bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-lg flex flex-col h-[calc(100vh-6rem)] sticky top-6 animate-slide-in-right">
           <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-950/30 rounded-t-xl">
             <div>
-              <h2 className="font-bold text-lg">{selectedOrder.id}</h2>
+              <h2 className="font-bold text-lg">{selectedOrder.orderNumber || selectedOrder.id}</h2>
               <p className="text-xs text-gray-500">
                 {selectedOrder.date.substring(0, 10)}
               </p>
@@ -204,7 +204,7 @@ export default function AdminOrdersView({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate">
-                        {item.productId}
+                        {item.name || item.productId}
                       </p>
                       <p className="text-xs text-gray-500">
                         Talla: {item.size} | Cant: {item.quantity}

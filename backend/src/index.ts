@@ -3,6 +3,9 @@ import cors from "cors";
 import helmet from "helmet";
 import { config } from "./config/env";
 import authRoutes from "./routes/auth";
+import ordersRoutes from "./routes/orders";
+import adminRoutes from "./routes/admin";
+import inventoryRoutes from "./routes/inventory";
 
 const app = express();
 
@@ -17,6 +20,9 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/orders", ordersRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.listen(config.port, () => {
   console.log(`Server running on http://localhost:${config.port}`);

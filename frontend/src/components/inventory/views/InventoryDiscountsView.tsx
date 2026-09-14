@@ -1,23 +1,33 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
+
+interface AppliedDiscount {
+  id: number;
+  productName: string;
+  sizes: string[];
+  percent: number;
+  originalPrice: number;
+  discountedPrice: string;
+}
 
 export default function InventoryDiscountsView({
   products = [],
 }: {
-  products?: any[];
+  products?: Product[];
 }) {
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null,
   );
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(30);
   const [reason, setReason] = useState("");
-  const [appliedDiscounts, setAppliedDiscounts] = useState<any[]>([]);
+  const [appliedDiscounts, setAppliedDiscounts] = useState<AppliedDiscount[]>([]);
 
   const highStockProducts = products.filter((p) => {
     const total = Object.values(p.stock).reduce(
-      (a: any, b: any) => a + b,
+      (sum, stock) => sum + stock,
       0,
-    ) as number;
+    );
     return total > 25;
   });
 
@@ -35,7 +45,11 @@ export default function InventoryDiscountsView({
     if (!selectedProduct || selectedSizes.length === 0) return;
 
     const newDiscount = {
-      id: Date.now(),
+      id:
+        appliedDiscounts.reduce(
+          (max, discount) => Math.max(max, discount.id),
+          0,
+        ) + 1,
       productName: selectedProduct.name,
       sizes: selectedSizes,
       percent: discountPercent,
@@ -64,9 +78,9 @@ export default function InventoryDiscountsView({
           <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
             {highStockProducts.map((p) => {
               const totalStock = Object.values(p.stock).reduce(
-                (a: any, b: any) => a + b,
+                (sum, stock) => sum + stock,
                 0,
-              ) as number;
+              );
               const isSelected = selectedProductId === p.id;
 
               return (
@@ -197,9 +211,9 @@ export default function InventoryDiscountsView({
           <div className="space-y-3">
             {highStockProducts.slice(0, 4).map((p) => {
               const totalStock = Object.values(p.stock).reduce(
-                (a: any, b: any) => a + b,
+                (sum, stock) => sum + stock,
                 0,
-              ) as number;
+              );
               return (
                 <div
                   key={"high-" + p.id}

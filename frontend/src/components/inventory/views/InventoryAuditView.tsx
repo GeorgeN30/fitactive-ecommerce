@@ -1,132 +1,113 @@
-import React, { useState } from "react";
+import { useMemo, useState } from "react";
+import type { InventoryMovement } from "../../../data/types";
+import type { Product } from "../../../data/adminPrototypeTypes";
 
-export default function InventoryAuditView({ products }: { products: any[] }) {
+interface InventoryAuditViewProps {
+  products: Product[];
+  movements: InventoryMovement[];
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("es-PE", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function movementLabel(type: InventoryMovement["type"]): string {
+  if (type === "Entry") return "Entrada";
+  if (type === "Exit") return "Salida";
+  return "Ajuste";
+}
+
+export default function InventoryAuditView({
+  products,
+  movements,
+}: InventoryAuditViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("Todos");
-  const [dateFilter, setDateFilter] = useState("Este mes");
 
-  const auditLogs = products
-    .slice(0, 15)
-    .map((p, index) => {
-      const isEntry = index % 3 === 0;
-      const type = isEntry ? "Entrada" : "Salida";
-      const reason = isEntry
-        ? "Recepción de mercadería"
-        : "Venta #ORD-" + (9800 + index);
-      const qty = isEntry
-        ? Math.floor(Math.random() * 20) + 10
-        : Math.floor(Math.random() * 3) + 1;
-      const date = new Date(
-        Date.now() - Math.floor(Math.random() * 10) * 86400000,
-      );
-
-      return {
-        id: `AUD-${1000 + index}`,
-        product: p,
-        type,
-        reason,
-        qty: isEntry ? `+${qty}` : `-${qty}`,
-        user: isEntry ? "Marco Salazar" : "Sistema",
-        date: date.toLocaleDateString("es-PE", {
-          day: "2-digit",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-    })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const productByName = useMemo(
+    () => new Map(products.map((product) => [product.name, product])),
+    [products],
+  );
+  const filteredMovements = movements.filter((movement) => {
+    const label = movementLabel(movement.type);
+    const query = searchTerm.toLowerCase();
+    return (
+      (filter === "Todos" || label === filter) &&
+      [movement.productName, movement.id, movement.note || ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  });
 
   const handleExportCSV = () => {
-    const headers = [
-      "ID",
-      "Fecha",
-      "Producto",
-      "SKU",
-      "Tipo",
-      "Motivo",
-      "Cantidad",
-      "Usuario",
-    ];
-    const rows = auditLogs.map((log) => [
-      log.id,
-      log.date,
-      log.product.name,
-      `FIT-001-${log.product.id}`,
-      log.type,
-      log.reason,
-      log.qty.replace("+", ""),
-      log.user,
+    const headers = ["ID", "Fecha", "Producto", "Tipo", "Motivo", "Cantidad", "Usuario"];
+    const rows = filteredMovements.map((movement) => [
+      movement.id,
+      movement.datetime,
+      movement.productName,
+      movementLabel(movement.type),
+      movement.note || "",
+      movement.quantity.toString(),
+      movement.responsible,
     ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((e) => e.join(",")),
-    ].join("\\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))
+      .join("\n");
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `auditoria_inventario_${new Date().toISOString().split("T")[0]}.csv`,
-    );
+    const url = URL.createObjectURL(new Blob([csvContent], { type: "text/csv;charset=utf-8" }));
+    link.href = url;
+    link.download = `auditoria_inventario_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-7xl mx-auto">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold">Auditoría Entradías/Salidías</h1>
+          <h1 className="text-2xl font-bold">Auditoría de entradas y salidas</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Historial completo de movimientos de inventario
+            Historial real de movimientos de inventario
           </p>
         </div>
         <button
           onClick={handleExportCSV}
           className="px-4 py-2 bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 shadow-sm"
         >
-          <i className="fa-solid fa-download"></i> Exportar CSV
+          <i className="fa-solid fa-download" /> Exportar CSV
         </button>
       </div>
 
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative w-full md:w-96">
-            <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Buscar por producto, ID o motivo..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-[#F59E0B]"
             />
           </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm text-gray-600 dark:text-gray-400 focus:outline-none focus:border-[#F59E0B]"
-            >
-              <option>Hoy</option>
-              <option>Esta semana</option>
-              <option>Este mes</option>
-              <option>Últimos 3 meses</option>
-            </select>
-
-            <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800 mx-2"></div>
-
-            {["Todos", "Entrada", "Salida"].map((f) => (
+          <div className="flex gap-2">
+            {["Todos", "Entrada", "Salida", "Ajuste"].map((value) => (
               <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${filter === f ? "bg-[#111111] dark:bg-white text-white dark:text-black shadow-md" : "bg-gray-100 dark:bg-zinc-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-zinc-700"}`}
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${filter === value ? "bg-[#111111] dark:bg-white text-white dark:text-black" : "bg-gray-100 dark:bg-zinc-800 text-gray-500"}`}
               >
-                {f}
+                {value}
               </button>
             ))}
           </div>
@@ -136,96 +117,45 @@ export default function InventoryAuditView({ products }: { products: any[] }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-950/50">
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Fecha / ID
-                </th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Producto
-                </th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Motivo
-                </th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Cantidad
-                </th>
-                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">
-                  Usuario
-                </th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase">Fecha / ID</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase">Producto</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase">Tipo</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase">Motivo</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase">Cantidad</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-400 uppercase text-right">Usuario</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-              {auditLogs
-                .filter((log) => filter === "Todos" || log.type === filter)
-                .filter(
-                  (log) =>
-                    log.product.name
-                      .toLowerCase()
-                      .includes(searchTerm.toLowerCase()) ||
-                    log.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    log.reason.toLowerCase().includes(searchTerm.toLowerCase()),
-                )
-                .map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
-                  >
+              {filteredMovements.map((movement) => {
+                const product = productByName.get(movement.productName);
+                const label = movementLabel(movement.type);
+                return (
+                  <tr key={movement.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {log.date}
-                      </p>
-                      <p className="text-xs text-gray-500 font-mono">
-                        {log.id}
-                      </p>
+                      <p className="text-sm font-semibold">{formatDate(movement.datetime)}</p>
+                      <p className="text-xs text-gray-500 font-mono">{movement.id}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={log.product.image}
-                          alt={log.product.name}
-                          className="w-8 h-8 rounded-lg object-cover"
-                        />
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                            {log.product.name}
-                          </p>
-                          <p className="text-[10px] text-gray-500 font-mono">
-                            FIT-001-{log.product.id}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="text-sm font-bold">{movement.productName}</p>
+                      <p className="text-[10px] text-gray-500">{product ? `FIT-001-${product.id}` : ""}</p>
+                      <p className="text-[10px] text-gray-500">Talla {movement.size || "-"}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-1 rounded-full ${log.type === "Entrada" ? "text-blue-500 bg-blue-500/10" : "text-red-500 bg-red-500/10"}`}
-                      >
-                        <i
-                          className={`fa-solid ${log.type === "Entrada" ? "fa-arrow-down" : "fa-arrow-up"} mr-1`}
-                        ></i>
-                        {log.type}
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${label === "Entrada" ? "text-blue-500 bg-blue-500/10" : label === "Salida" ? "text-red-500 bg-red-500/10" : "text-amber-600 bg-amber-500/10"}`}>
+                        {label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {log.reason}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-sm font-black ${log.type === "Entrada" ? "text-blue-500" : "text-red-500"}`}
-                      >
-                        {log.qty}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
-                        {log.user}
-                      </span>
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{movement.note || "-"}</td>
+                    <td className="px-4 py-3 text-sm font-black">{movement.quantity}</td>
+                    <td className="px-4 py-3 text-right text-xs text-gray-500">{movement.responsible || "Sistema"}</td>
                   </tr>
-                ))}
+                );
+              })}
             </tbody>
           </table>
+          {filteredMovements.length === 0 && (
+            <p className="p-8 text-center text-sm text-gray-500">No hay movimientos registrados.</p>
+          )}
         </div>
       </div>
     </div>

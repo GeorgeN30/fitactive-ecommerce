@@ -7,12 +7,29 @@ import InventoryCatalogView from "../../components/inventory/views/InventoryCata
 import React, { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useNavigate } from "react-router-dom";
-import { PRODUCTS as INITIAL_PRODUCTS } from "../../data/adminPrototype";
+import { useAuth } from "../../context/AuthContext";
 import InventoryDiscountsView from "../../components/inventory/views/InventoryDiscountsView";
-import InventoryNotificationsView from "../../components/inventory/views/InventoryNotificationsView";
+import InventoryNotificationsView, {
+  type InventoryNotification,
+} from "../../components/inventory/views/InventoryNotificationsView";
+import {
+  fetchInventory,
+  fetchMovements,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  updateStock,
+} from "../../services/admin";
+import type { ProductInput } from "../../services/admin";
+import type { Product } from "../../data/adminPrototypeTypes";
+import type { InventoryMovement } from "../../data/types";
+import {
+  connectAdminSocket,
+  mapLiveEventToAdminNotification,
+} from "../../services/notifications";
 
 type Section =
-  | "díashboard"
+  | "dashboard"
   | "catalog"
   | "stock"
   | "alerts"
@@ -22,35 +39,183 @@ type Section =
   | "notifications";
 
 export default function InventoryDashboard() {
-  const [section, setSection] = useState<Section>("díashboard");
+  const [section, setSection] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [products, setProducts] = useState<any[]>(INITIAL_PRODUCTS);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Reabastecimiento completado",
-      message:
-        "La orden ORD-2023-089 (Shorts Running Aerox) ha ingresado al inventario.",
-      type: "success",
-      time: "Hace 5 min",
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Stock Crítico Detectado",
-      message: "La Chaqueta Wind-Breaker ha llegado a 0 unidades.",
-      type: "critical",
-      time: "Hace 2 horas",
-      read: false,
-    },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [notifications, setNotifications] = useState<InventoryNotification[]>([]);
 
   const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
+  const lowStockCount = products.filter(
+    (product) =>
+      Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <=
+      product.minStock,
+  ).length;
 
   useEffect(() => {
     if (!theme) setTheme("light");
   }, [theme, setTheme]);
+
+  const isAuthError = (error: unknown): boolean =>
+    (error as { response?: { status?: number } })?.response?.status === 401;
+
+  const handleUnauthorized = () => {
+    localStorage.removeItem("preAuth_token");
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadProducts = async () => {
+      try {
+        const [loadedProducts, loadedMovements] = await Promise.all([
+          fetchInventory(),
+          fetchMovements(),
+        ]);
+        if (!cancelled) {
+          setProducts(loadedProducts);
+          setMovements(loadedMovements);
+        }
+      } catch (error) {
+        if (isAuthError(error)) handleUnauthorized();
+      }
+    };
+    void loadProducts();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => connectAdminSocket((event) => {
+    const live = mapLiveEventToAdminNotification(event);
+    setNotifications((current) => [
+      {
+        id: live.id,
+        title: live.title,
+        message: live.message,
+        type: event.type === "STOCK_ALERT" ? "critical" : "info",
+        time: live.date,
+        read: false,
+      },
+      ...current,
+    ]);
+  }), []);
+
+  const addNotification = (notification: Omit<InventoryNotification, "id">) => {
+    setNotifications((current) => [
+      { ...notification, id: String(Date.now()) },
+      ...current,
+    ]);
+  };
+
+  const handleCreateProduct = async (data: {
+    name: string;
+    sku: string;
+    price: number;
+  }) => {
+    try {
+      const input: ProductInput = {
+        nombre: data.name,
+        precio: data.price || 0,
+        categoria: "Clothing",
+        tallas: [{ talla: "M", stock: 0 }],
+      };
+      const created = await createProduct(input, "/inventory");
+      setProducts((current) => [created, ...current]);
+      return created;
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
+
+  const handleUpdateProduct = async (
+    product: Product,
+    data: { name: string; sku: string; price: number },
+  ) => {
+    try {
+      const updated = await updateProduct(String(product.id), {
+        nombre: data.name,
+        precio: data.price || 0,
+        tallas: Object.entries(product.stock || {}).map(([talla, stock]) => ({
+          talla,
+          stock: stock as number,
+        })),
+      }, "/inventory");
+      setProducts((current) =>
+        current.map((p) => (p.id === product.id ? updated : p)),
+      );
+      return updated;
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct(id, "/inventory");
+      setProducts((current) => current.filter((p) => p.id !== id));
+      addNotification({
+        title: "Producto eliminado",
+        message: "El producto fue removido del catálogo.",
+        type: "info",
+        time: "Ahora",
+        read: false,
+      });
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
+
+  const handleUpdateStock = async (
+    productId: string,
+    size: string,
+    quantity: number,
+    motivdo: string,
+  ) => {
+    try {
+      const updated = await updateStock(productId, size, quantity, motivdo);
+      setProducts((current) =>
+        current.map((p) =>
+          p.id === productId ? updated : p,
+        ),
+      );
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
+
+  const handleRestock = async (
+    productId: string,
+    sizeKey: string,
+    newQuantity: number,
+    motivdo: string,
+  ) => {
+    if (!sizeKey) return;
+    try {
+      const target = products.find(
+        (p) => String(p.id) === productId,
+      );
+      if (!target) return;
+      const updated = await updateStock(productId, sizeKey, newQuantity, motivdo);
+      setProducts((current) =>
+        current.map((p) =>
+          p.id === target.id ? updated : p,
+        ),
+      );
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
 
   const navItems: {
     key: Section;
@@ -59,7 +224,7 @@ export default function InventoryDashboard() {
     alert?: number;
   }[] = [
     {
-      key: "díashboard",
+      key: "dashboard",
       label: "Dashboard Almacén",
       icon: <i className="fa-solid fa-table-columns text-[18px]"></i>,
     },
@@ -77,7 +242,11 @@ export default function InventoryDashboard() {
       key: "alerts",
       label: "Alertas de Stock",
       icon: <i className="fa-solid fa-triangle-exclamation text-[18px]"></i>,
-      alert: 3,
+      alert:
+        products.filter(
+          (product) =>
+            Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <= 5,
+        ).length || undefined,
     },
     {
       key: "restock",
@@ -86,7 +255,7 @@ export default function InventoryDashboard() {
     },
     {
       key: "audit",
-      label: "Entradías / Salidías",
+      label: "Entradas / Salidas",
       icon: <i className="fa-solid fa-arrow-right-arrow-left text-[18px]"></i>,
     },
     {
@@ -103,6 +272,8 @@ export default function InventoryDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("preAuth_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     window.location.href = "/";
   };
 
@@ -125,7 +296,9 @@ export default function InventoryDashboard() {
       <div className="p-4">
         <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-3 flex items-start gap-3 mb-2">
           <i className="fa-solid fa-triangle-exclamation text-[16px] mt-0.5 flex-shrink-0" />
-          <p className="text-xs font-medium">4 productos requieren atención</p>
+          <p className="text-xs font-medium">
+            {lowStockCount} {lowStockCount === 1 ? "producto requiere" : "productos requieren"} atención
+          </p>
         </div>
       </div>
 
@@ -188,9 +361,9 @@ export default function InventoryDashboard() {
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold text-white leading-tight">
-                Marco Salazar
+                {user?.name || user?.email || "Gestor de inventario"}
               </p>
-              <p className="text-[10px] text-gray-400">Gestor Inventario</p>
+              <p className="text-[10px] text-gray-400">Gestor de inventario</p>
             </div>
           </div>
           <button
@@ -260,26 +433,37 @@ export default function InventoryDashboard() {
         </div>
 
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto px-6 pb-10 custom-scrollbar">
-          {section === "díashboard" && (
+          {section === "dashboard" && (
             <InventoryHomeView setSection={setSection} products={products} />
           )}
           {section === "catalog" && (
             <InventoryCatalogView
               products={products}
               setProducts={setProducts}
+              onAddProduct={handleCreateProduct}
+              onUpdateProduct={handleUpdateProduct}
+              onDeleteProduct={handleDeleteProduct}
             />
           )}
           {section === "stock" && (
-            <InventoryStockView products={products} setProducts={setProducts} />
+            <InventoryStockView
+              products={products}
+              setProducts={setProducts}
+              onUpdateStock={handleUpdateStock}
+            />
           )}
           {section === "alerts" && <InventoryAlertsView products={products} />}
           {section === "restock" && (
             <InventoryRestockView
               products={products}
               setProducts={setProducts}
+              addNotification={addNotification}
+              onRestock={handleRestock}
             />
           )}
-          {section === "audit" && <InventoryAuditView products={products} />}
+          {section === "audit" && (
+            <InventoryAuditView products={products} movements={movements} />
+          )}
           {section === "discounts" && (
             <InventoryDiscountsView products={products} />
           )}

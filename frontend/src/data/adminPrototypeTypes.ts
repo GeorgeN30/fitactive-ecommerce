@@ -45,6 +45,7 @@ export interface CartItem {
   size: string;
   color: string;
   quantity: number;
+  name?: string;
 }
 
 export interface UserMeasurements {
@@ -68,10 +69,13 @@ export interface User {
   blocked?: boolean;
   registeredAt: string;
   lastAccess: string;
+  orders?: number;
+  spent?: number;
 }
 
 export interface Order {
   id: string;
+  orderNumber?: string;
   userId: string;
   items: CartItem[];
   total: number;

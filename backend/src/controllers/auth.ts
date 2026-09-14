@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { authService } from "../services/auth";
-import { HTTP_STATUS } from "../constants";
+import { HTTP_STATUS, ROLES } from "../constants";
 import { AuthRequest } from "../middlewares/auth";
 
 export const authController = {
@@ -707,7 +707,7 @@ export const authController = {
       }
 
       const user = await import("../config/prisma").then((m) =>
-        m.prisma.user.findUnique({
+        m.prisma.usuarios.findUnique({
           where: { id: req.user!.userId },
           select: {
             id: true,
@@ -719,7 +719,7 @@ export const authController = {
             points: true,
             provider: true,
             passwordHash: true,
-            createdAt: true,
+            fecha_creacion: true,
           },
         })
       );
@@ -731,7 +731,7 @@ export const authController = {
 
       const { passwordHash, ...safeUser } = user;
       res.status(HTTP_STATUS.OK).json({
-        user: { ...safeUser, hasPassword: !!passwordHash },
+        user: { ...safeUser, role: safeUser.role || ROLES.CUSTOMER, hasPassword: !!passwordHash },
       });
     } catch (err) {
       console.error("Get me error:", err);

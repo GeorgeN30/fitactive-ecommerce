@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
+import { createOrder, resolveOrderEntries } from "../services/orders";
 
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -11,6 +13,8 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(1);
   const [orderNumber, setOrderNumber] = useState("");
   const [paidTotal, setPaidTotal] = useState(0);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   const [purchasedItems, setPurchasedItems] = useState(cartItems);
 
@@ -40,7 +44,7 @@ export default function CheckoutPage() {
       <AppLayout>
         <div className="min-h-screen bg-[#f8f9fa] dark:bg-brand-dark-bg flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="text-6xl mb-6">🛒</div>
+            <i className="fa-solid fa-cart-shopping text-6xl mb-6 text-gray-400" />
 
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-3">
               Tu carrito está vacío
@@ -62,12 +66,6 @@ export default function CheckoutPage() {
     );
   }
 
-  const generateOrderNumber = () => {
-    const random = Math.floor(100 + Math.random() * 900);
-
-    return `ORD-${new Date().getFullYear()}-${random}`;
-  };
-
   const handleCustomerSubmit = (e: FormEvent) => {
     e.preventDefault();
     setStep(2);
@@ -82,20 +80,53 @@ export default function CheckoutPage() {
     setStep(4);
   };
 
-  const handlePayment = (e: FormEvent) => {
+  const handlePayment = async (e: FormEvent) => {
     e.preventDefault();
 
-    const newOrderNumber = generateOrderNumber();
+    if (processingPayment) {
+      return;
+    }
 
-    setPurchasedItems([...cartItems]);
+    setProcessingPayment(true);
+    setPaymentError("");
 
-    setPaidTotal(cartTotal);
+    try {
+      const entries = await resolveOrderEntries(cartItems);
+      const order = await createOrder(entries);
 
-    setOrderNumber(newOrderNumber);
+      setPurchasedItems([...cartItems]);
 
-    clearCart();
+      setPaidTotal(order.total);
 
-    setStep(5);
+      setOrderNumber(order.numero);
+
+      clearCart();
+
+      setStep(5);
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const code = axios.isAxiosError(error)
+        ? error.response?.data?.error
+        : undefined;
+
+      if (status === 401) {
+        navigate("/login");
+      } else if (status === 409 || code === "INSUFFICIENT_STOCK") {
+        setPaymentError(
+          "No hay stock suficiente para alguno de los productos. Ajusta las cantidades e inténtalo de nuevo.",
+        );
+      } else if (code === "SIZE_NOT_FOUND") {
+        setPaymentError(
+          "No se pudo identificar la talla de algún producto. Agrégalo nuevamente desde el catálogo.",
+        );
+      } else {
+        setPaymentError(
+          "Ocurrió un error al registrar tu pedido. Inténtalo de nuevo.",
+        );
+      }
+    } finally {
+      setProcessingPayment(false);
+    }
   };
 
   const handlePrintReceipt = () => {
@@ -265,21 +296,21 @@ export default function CheckoutPage() {
                 onClick={() => navigate("/")}
                 className="py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:bg-black dark:hover:bg-gray-200 transition"
               >
-                📦 Ver pedido
+                <><i className="fa-solid fa-box" /> Ver pedido</>
               </button>
 
               <button
                 onClick={handlePrintReceipt}
                 className="py-4 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition"
               >
-                🧾 Comprobante
+                <><i className="fa-solid fa-receipt" /> Comprobante</>
               </button>
 
               <Link
                 to="/catalogo"
                 className="py-4 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition text-center"
               >
-                🛍️ Seguir comprando
+                <><i className="fa-solid fa-bag-shopping" /> Seguir comprando</>
               </Link>
             </div>
 
@@ -299,7 +330,7 @@ export default function CheckoutPage() {
                   onClick={handlePrintReceipt}
                   className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
-                  🖨 Imprimir
+                  <><i className="fa-solid fa-print" /> Imprimir</>
                 </button>
               </div>
 
@@ -845,6 +876,12 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                {paymentError && (
+                  <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm font-bold text-red-700 dark:text-red-400">
+                    {paymentError}
+                  </div>
+                )}
+
                 <div className="mt-8 bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-lg">
@@ -868,9 +905,12 @@ export default function CheckoutPage() {
 
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition"
+                    disabled={processingPayment}
+                    className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition disabled:opacity-50"
                   >
-                    Pagar S/ {cartTotal.toFixed(2)}
+                    {processingPayment
+                      ? "Procesando..."
+                      : `Pagar S/ ${cartTotal.toFixed(2)}`}
                   </button>
                 </div>
               </div>
