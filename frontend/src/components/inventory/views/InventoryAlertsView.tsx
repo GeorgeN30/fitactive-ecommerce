@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
 
-export default function InventoryAlertsView({ products }: { products: any[] }) {
+export default function InventoryAlertsView({ products }: { products: Product[] }) {
   const [filter, setFilter] = useState("Todos");
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
-  const [restockingProduct, setRestockingProduct] = useState<any>(null);
+  const [restockingProduct, setRestockingProduct] = useState<Product | null>(null);
 
-  const handleRestockClick = (product: any) => {
+  const handleRestockClick = (product: Product) => {
     setRestockingProduct(product);
     setIsRestockModalOpen(true);
   };
@@ -13,10 +14,10 @@ export default function InventoryAlertsView({ products }: { products: any[] }) {
   const alertProducts = products
     .map((p) => {
       const totalStock = Object.values(p.stock).reduce(
-        (a: any, b: any) => a + b,
+        (sum, stock) => sum + stock,
         0,
-      ) as number;
-      const minStock = 15;
+      );
+      const minStock = p.minStock;
       const status =
         totalStock === 0
           ? "Agotado"

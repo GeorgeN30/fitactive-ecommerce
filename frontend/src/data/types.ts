@@ -84,6 +84,7 @@ export interface InventoryMovement {
   quantity: number;
   responsible: string;
   note?: string;
+  size?: string;
 }
 
 export interface DashboardStats {
@@ -95,6 +96,7 @@ export interface DashboardStats {
   customersGrowth: number;
   productsSold: number;
   productsGrowth: number;
+  totalReturns: number;
 }
 
 export interface TopProduct {

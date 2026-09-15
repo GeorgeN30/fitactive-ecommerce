@@ -25,7 +25,7 @@ function DarkPanel() {
             <i className="fa-solid fa-cube text-brand-green text-lg" />
           </div>
           <span className="text-[10px] text-slate-500 font-medium">
-            Probador 2D
+            Probador 3D
           </span>
         </div>
         <div className="flex flex-col items-center gap-2">

@@ -496,6 +496,7 @@ export const mockDashboardStats: DashboardStats = {
   customersGrowth: 15.3,
   productsSold: 1205,
   productsGrowth: 5.7,
+  totalReturns: 0,
 };
 
 export const mockTopProducts: TopProduct[] = [
@@ -587,32 +588,8 @@ export const mockConversionFunnel: ConversionFunnel[] = [
 ];
 
 export const mockNotifications: Notification[] = [
-  {
-    id: "n1",
-    type: "order",
-    title: "Nuevo Pedido #FL-2026-00847",
-    detail: "Alejandro Ruiz - $104.00",
-    targetTab: "orders",
-  },
-  {
-    id: "n2",
-    type: "alert",
-    title: "Alerta de Stock Bajo",
-    detail: "6 productos requieren atencion",
-    targetTab: "inventory",
-  },
-  {
-    id: "n3",
-    type: "order",
-    title: "Nuevo Pedido #FL-2026-00846",
-    detail: "Sofia Montenegro - $59.00",
-    targetTab: "orders",
-  },
-  {
-    id: "n4",
-    type: "alert",
-    title: "Solicitud de Devolucion",
-    detail: "Pedido #FL-2026-00841 pendiente de revision",
-    targetTab: "returns",
-  },
+  { id: "n1", type: "order", title: "Nuevo Pedido #FL-2026-00847", detail: "Alejandro Ruiz - S/ 104.00", targetTab: "orders" },
+  { id: "n2", type: "alert", title: "Alerta de Stock Bajo", detail: "6 productos requieren atencion", targetTab: "inventory" },
+  { id: "n3", type: "order", title: "Nuevo Pedido #FL-2026-00846", detail: "Sofia Montenegro - S/ 59.00", targetTab: "orders" },
+  { id: "n4", type: "alert", title: "Solicitud de Devolucion", detail: "Pedido #FL-2026-00841 pendiente de revision", targetTab: "returns" },
 ];

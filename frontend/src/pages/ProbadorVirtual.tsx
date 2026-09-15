@@ -18,11 +18,23 @@ export default function ProbadorVirtual() {
     const cargarDatos = async () => {
       try {
         const response = await api.get('/products');
-        const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
-        
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : (response.data.products || response.data.data || []);
+        const data = rawData.map((item: any) => ({
+          ...item,
+          genero: item.genero === 'male' ? 'Hombre' : item.genero === 'female' ? 'Mujer' : item.genero || 'Unisex',
+          categoria: item.categoria || 'General',
+          producto_tallas: (item.producto_tallas || item.tallas || []).map((talla: any) => ({
+            ...talla,
+            rango_cm_min: talla.rango_cm_min ?? talla.rangoCmMin,
+            rango_cm_max: talla.rango_cm_max ?? talla.rangoCmMax,
+          })),
+        }));
+
         const productosValidos = Array.isArray(data) ? data : [];
         setProductos(productosValidos);
-        
+
         if (productosValidos.length > 0) {
           if (productoIdUrl) {
             const productoEspecifico = productosValidos.find((p: any) => String(p.id) === String(productoIdUrl));
@@ -48,7 +60,7 @@ export default function ProbadorVirtual() {
   }, [productoIdUrl]);
 
   const seleccionarPorDefecto = (listaValidos: any[]) => {
-    const inicialesHombre = listaValidos.filter((p: any) => p.genero?.toLowerCase() === 'hombre');
+    const inicialesHombre = listaValidos.filter((p: any) => ['hombre', 'male'].includes(p.genero?.toLowerCase()));
     if (inicialesHombre.length > 0) {
       setSelectedProduct(inicialesHombre[0]);
     } else if (listaValidos.length > 0) {
@@ -59,21 +71,24 @@ export default function ProbadorVirtual() {
 
   const productosDelGenero = productos.filter(p => p?.genero?.toLowerCase() === genero.toLowerCase());
   const categoriasUnicas = ['Todas', ...Array.from(new Set(productosDelGenero.map(p => p?.categoria))).filter(Boolean)];
-  const productosFiltrados = categoriaFiltro === 'Todas' 
-    ? productosDelGenero 
+  const productosFiltrados = categoriaFiltro === 'Todas'
+    ? productosDelGenero
     : productosDelGenero.filter(p => p?.categoria === categoriaFiltro);
 
   const handleCambioGenero = (nuevoGenero: string) => {
     setGenero(nuevoGenero);
     setCategoriaFiltro('Todas');
-    
+
     if (nuevoGenero === 'Mujer') {
       setMedidas({ pecho: 90, cintura: 74, cadera: 98 });
     } else {
       setMedidas({ pecho: 96, cintura: 82, cadera: 95 });
     }
-    
-    const prodsNuevos = productos.filter(p => p?.genero?.toLowerCase() === nuevoGenero.toLowerCase());
+
+    const prodsNuevos = productos.filter(p => {
+      const productGender = p?.genero?.toLowerCase();
+      return productGender === nuevoGenero.toLowerCase() || (nuevoGenero === 'Hombre' && productGender === 'male') || (nuevoGenero === 'Mujer' && productGender === 'female');
+    });
     if (prodsNuevos.length > 0) {
       setSelectedProduct(prodsNuevos[0]);
     } else {
@@ -101,11 +116,11 @@ export default function ProbadorVirtual() {
       tallas.forEach((t: any) => {
         const min = Number(t.rango_cm_min || 0);
         const max = Number(t.rango_cm_max || 0);
-        
+
         if (min > 0 && max > 0) {
           const centro = (min + max) / 2;
           const diferencia = Math.abs(medidaBase - centro);
-          
+
           if (diferencia < mejorDiferencia) {
             mejorDiferencia = diferencia;
             tallaIdeal = t;
@@ -123,10 +138,10 @@ export default function ProbadorVirtual() {
       const rangoTotal = max - min;
       const posicion = rangoTotal === 0 ? 50 : ((medidaUsuario - min) / rangoTotal) * 100;
       const porcentajeVisual = Math.max(5, Math.min(95, posicion));
-      
+
       let estado = 'Perfecto';
       let color = 'bg-brand-green';
-      
+
       if (medidaUsuario < min - 3) { estado = 'Muy Holgado'; color = 'bg-blue-400'; }
       else if (medidaUsuario <= min + 1) { estado = 'Holgado'; color = 'bg-yellow-400'; }
       else if (medidaUsuario > max + 3) { estado = 'Muy Ajustado'; color = 'bg-red-500'; }
@@ -137,7 +152,7 @@ export default function ProbadorVirtual() {
 
     const minBase = Number(tallaIdeal.rango_cm_min || 60);
     const maxBase = Number(tallaIdeal.rango_cm_max || 100);
-    
+
     const difCintura = genero === 'Mujer' ? 18 : 12;
     const difCadera = genero === 'Mujer' ? -4 : 2;
 
@@ -197,7 +212,7 @@ export default function ProbadorVirtual() {
     <AppLayout>
       <div className="bg-[#f4f7f9] dark:bg-[#0f1115] min-h-screen py-10 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           <div className="mb-10">
             <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
               <svg className="w-8 h-8 text-brand-green drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
@@ -207,12 +222,12 @@ export default function ProbadorVirtual() {
           </div>
 
           <div className="grid lg:grid-cols-12 gap-8">
-            
+
             <div className="lg:col-span-4 bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5 transition-all">
               <h3 className="font-extrabold text-sm dark:text-white mb-6 uppercase tracking-widest text-center border-b border-gray-100 dark:border-white/5 pb-4">Tu Perfil Físico</h3>
-              
+
               <div className="flex justify-center mb-10 relative bg-gray-50/50 dark:bg-black/20 rounded-2xl py-8 overflow-hidden shadow-inner border border-gray-100/50 dark:border-white/5">
-                
+
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="w-32 h-40 bg-brand-green/10 dark:bg-brand-green/5 blur-3xl rounded-full"></div>
                 </div>
@@ -254,8 +269,8 @@ export default function ProbadorVirtual() {
                   <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Género Biométrico</label>
                   <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 p-1 bg-gray-50 dark:bg-black/20">
                     {['Hombre', 'Mujer'].map(g => (
-                      <button 
-                        key={g} 
+                      <button
+                        key={g}
                         onClick={() => handleCambioGenero(g)}
                         className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 cursor-pointer ${genero === g ? 'bg-white text-gray-900 shadow-sm dark:bg-brand-green dark:text-black' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
                       >
@@ -271,19 +286,19 @@ export default function ProbadorVirtual() {
                       <div key={med.id} className="bg-white dark:bg-white/[0.02] p-4 rounded-2xl border border-gray-100 dark:border-white/5 transition-all shadow-sm">
                         <label className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-4 block">{med.label}</label>
                         <div className="flex items-center gap-5">
-                          <input 
-                            type="range" 
-                            min="60" 
-                            max="140" 
+                          <input
+                            type="range"
+                            min="60"
+                            max="140"
                             value={medidas[med.id as keyof typeof medidas]}
                             onChange={(e) => setMedidas({...medidas, [med.id]: Number(e.target.value)})}
                             className="flex-1 accent-brand-green cursor-pointer h-1.5 bg-gray-200 rounded-full appearance-none dark:bg-gray-700"
                           />
                           <div className="relative">
-                            <input 
-                              type="number" 
-                              min="60" 
-                              max="140" 
+                            <input
+                              type="number"
+                              min="60"
+                              max="140"
                               value={medidas[med.id as keyof typeof medidas] || ''}
                               onChange={(e) => handleMedidaManual(med.id, e.target.value)}
                               className="w-16 px-2 py-2 text-center text-sm font-black border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-black/40 dark:text-white focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
@@ -298,11 +313,11 @@ export default function ProbadorVirtual() {
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-8">
-              
+
               <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                   <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">1. Selecciona una prenda</h3>
-                  
+
                   <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
                     {categoriasUnicas.map(cat => (
                       <button
@@ -318,8 +333,8 @@ export default function ProbadorVirtual() {
 
                 <div className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
                   {productosFiltrados.map(prod => (
-                    <button 
-                      key={prod.id} 
+                    <button
+                      key={prod.id}
                       onClick={() => setSelectedProduct(prod)}
                       className={`flex-shrink-0 w-28 h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300 relative bg-gray-50 dark:bg-black/20 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green scale-105 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-transparent opacity-70 hover:opacity-100 dark:border-white/5'}`}
                     >
@@ -343,7 +358,7 @@ export default function ProbadorVirtual() {
 
               {selectedProduct && analisis ? (
                 <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5 flex-1 flex flex-col md:flex-row gap-10">
-                  
+
                   <div className="w-full md:w-1/3 flex flex-col justify-center items-center">
                     <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 dark:bg-black/40 shadow-inner border border-gray-200/50 dark:border-white/5">
                       <img src={selectedProduct.imagen_url || selectedProduct.img} alt={selectedProduct.nombre} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal hover:scale-110 transition-transform duration-1000 ease-out" />
@@ -379,7 +394,7 @@ export default function ProbadorVirtual() {
                       <svg className="w-4 h-4 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                       Mapa de Ajuste (Fit Map)
                     </h4>
-                    
+
                     <div className="space-y-7">
                       {analisis.detalles.map((det: any, idx: number) => (
                         <div key={idx} className="group transition-all duration-300">
@@ -395,7 +410,7 @@ export default function ProbadorVirtual() {
                             <>
                               <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden relative shadow-inner">
                                 <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-400 dark:bg-gray-500 z-10 -ml-px"></div>
-                                <div 
+                                <div
                                   className={`absolute top-0 bottom-0 w-3 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)] ${det.color} transition-all duration-1000 ease-out`}
                                   style={{ left: `calc(${det.porcentajeVisual}% - 6px)` }}
                                 ></div>

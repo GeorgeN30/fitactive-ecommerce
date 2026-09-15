@@ -1,10 +1,50 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
+
+interface RestockRequest {
+  id: number;
+  name: string;
+  priority: string;
+  status: string;
+  qty: number;
+  desc: string;
+  date: string;
+  icon: string;
+}
+
+interface FormErrors {
+  product?: string;
+  quantity?: string;
+  note?: string;
+}
+
+interface InventoryNotificationInput {
+  title: string;
+  message: string;
+  type: "success" | "critical" | "info";
+  time: string;
+  read: boolean;
+}
+
+interface InventoryRestockProps {
+  products: Product[];
+  setProducts: Dispatch<SetStateAction<Product[]>>;
+  addNotification: (notification: InventoryNotificationInput) => void;
+  onRestock?: (
+    productId: string,
+    size: string,
+    quantity: number,
+    reason: string,
+  ) => Promise<void>;
+}
 
 export default function InventoryRestockView({
   products,
   setProducts,
   addNotification,
-}: any) {
+  onRestock,
+}: InventoryRestockProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
@@ -12,47 +52,29 @@ export default function InventoryRestockView({
   const [quantity, setQuantity] = useState("");
   const [priority, setPriority] = useState("Media");
   const [note, setNote] = useState("");
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const suggestions = products
-    .filter((p: any) => {
+    .filter((p) => {
       const total = Object.values(p.stock).reduce(
-        (a: any, b: any) => a + b,
+        (sum, stock) => sum + stock,
         0,
-      ) as number;
-      return total < 15;
+      );
+      return total < p.minStock;
     })
-    .map((p: any) => ({
+    .map((p) => ({
       ...p,
       actual: Object.values(p.stock).reduce(
-        (a: any, b: any) => a + b,
+        (sum, stock) => sum + stock,
         0,
-      ) as number,
-      recommended: 15 + Math.floor(Math.random() * 10),
+      ),
+      recommended: Math.max(
+        p.minStock,
+        Object.values(p.stock).reduce((sum, stock) => sum + stock, 0) + 10,
+      ),
     }));
 
-  const [requests, setRequests] = useState([
-    {
-      id: 1,
-      name: "Polo Performance Pro",
-      priority: "Alta",
-      status: "Pendiente",
-      qty: 50,
-      desc: "Agotamiento previsto en 3 días",
-      date: "2026-09-03",
-      icon: "fa-box",
-    },
-    {
-      id: 2,
-      name: "Shorts Running Aerox",
-      priority: "Media",
-      status: "Enviado",
-      qty: 30,
-      desc: "Aprobado para ingreso",
-      date: "2026-09-01",
-      icon: "fa-box-open",
-    },
-  ]);
+  const [requests, setRequests] = useState<RestockRequest[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -60,7 +82,7 @@ export default function InventoryRestockView({
   };
 
   const handleCreateRequest = () => {
-    const newErrors: any = {};
+    const newErrors: FormErrors = {};
     if (!selectedProduct) newErrors.product = "Debe seleccionar un producto";
     if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0)
       newErrors.quantity = "Cantidad inválida";
@@ -72,12 +94,12 @@ export default function InventoryRestockView({
     }
 
     const prodName =
-      products.find((p: any) => p.id.toString() === selectedProduct)?.name ||
+      products.find((p) => p.id === selectedProduct)?.name ||
       "Producto Nuevo";
 
     setRequests([
       {
-        id: Date.now(),
+        id: requests.reduce((max, request) => Math.max(max, request.id), 0) + 1,
         name: prodName,
         priority,
         status: "Pendiente",
@@ -102,17 +124,33 @@ export default function InventoryRestockView({
     setErrors({});
   };
 
-  const markAsReceived = (req: any) => {
+  const markAsReceived = async (req: RestockRequest) => {
+    const product = products.find((p) => p.name === req.name);
+    const sizeKey = product
+      ? Object.keys(product.stock)[0] || "Única"
+      : "Única";
+
+    if (onRestock && product) {
+      try {
+        await onRestock(
+          String(product.id),
+          sizeKey,
+          (product.stock[sizeKey] || 0) + req.qty,
+          "Ingreso de mercadería",
+        );
+      } catch {
+        showToast("No se pudo actualizar el inventario.");
+        return;
+      }
+    }
+
     setProducts(
-      products.map((p: any) => {
+      products.map((p) => {
         if (p.name === req.name) {
+          const key = Object.keys(p.stock)[0] || "Única";
           return {
             ...p,
-            stock: {
-              ...p.stock,
-              [Object.keys(p.stock)[0] || "Única"]:
-                (p.stock[Object.keys(p.stock)[0] || "Única"] || 0) + req.qty,
-            },
+            stock: { ...p.stock, [key]: (p.stock[key] || 0) + req.qty },
           };
         }
         return p;
@@ -120,17 +158,14 @@ export default function InventoryRestockView({
     );
 
     showToast("¡Inventario actualizado! Solicitud marcada como recibida.");
-    setRequests(requests.filter((r: any) => r.id !== req.id));
-    if (addNotification) {
-      addNotification({
-        id: Date.now(),
-        title: "Ingreso Completado",
-        message: `Han ingresado ${req.qty} unidades de "${req.name}" al catálogo exitosamente.`,
-        type: "success",
-        time: "Justo ahora",
-        read: false,
-      });
-    }
+    setRequests(requests.filter((request) => request.id !== req.id));
+    addNotification({
+      title: "Ingreso Completado",
+      message: `Han ingresado ${req.qty} unidades de "${req.name}" al catálogo exitosamente.`,
+      type: "success",
+      time: "Justo ahora",
+      read: false,
+    });
   };
 
   return (
@@ -164,11 +199,11 @@ export default function InventoryRestockView({
                   className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.product ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white`}
                 >
                   <option value="">Seleccione un producto...</option>
-                  {products.map((p: any) => (
+                  {products.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} (stock:{" "}
                       {Object.values(p.stock).reduce(
-                        (a: any, b: any) => a + b,
+                        (sum, stock) => sum + stock,
                         0,
                       )}
                       )
@@ -281,30 +316,30 @@ export default function InventoryRestockView({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {suggestions.slice(0, 4).map((s: any, i: number) => (
+          {suggestions.slice(0, 4).map((suggestion) => (
             <div
-              key={i}
+              key={suggestion.id}
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-950/50/50 border border-gray-200 dark:border-zinc-800/50 rounded-xl"
             >
               <div className="flex items-center gap-3">
-                <img
-                  src={s.image}
-                  alt={s.name}
+                  <img
+                  src={suggestion.image}
+                  alt={suggestion.name}
                   className="w-10 h-10 rounded-lg object-cover bg-white dark:bg-zinc-900 p-0.5 border border-gray-100 dark:border-zinc-800"
                 />
                 <div>
                   <p className="text-xs font-bold text-gray-900 dark:text-white">
-                    {s.name}
+                    {suggestion.name}
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    Stock actual: {s.actual} · Recomendado: {s.recommended} uds.
+                    Stock actual: {suggestion.actual} · Recomendado: {suggestion.recommended} uds.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
-                  setSelectedProduct(s.id.toString());
-                  setQuantity((s.recommended - s.actual).toString());
+                  setSelectedProduct(suggestion.id);
+                  setQuantity((suggestion.recommended - suggestion.actual).toString());
                   setIsModalOpen(true);
                 }}
                 className="px-4 py-1.5 bg-[#F59E0B] text-black text-[10px] font-bold rounded-lg hover:bg-yellow-400 transition-colors"

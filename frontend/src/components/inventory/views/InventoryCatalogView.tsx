@@ -1,28 +1,49 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
+
+interface ProductFormErrors {
+  name?: string;
+  sku?: string;
+  price?: string;
+}
+
+interface ProductFormInput {
+  name: string;
+  sku: string;
+  price: number;
+}
+
 export default function InventoryCatalogView({
   products,
   setProducts,
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
 }: {
-  products: any[];
-  setProducts: any;
+  products: Product[];
+  setProducts: Dispatch<SetStateAction<Product[]>>;
+  onAddProduct?: (data: ProductFormInput) => Promise<Product>;
+  onUpdateProduct?: (product: Product, data: ProductFormInput) => Promise<Product>;
+  onDeleteProduct?: (id: string) => Promise<void>;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState("");
 
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({ name: "", sku: "", price: "" });
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<ProductFormErrors>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3000);
   };
 
-  const handleSaveProduct = () => {
-    const newErrors: any = {};
+  const handleSaveProduct = async () => {
+    const newErrors: ProductFormErrors = {};
     if (!formData.name.trim()) newErrors.name = "Requerido";
     if (!formData.sku.trim()) newErrors.sku = "Requerido";
     if (!formData.price || isNaN(Number(formData.price)))
@@ -33,28 +54,55 @@ export default function InventoryCatalogView({
       return;
     }
 
-    if (editingId) {
-      setProducts(
-        products.map((p) =>
-          p.id === editingId
-            ? { ...p, name: formData.name, price: Number(formData.price) }
-            : p,
-        ),
-      );
-      showToast("¡Producto editado exitosamente!");
+    if (editingId && onUpdateProduct) {
+      try {
+          const current = products.find((p) => p.id === editingId);
+          if (!current) {
+            setErrors({ name: "Producto no encontrado" });
+            return;
+          }
+          const updated = await onUpdateProduct(current, {
+            name: formData.name.trim(),
+            sku: formData.sku.trim(),
+            price: Number(formData.price),
+          });
+          if (updated) {
+            setProducts(
+              products.map((p) => (p.id === editingId ? updated : p)),
+            );
+          }
+          showToast("¡Producto editado exitosamente!");
+        setIsModalOpen(false);
+        setFormData({ name: "", sku: "", price: "" });
+        setErrors({});
+        setEditingId(null);
+      } catch {
+        showToast("No se pudo guardar el producto. Intenta nuevamente.");
+        return;
+      }
+    } else if (!editingId && onAddProduct) {
+      try {
+          const created = await onAddProduct({
+            name: formData.name.trim(),
+            sku: formData.sku.trim(),
+            price: Number(formData.price),
+          });
+          if (created) {
+            setProducts([created, ...products]);
+          }
+          showToast("Producto añadido al catálogo exitosamente.");
+        setIsModalOpen(false);
+        setFormData({ name: "", sku: "", price: "" });
+        setErrors({});
+        setEditingId(null);
+      } catch {
+        showToast("No se pudo guardar el producto. Intenta nuevamente.");
+        return;
+      }
+    } else if (editingId) {
+      showToast("No se pudo editar el producto.");
     } else {
-      const newProduct = {
-        id: Date.now(),
-        name: formData.name,
-        category: "Nueva Categoría",
-        price: Number(formData.price),
-        sales: 0,
-        image:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format",
-        stock: { S: 0, M: 0, L: 0 },
-      };
-      setProducts([newProduct, ...products]);
-      showToast("¡Producto añadido al catálogo exitosamente!");
+      showToast("No se pudo añadir el producto.");
     }
 
     setIsModalOpen(false);
@@ -63,24 +111,40 @@ export default function InventoryCatalogView({
     setEditingId(null);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     setDeleteId(id);
   };
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteId) {
+      if (onDeleteProduct) {
+        try {
+          await onDeleteProduct(String(deleteId));
+        } catch {
+          showToast("No se pudo eliminar el producto.");
+          setDeleteId(null);
+          return;
+        }
+      }
       setProducts(products.filter((p) => p.id !== deleteId));
       showToast("Producto eliminado del catálogo.");
       setDeleteId(null);
     }
   };
 
-  const handleEdit = (p: any) => {
+  const handleEdit = (p: Product) => {
     setEditingId(p.id);
     setFormData({
       name: p.name,
       sku: `FIT-001-${p.id}`,
       price: p.price.toString(),
     });
+    setIsModalOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingId(null);
+    setFormData({ name: "", sku: "", price: "" });
+    setErrors({});
     setIsModalOpen(true);
   };
 
@@ -94,14 +158,14 @@ export default function InventoryCatalogView({
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           ></div>
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800">
-            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Nuevo Producto</h2>
+          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800 flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center flex-shrink-0">
+              <h2 className="text-xl font-bold">{editingId ? "Editar producto" : "Nuevo Producto"}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -110,7 +174,7 @@ export default function InventoryCatalogView({
               </button>
             </div>
 
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div className="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase">
@@ -216,7 +280,7 @@ export default function InventoryCatalogView({
                 <label className="text-xs font-bold text-gray-500 uppercase">
                   Imagen del producto *
                 </label>
-                <div className="w-full border-2 border-díashed border-gray-200 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer">
+                <div className="w-full border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer">
                   <i className="fa-solid fa-camera text-3xl mb-3"></i>
                   <p className="font-bold text-sm text-gray-900 dark:text-gray-100">
                     Clic para subir imagen del producto
@@ -228,7 +292,7 @@ export default function InventoryCatalogView({
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex gap-4">
+            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex gap-4 flex-shrink-0">
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="flex-1 px-4 py-3 bg-gray-100 dark:bg-zinc-800 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
@@ -239,7 +303,7 @@ export default function InventoryCatalogView({
                 onClick={handleSaveProduct}
                 className="flex-1 px-4 py-3 bg-[#00FF66] text-black font-bold rounded-xl hover:bg-[#00cc52] transition-colors shadow-lg shadow-[#00FF66]/20"
               >
-                Añadir Producto
+                {editingId ? "Guardar cambios" : "Añadir Producto"}
               </button>
             </div>
           </div>
@@ -254,7 +318,7 @@ export default function InventoryCatalogView({
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleAdd}
           className="px-4 py-2 bg-[#00FF66] text-black text-sm font-bold rounded-xl hover:bg-[#00cc52] transition-colors flex items-center gap-2"
         >
           <i className="fa-solid fa-plus"></i> Añadir Producto
@@ -274,17 +338,17 @@ export default function InventoryCatalogView({
             />
           </div>
           <div className="flex gap-4">
-            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm text-gray-600 dark:text-gray-400 focus:outline-none">
-              <option>Todías las categorías</option>
-              <option>Tops</option>
-              <option>Bottoms</option>
-              <option>Outerwear</option>
+            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todas las categorías</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Tops</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Bottoms</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Outerwear</option>
             </select>
-            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm text-gray-600 dark:text-gray-400 focus:outline-none">
-              <option>Todos los deportes</option>
-              <option>Gym</option>
-              <option>Running</option>
-              <option>Yoga</option>
+            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todos los deportes</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Gym</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Running</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Yoga</option>
             </select>
           </div>
         </div>
@@ -326,10 +390,10 @@ export default function InventoryCatalogView({
                 )
                 .map((p) => {
                   const totalStock = Object.values(p.stock).reduce(
-                    (a: any, b: any) => a + b,
+                    (sum, stock) => sum + stock,
                     0,
-                  ) as number;
-                  const minStock = 15;
+                  );
+                  const minStock = p.minStock;
                   const status =
                     totalStock === 0
                       ? "Agotado"
@@ -365,12 +429,12 @@ export default function InventoryCatalogView({
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         <div className="flex gap-1">
-                          {p.sizes.map((s: any) => (
+                          {p.sizes.map((size) => (
                             <span
-                              key={s}
+                              key={size}
                               className="px-1 border border-gray-200 dark:border-zinc-700 rounded text-[9px]"
                             >
-                              {s}
+                              {size}
                             </span>
                           ))}
                         </div>

@@ -10,11 +10,11 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
-  
+
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState('Descripción');
-  
+  const [activeTab, setActiveTab] = useState("Descripción");
+
   const [producto, setProducto] = useState<any>(null);
   const [relacionados, setRelacionados] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -29,8 +29,14 @@ export default function ProductDetailPage() {
       try {
         setCargando(true);
         const response = await api.get('/products');
-        const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
-        
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : (response.data.products || response.data.data || []);
+        const data = rawData.map((item: any) => ({
+          ...item,
+          producto_tallas: item.producto_tallas || item.tallas || [],
+        }));
+
         const productoEncontrado = data.find((item: any) => String(item.id) === String(id)) || data[0];
         setProducto(productoEncontrado);
 
@@ -54,8 +60,8 @@ export default function ProductDetailPage() {
     cargarProducto();
   }, [id]);
 
-  const stockActual = selectedSize 
-    ? Number(producto?.producto_tallas?.find((t: any) => t.talla === selectedSize)?.stock || 0) 
+  const stockActual = selectedSize
+    ? Number(producto?.producto_tallas?.find((t: any) => t.talla === selectedSize)?.stock || 0)
     : 0;
 
   useEffect(() => {
@@ -94,7 +100,14 @@ export default function ProductDetailPage() {
     .filter((t: any) => Number(t.stock) > 0)
     .sort((a: any, b: any) => (ordenTallas[a.talla] || 99) - (ordenTallas[b.talla] || 99));
 
-  const esMujer = producto?.genero?.toLowerCase() === 'mujer';
+  const selectedTalla = (producto.producto_tallas || []).find(
+    (t: any) => t.talla === selectedSize,
+  );
+  const precioActual = Number(
+    selectedTalla?.salePrice || producto.precio || producto.price || 0,
+  );
+  const descuentoActual = Number(selectedTalla?.discountPercent || 0);
+  const esMujer = ['mujer', 'female'].includes(producto?.genero?.toLowerCase());
   const guiaTallas = esMujer ? [
     { t: 'S', p: '83-90', c: '67-74', ca: '91-98' },
     { t: 'M', p: '90-97', c: '74-81', ca: '98-105' },
@@ -113,7 +126,7 @@ export default function ProductDetailPage() {
     <AppLayout>
       <div className="bg-[#f4f7f9] dark:bg-[#0f1115] min-h-screen py-8 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           <nav className="flex text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-8">
             <Link to="/" className="hover:text-brand-green">Inicio</Link>
             <span className="mx-3 opacity-50">/</span>
@@ -125,7 +138,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col lg:flex-row gap-12 mb-16">
             <div className="w-full lg:w-1/2 flex justify-center">
               <div className="w-full max-w-lg bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden aspect-[4/5]">
-                <img src={producto.imagen_url || producto.img} alt={producto.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
+                <img src={producto.imagenUrl || producto.imagen_url || producto.img} alt={producto.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
               </div>
             </div>
 
@@ -135,8 +148,8 @@ export default function ProductDetailPage() {
                   IN STOCK
                 </span>
                 <div className="flex items-center text-xs font-bold">
-                  <span className="text-yellow-400 mr-1 text-sm">★</span> 
-                  <span className="text-gray-900 dark:text-white">{rating}</span> 
+                  <span className="text-yellow-400 mr-1 text-sm">★</span>
+                  <span className="text-gray-900 dark:text-white">{rating}</span>
                   <span className="text-gray-400 ml-1">({reviewsCount} opiniones)</span>
                 </div>
               </div>
@@ -144,7 +157,7 @@ export default function ProductDetailPage() {
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white mb-2 leading-tight tracking-tight">
                 {producto.nombre || producto.name}
               </h1>
-              <div className="text-2xl font-black text-brand-green mb-6">S/ {producto.precio || producto.price}</div>
+              <div className="text-2xl font-black text-brand-green mb-6">S/ {precioActual.toFixed(2)} {descuentoActual > 0 && <span className="text-sm text-gray-400 line-through ml-2">S/ {Number(producto.precio || producto.price || 0).toFixed(2)}</span>}</div>
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed font-medium">
                 {producto.descripcion || 'Prenda de alto rendimiento diseñada para maximizar tu potencial.'}
@@ -160,7 +173,7 @@ export default function ProductDetailPage() {
                 <div className="flex flex-wrap gap-3">
                   {tallasDisponibles.length > 0 ? (
                     tallasDisponibles.map((t: any) => (
-                      <button 
+                      <button
                         key={t.talla}
                         onClick={() => setSelectedSize(prev => prev === t.talla ? null : t.talla)}
                         className={`w-12 h-12 rounded-xl text-sm font-black flex items-center justify-center transition-all border-2 cursor-pointer ${selectedSize === t.talla ? 'bg-brand-green border-brand-green text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-brand-green/50 hover:text-brand-green'}`}
@@ -185,14 +198,14 @@ export default function ProductDetailPage() {
                   <span className="w-8 text-center font-black text-gray-900 dark:text-white">{quantity}</span>
                   <button onClick={() => setQuantity(Math.min(stockActual, quantity + 1))} disabled={!selectedSize || quantity >= stockActual} className="flex-1 h-full flex items-center justify-center text-lg font-medium text-gray-500 hover:text-brand-green disabled:opacity-30 transition cursor-pointer">+</button>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     toggleFavorite({
                       id: String(producto.id),
                       cat: producto.categoria || 'General',
                       name: producto.nombre || producto.name,
-                      price: Number(producto.precio || producto.price || 0),
-                      img: producto.imagen_url || producto.img || '',
+                      price: precioActual,
+                      img: producto.imagenUrl || producto.imagen_url || producto.img || '',
                     });
                   }}
                   className={`w-14 h-14 flex items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${isFavorite(String(producto.id)) ? 'border-red-500 bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-gray-200 dark:border-white/10 text-gray-400 hover:border-red-500 hover:text-red-500'}`}
@@ -201,7 +214,7 @@ export default function ProductDetailPage() {
                 </button>
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   if (!selectedSize) {
                     alert("Por favor selecciona una talla antes de agregar al carrito.");
@@ -210,11 +223,14 @@ export default function ProductDetailPage() {
                   addToCart({
                     id: String(producto.id),
                     name: producto.nombre || producto.name,
-                    price: Number(producto.precio || producto.price || 0),
-                    img: producto.imagen_url || producto.img,
+                    price: precioActual,
+                    img: producto.imagenUrl || producto.imagen_url || producto.img,
                     quantity: quantity,
                     size: selectedSize,
                     color: 'default',
+                    tallaId: (producto.producto_tallas || []).find(
+                      (t: any) => t.talla === selectedSize,
+                    )?.id,
                   });
                   alert("¡Producto agregado al carrito con éxito!");
                 }}
@@ -234,7 +250,7 @@ export default function ProductDetailPage() {
           <div className="mb-16">
             <div className="flex gap-8 mb-6 border-b border-gray-200 dark:border-white/5">
               {['Descripción', 'Especificaciones'].map(tab => (
-                <button 
+                <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative cursor-pointer ${activeTab === tab ? 'text-gray-900 dark:text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
@@ -252,7 +268,7 @@ export default function ProductDetailPage() {
                 </p>
               </div>
             )}
-            
+
             {activeTab === 'Especificaciones' && (
               <div className="bg-white dark:bg-white/[0.02] rounded-3xl p-8 border border-gray-100 dark:border-white/5 shadow-sm">
                 <div className="grid sm:grid-cols-2 gap-y-6 gap-x-12">
@@ -320,18 +336,18 @@ export default function ProductDetailPage() {
                     <div className="font-black text-lg mb-4 mt-auto dark:text-gray-200">S/ {item.precio || item.price}</div>
                     <div className="flex gap-2">
                       <Link to={`/producto/${item.id}`} className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition text-center flex items-center justify-center">Ver Detalle</Link>
-                      <button 
+                      <button
                         onClick={() => navigate(`/probador-virtual?producto=${item.id}`)}
                         className="flex-1 py-2 bg-white border border-brand-green text-brand-green text-xs font-bold rounded-md hover:bg-brand-green hover:text-black transition flex items-center justify-center shadow-sm cursor-pointer"
                       >
                         Probar AR
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                   </div>
+               ))}
+             </div>
             </div>
-          )}
+           )}
 
         </div>
       </div>
@@ -349,7 +365,7 @@ export default function ProductDetailPage() {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              
+
               <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-white/10">
                 <table className="w-full text-xs text-left text-gray-500 dark:text-gray-400">
                   <thead className="text-[10px] font-black text-gray-700 uppercase bg-gray-50 dark:bg-white/5 dark:text-gray-300 tracking-widest">

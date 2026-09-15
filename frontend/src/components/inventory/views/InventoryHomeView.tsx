@@ -1,18 +1,28 @@
-import React from "react";
+import type { Product } from "../../../data/adminPrototypeTypes";
+
+type InventorySection =
+  | "dashboard"
+  | "catalog"
+  | "stock"
+  | "alerts"
+  | "restock"
+  | "audit"
+  | "discounts"
+  | "notifications";
 
 export default function InventoryHomeView({
   setSection,
   products,
 }: {
-  setSection: (s: any) => void;
-  products: any[];
+  setSection: (section: InventorySection) => void;
+  products: Product[];
 }) {
   const allProducts = products.map((p) => {
     const total = Object.values(p.stock).reduce(
-      (a: any, b: any) => a + b,
+      (sum, stock) => sum + stock,
       0,
-    ) as number;
-    const min = 15;
+    );
+    const min = p.minStock;
     const status =
       total === 0
         ? "Agotado"

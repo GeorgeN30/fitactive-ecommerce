@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { User } from "../../../data/adminPrototypeTypes";
 
 interface Client extends User {
@@ -14,38 +14,29 @@ interface AdminCustomersViewProps {
 export default function AdminCustomersView({
   clients: initialClients,
 }: AdminCustomersViewProps) {
+  const toClient = (client: User): Client => ({
+    ...client,
+    status: client.blocked ? "blocked" : "active",
+    orders: client.orders ?? 0,
+    spent: client.spent ?? 0,
+  });
   const [clients, setClients] = useState<Client[]>(
-    initialClients.map((c) => ({
-      ...c,
-      status: "active",
-      orders: Math.floor(Math.random() * 10),
-      spent: Math.floor(Math.random() * 1000) + 100,
-    })),
+    initialClients.map(toClient),
   );
 
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+  useEffect(() => {
+    setClients(initialClients.map(toClient));
+    setSelectedClient(null);
+  }, [initialClients]);
 
   const filteredClients = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase()),
   );
-
-  const toggleClientStatus = (clientId: string) => {
-    setClients((curr) =>
-      curr.map((c) => {
-        if (c.id === clientId) {
-          const newStatus = c.status === "active" ? "blocked" : "active";
-          if (selectedClient?.id === clientId) {
-            setSelectedClient({ ...c, status: newStatus });
-          }
-          return { ...c, status: newStatus };
-        }
-        return c;
-      }),
-    );
-  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full text-gray-900 dark:text-white animate-fade-in">
@@ -191,18 +182,9 @@ export default function AdminCustomersView({
               </div>
             </div>
 
-            <button
-              onClick={() => toggleClientStatus(selectedClient.id)}
-              className={`w-full mt-4 py-3 rounded-xl font-bold transition-all ${
-                selectedClient.status === "active"
-                  ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/50"
-                  : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-900/50"
-              }`}
-            >
-              {selectedClient.status === "active"
-                ? "Bloquear cliente"
-                : "Desbloquear cliente"}
-            </button>
+            <p className="text-xs text-gray-500">
+              El estado del cliente se administra desde el servicio de usuarios.
+            </p>
           </div>
         </div>
       )}

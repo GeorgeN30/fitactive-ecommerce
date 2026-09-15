@@ -30,6 +30,8 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID is required}
+        VITE_BAAS_WS_URL: ${VITE_BAAS_WS_URL:-wss://core.geozns.com/v1/ws}
+        VITE_JWT_APP_ID: ${VITE_JWT_APP_ID:-integrador2_web}
     ports:
       - "80:80"
     depends_on:

@@ -185,6 +185,11 @@ export default function AdminCustomers() {
                     <td className="py-4 px-6">
                       <StatusBadge status={c.role} />
                     </td>
+                    <td className="py-4 px-6 text-slate-400">{new Date(c.registrationDate).toLocaleDateString("es-CL", { month: "short", day: "numeric" })}</td>
+                    <td className="py-4 px-6 text-slate-500">{c.ordersCount}</td>
+                    <td className="py-4 px-6 font-extrabold text-slate-900">S/ {c.totalSpent.toFixed(2)}</td>
+                    <td className="py-4 px-6"><StatusBadge status={c.status} /></td>
+                    <td className="py-4 px-6"><StatusBadge status={c.role} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -253,12 +258,8 @@ export default function AdminCustomers() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-3 text-center">
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                    Gastado Total
-                  </span>
-                  <p className="text-lg font-extrabold text-slate-900 mt-1">
-                    ${selectedCustomer.totalSpent.toFixed(2)}
-                  </p>
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">Gastado Total</span>
+                  <p className="text-lg font-extrabold text-slate-900 mt-1">S/ {selectedCustomer.totalSpent.toFixed(2)}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 text-center">
                   <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
@@ -288,9 +289,7 @@ export default function AdminCustomers() {
                           <span className="text-slate-400 ml-2">{o.date}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-900">
-                            ${o.total.toFixed(2)}
-                          </span>
+                          <span className="font-extrabold text-slate-900">S/ {o.total.toFixed(2)}</span>
                           <StatusBadge status={o.status} />
                         </div>
                       </div>

@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --transpile-only src/index.ts",
+    "dev": "node scripts/dev.cjs",
     "dev:reset": "node scripts/dev.cjs --reset",
     "build": "tsc",
     "start": "node dist/index.js",
+    "lint": "node ../frontend/node_modules/oxlint/bin/oxlint src tests",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",

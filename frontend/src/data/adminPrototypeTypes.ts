@@ -28,8 +28,10 @@ export interface Product {
   availableColors: { name: string; hex: string }[];
   description: string;
   stock: Record<string, number>;
-  gender: "male" | "female" | "unisex";
-  tag?: "new" | "sale" | "trending";
+  tallaIds?: Record<string, string>;
+  discounts?: Record<string, { percent: number; salePrice: number }>;
+  gender: 'male' | 'female' | 'unisex';
+  tag?: 'new' | 'sale' | 'trending';
   measurements: {
     chest: [number, number];
     waist: [number, number];
@@ -45,6 +47,7 @@ export interface CartItem {
   size: string;
   color: string;
   quantity: number;
+  name?: string;
 }
 
 export interface UserMeasurements {
@@ -68,10 +71,13 @@ export interface User {
   blocked?: boolean;
   registeredAt: string;
   lastAccess: string;
+  orders?: number;
+  spent?: number;
 }
 
 export interface Order {
   id: string;
+  orderNumber?: string;
   userId: string;
   items: CartItem[];
   total: number;

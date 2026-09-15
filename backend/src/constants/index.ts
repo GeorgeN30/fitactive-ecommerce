@@ -8,6 +8,37 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+export const ORDER_STATUS = {
+  PENDING: "pending",
+  CONFIRMED: "confirmed",
+  PREPARING: "preparing",
+  SHIPPED: "shipped",
+  DELIVERED: "delivered",
+  CANCELLED: "cancelled",
+  RETURNED: "return",
+} as const;
+
+export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
+
+export const ALLOWED_ORDER_STATUSES: readonly string[] = Object.values(ORDER_STATUS);
+
+export const MOVEMENT_TYPE = {
+  INPUT: "ENTRADA",
+  OUTPUT: "SALIDA",
+} as const;
+
+export const DISCOUNT_REQUEST_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVERTED: "REVERTED",
+} as const;
+
+export type DiscountRequestStatus =
+  (typeof DISCOUNT_REQUEST_STATUS)[keyof typeof DISCOUNT_REQUEST_STATUS];
+
+export const LOW_STOCK_THRESHOLD = 5;
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,

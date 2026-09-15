@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
+import { createOrder, resolveOrderEntries } from "../services/orders";
 
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -10,7 +12,9 @@ export default function CheckoutPage() {
 
   const [step, setStep] = useState(1);
   const [orderNumber, setOrderNumber] = useState("");
-  const [paidTotal, setPaidTotal] = useState(0);
+  const [orderTotal, setOrderTotal] = useState(0);
+  const [processingOrder, setProcessingOrder] = useState(false);
+  const [orderError, setOrderError] = useState("");
 
   const [purchasedItems, setPurchasedItems] = useState(cartItems);
 
@@ -27,20 +31,12 @@ export default function CheckoutPage() {
     reference: "",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState("card");
-
-  const [cardData, setCardData] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-  });
-
   if (cartItems.length === 0 && step !== 5) {
     return (
       <AppLayout>
         <div className="min-h-screen bg-[#f8f9fa] dark:bg-brand-dark-bg flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="text-6xl mb-6">🛒</div>
+            <i className="fa-solid fa-cart-shopping text-6xl mb-6 text-gray-400" />
 
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-3">
               Tu carrito está vacío
@@ -62,12 +58,6 @@ export default function CheckoutPage() {
     );
   }
 
-  const generateOrderNumber = () => {
-    const random = Math.floor(100 + Math.random() * 900);
-
-    return `ORD-${new Date().getFullYear()}-${random}`;
-  };
-
   const handleCustomerSubmit = (e: FormEvent) => {
     e.preventDefault();
     setStep(2);
@@ -78,24 +68,60 @@ export default function CheckoutPage() {
     setStep(3);
   };
 
-  const handleGoToPayment = () => {
+  const handleGoToConfirmation = () => {
     setStep(4);
   };
 
-  const handlePayment = (e: FormEvent) => {
+  const handleOrderSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    const newOrderNumber = generateOrderNumber();
+    if (processingOrder) {
+      return;
+    }
 
-    setPurchasedItems([...cartItems]);
+    setProcessingOrder(true);
+    setOrderError("");
 
-    setPaidTotal(cartTotal);
+    try {
+      const entries = await resolveOrderEntries(cartItems);
+      const order = await createOrder(entries);
 
-    setOrderNumber(newOrderNumber);
+      setPurchasedItems(cartItems.map((item, index) => ({
+        ...item,
+        price: order.entries.find((entry) => entry.productoTallaId === entries[index].productoTallaId)?.precioUnitario ?? item.price,
+      })));
 
-    clearCart();
+      setOrderTotal(order.total);
 
-    setStep(5);
+      setOrderNumber(order.numero);
+
+      clearCart();
+
+      setStep(5);
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const code = axios.isAxiosError(error)
+        ? error.response?.data?.error
+        : undefined;
+
+      if (status === 401) {
+        navigate("/login");
+      } else if (status === 409 || code === "INSUFFICIENT_STOCK") {
+        setOrderError(
+          "No hay stock suficiente para alguno de los productos. Ajusta las cantidades e inténtalo de nuevo.",
+        );
+      } else if (code === "SIZE_NOT_FOUND") {
+        setOrderError(
+          "No se pudo identificar la talla de algún producto. Agrégalo nuevamente desde el catálogo.",
+        );
+      } else {
+        setOrderError(
+          "Ocurrió un error al registrar tu pedido. Inténtalo de nuevo.",
+        );
+      }
+    } finally {
+      setProcessingOrder(false);
+    }
   };
 
   const handlePrintReceipt = () => {
@@ -113,11 +139,11 @@ export default function CheckoutPage() {
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white">
-                ¡Compra exitosa!
+                Pedido registrado
               </h1>
 
               <p className="text-gray-500 dark:text-gray-400 mt-2">
-                Tu pedido ha sido registrado correctamente.
+                Tu pedido está pendiente de pago. No se ha realizado ningún cobro.
               </p>
             </div>
 
@@ -149,7 +175,7 @@ export default function CheckoutPage() {
                   </p>
 
                   <p className="text-sm font-black text-gray-900 dark:text-white mt-1">
-                    S/ {paidTotal.toFixed(2)}
+                    S/ {orderTotal.toFixed(2)}
                   </p>
                 </div>
 
@@ -159,7 +185,7 @@ export default function CheckoutPage() {
                   </p>
 
                   <p className="text-sm font-black text-brand-green mt-1">
-                    En curso
+                    Pendiente
                   </p>
                 </div>
               </div>
@@ -213,20 +239,14 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm mb-3">
                   <span className="text-gray-500">Subtotal</span>
 
-                  <span className="font-bold">S/ {paidTotal.toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between text-sm mb-3">
-                  <span className="text-brand-green">Descuento</span>
-
-                  <span className="font-bold text-brand-green">- S/ 0.00</span>
+                  <span className="font-bold">S/ {orderTotal.toFixed(2)}</span>
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between">
-                  <span className="font-extrabold text-lg">Total pagado</span>
+                  <span className="font-extrabold text-lg">Total del pedido</span>
 
                   <span className="font-black text-xl">
-                    S/ {paidTotal.toFixed(2)}
+                    S/ {orderTotal.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -251,10 +271,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-400 mb-1">Método de pago</p>
+                  <p className="text-xs text-gray-400 mb-1">Estado del pago</p>
 
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {paymentMethod === "card" ? "Tarjeta" : "Yape"}
+                    Pendiente de integrar la pasarela
                   </p>
                 </div>
               </div>
@@ -262,24 +282,24 @@ export default function CheckoutPage() {
 
             <div className="grid sm:grid-cols-3 gap-3 mb-8">
               <button
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/catalogo")}
                 className="py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:bg-black dark:hover:bg-gray-200 transition"
               >
-                📦 Ver pedido
+                <><i className="fa-solid fa-box" /> Volver al catálogo</>
               </button>
 
               <button
                 onClick={handlePrintReceipt}
                 className="py-4 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition"
               >
-                🧾 Comprobante
+                <><i className="fa-solid fa-receipt" /> Imprimir resumen</>
               </button>
 
               <Link
                 to="/catalogo"
                 className="py-4 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition text-center"
               >
-                🛍️ Seguir comprando
+                <><i className="fa-solid fa-bag-shopping" /> Seguir comprando</>
               </Link>
             </div>
 
@@ -291,7 +311,7 @@ export default function CheckoutPage() {
                   </h2>
 
                   <p className="text-xs text-gray-400 mt-1">
-                    Comprobante digital
+                    Resumen del pedido
                   </p>
                 </div>
 
@@ -299,7 +319,7 @@ export default function CheckoutPage() {
                   onClick={handlePrintReceipt}
                   className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
-                  🖨 Imprimir
+                  <><i className="fa-solid fa-print" /> Imprimir</>
                 </button>
               </div>
 
@@ -332,10 +352,10 @@ export default function CheckoutPage() {
                 <div className="border-t border-dashed border-gray-300 dark:border-gray-700 my-4" />
 
                 <p className="font-bold text-gray-900 dark:text-white">
-                  Total: S/ {paidTotal.toFixed(2)}
+                  Total: S/ {orderTotal.toFixed(2)}
                 </p>
 
-                <p>Pago: {paymentMethod === "card" ? "Tarjeta" : "Yape"}</p>
+                <p>Estado: pendiente de pago</p>
               </div>
             </div>
           </div>
@@ -357,7 +377,7 @@ export default function CheckoutPage() {
             </Link>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mt-4">
-              Finalizar compra
+              Registrar pedido
             </h1>
           </div>
 
@@ -676,10 +696,10 @@ export default function CheckoutPage() {
 
                     <button
                       type="button"
-                      onClick={handleGoToPayment}
+                      onClick={handleGoToConfirmation}
                       className="flex-1 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl"
                     >
-                      Continuar al pago
+                      Continuar al resumen
                     </button>
                   </div>
                 </div>
@@ -714,141 +734,30 @@ export default function CheckoutPage() {
           )}
 
           {step === 4 && (
-            <form onSubmit={handlePayment}>
+            <form onSubmit={handleOrderSubmit}>
               <div className="max-w-2xl mx-auto bg-white dark:bg-brand-card-dark rounded-2xl p-6 sm:p-8 border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="mb-7">
                   <p className="text-xs font-bold text-brand-green uppercase tracking-wider">
                     Paso 4 de 4
                   </p>
 
-                  <h2 className="text-2xl font-extrabold mt-2">Pago</h2>
+                  <h2 className="text-2xl font-extrabold mt-2">Confirmar pedido</h2>
 
                   <p className="text-sm text-gray-500 mt-1">
-                    Selecciona tu método de pago.
+                    Se registrará un pedido pendiente. La pasarela de pago se integrará en la siguiente fase; no se solicitarán datos de tarjeta ni se realizará un cobro.
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer">
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="card"
-                      checked={paymentMethod === "card"}
-                      onChange={() => setPaymentMethod("card")}
-                    />
-
-                    <div>
-                      <p className="font-bold">Tarjeta de crédito/débito</p>
-
-                      <p className="text-xs text-gray-500">
-                        Visa, Mastercard, etc.
-                      </p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer">
-                    <input
-                      type="radio"
-                      name="payment"
-                      value="yape"
-                      checked={paymentMethod === "yape"}
-                      onChange={() => setPaymentMethod("yape")}
-                    />
-
-                    <div>
-                      <p className="font-bold">Yape</p>
-
-                      <p className="text-xs text-gray-500">
-                        Pago mediante Yape
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {paymentMethod === "card" && (
-                  <div className="mt-6 space-y-5">
-                    <div>
-                      <label className="block text-sm font-bold mb-2">
-                        Número de tarjeta
-                      </label>
-
-                      <input
-                        type="text"
-                        required
-                        maxLength={19}
-                        value={cardData.number}
-                        onChange={(e) =>
-                          setCardData({
-                            ...cardData,
-                            number: e.target.value,
-                          })
-                        }
-                        placeholder="0000 0000 0000 0000"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-5">
-                      <div>
-                        <label className="block text-sm font-bold mb-2">
-                          Vencimiento
-                        </label>
-
-                        <input
-                          type="text"
-                          required
-                          maxLength={5}
-                          value={cardData.expiry}
-                          onChange={(e) =>
-                            setCardData({
-                              ...cardData,
-                              expiry: e.target.value,
-                            })
-                          }
-                          placeholder="MM/AA"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold mb-2">
-                          CVV
-                        </label>
-
-                        <input
-                          type="password"
-                          required
-                          maxLength={4}
-                          value={cardData.cvv}
-                          onChange={(e) =>
-                            setCardData({
-                              ...cardData,
-                              cvv: e.target.value,
-                            })
-                          }
-                          placeholder="***"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {paymentMethod === "yape" && (
-                  <div className="mt-6 p-5 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                    <p className="font-bold">Pago con Yape</p>
-
-                    <p className="text-sm text-gray-500 mt-1">
-                      Para esta versión del prototipo, el pago será simulado.
-                    </p>
+                {orderError && (
+                  <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm font-bold text-red-700 dark:text-red-400">
+                    {orderError}
                   </div>
                 )}
 
                 <div className="mt-8 bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-lg">
-                      Total a pagar
+                      Total estimado
                     </span>
 
                     <span className="text-2xl font-black">
@@ -868,9 +777,12 @@ export default function CheckoutPage() {
 
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition"
+                    disabled={processingOrder}
+                    className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition disabled:opacity-50"
                   >
-                    Pagar S/ {cartTotal.toFixed(2)}
+                    {processingOrder
+                      ? "Registrando..."
+                      : `Registrar pedido por S/ ${cartTotal.toFixed(2)}`}
                   </button>
                 </div>
               </div>

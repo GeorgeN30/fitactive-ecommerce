@@ -9,6 +9,7 @@ export interface CartItem {
   size?: string;
   color?: string;
   stock?: number;
+  tallaId?: string;
 }
 
 interface CartContextType {
@@ -28,11 +29,28 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function isCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<CartItem>;
+  return typeof item.id === "string" && item.id.length > 0 &&
+    typeof item.name === "string" && typeof item.img === "string" &&
+    typeof item.price === "number" && Number.isFinite(item.price) && item.price >= 0 &&
+    typeof item.quantity === "number" && Number.isInteger(item.quantity) && item.quantity > 0 &&
+    (item.size === undefined || typeof item.size === "string") &&
+    (item.color === undefined || typeof item.color === "string") &&
+    (item.tallaId === undefined || typeof item.tallaId === "string");
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     const savedCart = localStorage.getItem("fitactive-cart");
-
-    return savedCart ? JSON.parse(savedCart) : [];
+    if (!savedCart) return [];
+    try {
+      const parsed: unknown = JSON.parse(savedCart);
+      return Array.isArray(parsed) ? parsed.filter(isCartItem) : [];
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {

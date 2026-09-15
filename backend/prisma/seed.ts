@@ -3,8 +3,7 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
-dotenv.config({ path: path.resolve(__dirname, "../../../.env"), quiet: true });
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const prisma = new PrismaClient();
 
@@ -14,37 +13,41 @@ const INVENTORY_EMAIL = process.env.INVENTORY_EMAIL || process.env.RECEPTIONIST_
 const INVENTORY_PASSWORD = process.env.INVENTORY_PASSWORD || process.env.RECEPTIONIST_PASSWORD || "Admin123";
 const INVENTORY_ROLE = "inventory";
 
+async function normalizeSeedEmail(email: string): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (email === normalizedEmail) return normalizedEmail;
+
+  const existingNormalized = await prisma.usuarios.findUnique({ where: { email: normalizedEmail } });
+  if (!existingNormalized) {
+    const existingOriginal = await prisma.usuarios.findUnique({ where: { email } });
+    if (existingOriginal) {
+      await prisma.usuarios.update({
+        where: { email },
+        data: { email: normalizedEmail },
+      });
+    }
+  }
+
+  return normalizedEmail;
+}
+
 async function main() {
-  const adminEmail = ADMIN_EMAIL.trim().toLowerCase();
-  const inventoryEmail = INVENTORY_EMAIL.trim().toLowerCase();
+  const adminEmail = await normalizeSeedEmail(ADMIN_EMAIL);
+  const inventoryEmail = await normalizeSeedEmail(INVENTORY_EMAIL);
   const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
   const inventoryPasswordHash = await bcrypt.hash(INVENTORY_PASSWORD, 12);
 
-  // Non-destructive seed: create accounts only when missing,
-  // never overwrite the password or role of an existing account.
   await prisma.usuarios.upsert({
     where: { email: adminEmail },
-    update: {},
-    create: {
-      email: adminEmail,
-      name: "Administrador",
-      role: "admin",
-      provider: "password",
-      passwordHash: adminPasswordHash,
-    },
+    update: { name: "Administrador", role: "admin", provider: "password", passwordHash: adminPasswordHash },
+    create: { email: adminEmail, name: "Administrador", role: "admin", provider: "password", passwordHash: adminPasswordHash },
   });
   console.log("Admin account synchronized:", adminEmail);
 
   await prisma.usuarios.upsert({
     where: { email: inventoryEmail },
-    update: {},
-    create: {
-      email: inventoryEmail,
-      name: "Gestor de Inventario",
-      role: INVENTORY_ROLE,
-      provider: "password",
-      passwordHash: inventoryPasswordHash,
-    },
+    update: { name: "Gestor de Inventario", role: INVENTORY_ROLE, provider: "password", passwordHash: inventoryPasswordHash },
+    create: { email: inventoryEmail, name: "Gestor de Inventario", role: INVENTORY_ROLE, provider: "password", passwordHash: inventoryPasswordHash },
   });
   console.log("Inventory account synchronized:", inventoryEmail);
 }

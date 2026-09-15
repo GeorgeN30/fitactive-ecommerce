@@ -1,74 +1,228 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import api from "../../src/services/api";
 import {
-  fetchDashboardStats,
-  fetchSalesData,
-  fetchTopProducts,
-  fetchCategories,
-  fetchProducts,
   createProduct,
   deleteProduct,
-  fetchOrders,
-  updateOrderStatus,
+  fetchCategories,
   fetchCustomers,
-  toggleCustomerStatus,
-  updateCustomerRole,
+  fetchDashboardStats,
   fetchInventory,
+  fetchLowStock,
+  fetchMovements,
+  fetchOrders,
+  fetchProducts,
+  fetchSalesData,
+  fetchTopProducts,
+  updateProduct,
   updateStock,
-  fetchArMetrics,
 } from "../../src/services/admin";
 
-describe("adminService (mock)", () => {
-  it("retorna las estadisticas del dashboard", async () => {
-    const stats = await fetchDashboardStats();
-    expect(stats).toMatchObject({ totalSales: expect.any(Number), totalOrders: expect.any(Number) });
+vi.mock("../../src/services/api", () => ({
+  default: {
+    delete: vi.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+  },
+}));
+
+const mockedApi = vi.mocked(api);
+
+const backendProduct = {
+  id: "p1",
+  nombre: "Polo técnico",
+  descripcion: "Polo para entrenamiento",
+  categoria: "Polos",
+  marca: "FitActive",
+  precio: 89.9,
+  imagenUrl: null,
+  genero: "unisex",
+  fechaCreacion: "2026-09-01T00:00:00.000Z",
+  tallas: [{ id: "t1", talla: "M", stock: 4 }],
+  totalStock: 4,
+};
+
+describe("admin service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("retorna series de ventas y categorias", async () => {
-    const [sales, categories] = await Promise.all([fetchSalesData(), fetchCategories()]);
-    expect(sales.length).toBeGreaterThan(0);
-    expect(categories.length).toBeGreaterThan(0);
+  it("maps dashboard metrics and chart data from the API", async () => {
+    mockedApi.get
+      .mockResolvedValueOnce({
+        data: {
+          stats: {
+            revenue: 249.5,
+            totalOrders: 3,
+            totalCustomers: 2,
+            totalUnitsSold: 5,
+            totalReturns: 1,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { sales: [{ label: "Sep 01", value: 249.5 }] },
+      })
+      .mockResolvedValueOnce({
+        data: { products: [{ name: "Polo técnico", units: 5 }] },
+      })
+      .mockResolvedValueOnce({
+        data: { categories: [{ name: "Polos", count: 3 }] },
+      });
+
+    await expect(fetchDashboardStats()).resolves.toMatchObject({
+      totalSales: 249.5,
+      totalOrders: 3,
+      activeCustomers: 2,
+      productsSold: 5,
+      totalReturns: 1,
+    });
+    await expect(fetchSalesData()).resolves.toEqual([
+      { label: "Sep 01", value: 249.5 },
+    ]);
+    await expect(fetchTopProducts()).resolves.toEqual([
+      { name: "Polo técnico", unitsSold: 5, percentage: 100 },
+    ]);
+    await expect(fetchCategories()).resolves.toEqual([
+      { name: "Polos", percentage: 100, color: "#00FF66" },
+    ]);
   });
 
-  it("gestiona productos: listar, crear y eliminar", async () => {
-    const initial = await fetchProducts();
-    expect(initial.length).toBeGreaterThan(0);
+  it("maps products and uses the configured admin or inventory paths", async () => {
+    mockedApi.get.mockResolvedValue({ data: { products: [backendProduct] } });
+    mockedApi.post.mockResolvedValue({ data: { product: backendProduct } });
+    mockedApi.put.mockResolvedValue({ data: { product: backendProduct } });
+    mockedApi.delete.mockResolvedValue({ data: {} });
 
-    const created = await createProduct({ name: "Test", description: "", category: "Clothing", sport: "Gym", price: 10, sizes: [], status: "Active", imageUrl: "", isPublished: true });
-    expect(created.id).toBeTruthy();
+    const products = await fetchProducts();
+    const created = await createProduct(
+      { nombre: "Polo técnico", precio: 89.9 },
+      "/inventory",
+    );
+    const updated = await updateProduct(
+      "p1",
+      { nombre: "Polo técnico", precio: 99.9 },
+      "/inventory",
+    );
+    await deleteProduct("p1", "/inventory");
 
-    await deleteProduct(created.id);
-    const after = await fetchProducts();
-    expect(after.find((p) => p.id === created.id)).toBeUndefined();
+    expect(products[0]).toMatchObject({
+      id: "p1",
+      name: "Polo técnico",
+      stock: { M: 4 },
+    });
+    expect(created.id).toBe("p1");
+    expect(updated.id).toBe("p1");
+    expect(mockedApi.post).toHaveBeenCalledWith("/inventory/products", {
+      nombre: "Polo técnico",
+      precio: 89.9,
+    });
+    expect(mockedApi.put).toHaveBeenCalledWith("/inventory/products/p1", {
+      nombre: "Polo técnico",
+      precio: 99.9,
+    });
+    expect(mockedApi.delete).toHaveBeenCalledWith("/inventory/products/p1");
   });
 
-  it("gestiona pedidos y su estado", async () => {
+  it("maps orders and customers returned by the backend", async () => {
+    mockedApi.get
+      .mockResolvedValueOnce({
+        data: {
+          orders: [
+            {
+              id: "o1",
+              numero: "ORD-001",
+              estado: "DELIVERED",
+              total: 120,
+              fechaOrden: "2026-09-02T00:00:00.000Z",
+              customer: { id: "u1", email: "ana@example.com", name: "Ana" },
+              items: [
+                {
+                  productoId: "p1",
+                  nombre: "Polo técnico",
+                  talla: "M",
+                  cantidad: 2,
+                  precioUnitario: 60,
+                  subtotal: 120,
+                },
+              ],
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          customers: [
+            {
+              id: "u1",
+              email: "ana@example.com",
+              name: "Ana",
+              picture: null,
+              points: 10,
+              fechaCreacion: "2026-09-01T00:00:00.000Z",
+              medidaPecho: null,
+              medidaCintura: null,
+              medidaCadera: null,
+              orders: 2,
+              spent: 240,
+            },
+          ],
+        },
+      });
+
     const orders = await fetchOrders();
-    expect(orders.length).toBeGreaterThan(0);
-    await expect(updateOrderStatus(orders[0].id, "Shipped")).resolves.toBeUndefined();
-  });
-
-  it("gestiona clientes y sus roles", async () => {
     const customers = await fetchCustomers();
-    expect(customers.length).toBeGreaterThan(0);
-    await expect(toggleCustomerStatus(customers[0].id)).resolves.toBeUndefined();
-    await expect(updateCustomerRole(customers[0].id, "Admin")).resolves.toBeUndefined();
+
+    expect(orders[0]).toMatchObject({
+      id: "o1",
+      orderNumber: "ORD-001",
+      status: "delivered",
+      items: [{ productId: "p1", quantity: 2 }],
+    });
+    expect(customers[0]).toMatchObject({
+      id: "u1",
+      name: "Ana",
+      orders: 2,
+      spent: 240,
+    });
   });
 
-  it("gestiona inventario y movimientos", async () => {
-    const products = await fetchInventory();
-    expect(products.length).toBeGreaterThan(0);
-    await expect(updateStock(products[0].id, "M", 5)).resolves.toBeUndefined();
-  });
+  it("uses the inventory endpoints for stock and movement data", async () => {
+    mockedApi.get
+      .mockResolvedValueOnce({ data: { products: [backendProduct] } })
+      .mockResolvedValueOnce({
+        data: {
+          movements: [
+            {
+              id: "m1",
+              tipo: "ENTRADA",
+              cantidad: 4,
+              motivo: "Compra",
+              fecha: "2026-09-03T00:00:00.000Z",
+              producto: "Polo técnico",
+              talla: "M",
+              responsable: "Almacén",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { products: [backendProduct] } });
+    mockedApi.put.mockResolvedValue({ data: { product: backendProduct } });
 
-  it("retorna metricas del probador AR", async () => {
-    const metrics = await fetchArMetrics();
-    expect(metrics).toHaveProperty("totalTests");
-    expect(metrics).toHaveProperty("conversionRate");
-  });
+    await fetchInventory();
+    const movements = await fetchMovements();
+    await fetchLowStock();
+    await updateStock("p1", "M", 7, "Conteo físico");
 
-  it("retorna top productos y top categorias", async () => {
-    const [topProducts, topCategories] = await Promise.all([fetchTopProducts(), fetchCategories()]);
-    expect(topProducts.length).toBeGreaterThan(0);
-    expect(topCategories.length).toBeGreaterThan(0);
+    expect(movements[0]).toMatchObject({
+      id: "m1",
+      type: "Entry",
+      quantity: 4,
+      size: "M",
+    });
+    expect(mockedApi.put).toHaveBeenCalledWith(
+      "/inventory/products/p1/stock",
+      { size: "M", quantity: 7, motivo: "Conteo físico" },
+    );
   });
 });

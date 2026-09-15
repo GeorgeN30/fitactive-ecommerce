@@ -14,8 +14,7 @@ beforeAll(() => {
       dispatchEvent: () => false,
     }));
 });
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import AdminDashboard from "../../src/pages/admin/AdminDashboard";
@@ -23,6 +22,33 @@ import AdminDashboard from "../../src/pages/admin/AdminDashboard";
 vi.mock("react-chartjs-2", () => ({
   Line: () => null,
   Doughnut: () => null,
+}));
+
+vi.mock("../../src/services/admin", () => ({
+  createProduct: vi.fn(),
+  deleteProduct: vi.fn(),
+  fetchCustomers: vi.fn().mockResolvedValue([]),
+  fetchDashboardStats: vi.fn().mockResolvedValue({
+    totalSales: 0,
+    salesGrowth: 0,
+    totalOrders: 0,
+    ordersGrowth: 0,
+    activeCustomers: 0,
+    customersGrowth: 0,
+    productsSold: 0,
+    productsGrowth: 0,
+    totalReturns: 0,
+  }),
+  fetchOrders: vi.fn().mockResolvedValue([]),
+  fetchProducts: vi.fn().mockResolvedValue([]),
+  fetchSalesData: vi.fn().mockResolvedValue([]),
+  updateOrderStatus: vi.fn(),
+  updateProduct: vi.fn(),
+}));
+
+vi.mock("../../src/services/notifications", () => ({
+  connectAdminSocket: vi.fn(() => () => undefined),
+  mapLiveEventToAdminNotification: vi.fn(),
 }));
 
 function renderDashboard() {
@@ -43,10 +69,9 @@ describe("AdminDashboard", () => {
   });
 
   it("navega a la vista de pedidos desde el sidebar", async () => {
-    const user = userEvent.setup();
     renderDashboard();
-    await user.click(screen.getByRole("button", { name: "Pedidos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pedidos" }));
     expect(await screen.findByText("Gestión de Pedidos")).toBeInTheDocument();
-    expect(screen.getByText("ORD-2026-001")).toBeInTheDocument();
+    expect(screen.getByText("No hay pedidos con este estado.")).toBeInTheDocument();
   });
 });

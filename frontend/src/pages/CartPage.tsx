@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
+import { formatSoles } from "../utils/money";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -142,11 +143,11 @@ export default function CartPage() {
 
                         <div className="text-right">
                           <p className="text-xs text-gray-400">
-                            ${item.price.toFixed(2)} c/u
+                            {formatSoles(item.price)} c/u
                           </p>
 
                           <p className="text-lg font-black text-gray-900 dark:text-white">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            {formatSoles(item.price * item.quantity)}
                           </p>
                         </div>
                       </div>
@@ -173,7 +174,9 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Subtotal</span>
 
-                    <span className="font-bold">${cartTotal.toFixed(2)}</span>
+                    <span className="font-bold">
+                      {formatSoles(cartTotal)}
+                    </span>
                   </div>
 
                   <div className="flex justify-between">
@@ -186,7 +189,7 @@ export default function CartPage() {
                     <span className="font-extrabold text-lg">Total</span>
 
                     <span className="font-black text-2xl">
-                      ${cartTotal.toFixed(2)}
+                      {formatSoles(cartTotal)}
                     </span>
                   </div>
                 </div>

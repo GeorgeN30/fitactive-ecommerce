@@ -13,14 +13,13 @@ build/
 .env
 .env.*
 !.env.example
-!backend/.env.example
-!frontend/.env.example
 
 # Database files
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+/backups/
 
 # IDE
 .vscode/

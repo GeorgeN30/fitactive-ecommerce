@@ -24,8 +24,8 @@ const stats = [
   },
   {
     label: "Ingresos",
-    value: "$0",
-    icon: "fa-solid fa-dollar-sign",
+    value: "S/ 0.00",
+    icon: "fa-solid fa-money-bill-wave",
     color: "amber-500",
     bg: "bg-amber-500/10",
   },
