@@ -141,6 +141,13 @@ export default function InventoryCatalogView({
     setIsModalOpen(true);
   };
 
+  const handleAdd = () => {
+    setEditingId(null);
+    setFormData({ name: "", sku: "", price: "" });
+    setErrors({});
+    setIsModalOpen(true);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-7xl mx-auto relative">
       {toastMessage && (
@@ -151,14 +158,14 @@ export default function InventoryCatalogView({
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           ></div>
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800">
-            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Nuevo Producto</h2>
+          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800 flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center flex-shrink-0">
+              <h2 className="text-xl font-bold">{editingId ? "Editar producto" : "Nuevo Producto"}</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -167,7 +174,7 @@ export default function InventoryCatalogView({
               </button>
             </div>
 
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div className="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase">
@@ -273,7 +280,7 @@ export default function InventoryCatalogView({
                 <label className="text-xs font-bold text-gray-500 uppercase">
                   Imagen del producto *
                 </label>
-                <div className="w-full border-2 border-díashed border-gray-200 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer">
+                <div className="w-full border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer">
                   <i className="fa-solid fa-camera text-3xl mb-3"></i>
                   <p className="font-bold text-sm text-gray-900 dark:text-gray-100">
                     Clic para subir imagen del producto
@@ -285,7 +292,7 @@ export default function InventoryCatalogView({
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex gap-4">
+            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex gap-4 flex-shrink-0">
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="flex-1 px-4 py-3 bg-gray-100 dark:bg-zinc-800 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
@@ -296,7 +303,7 @@ export default function InventoryCatalogView({
                 onClick={handleSaveProduct}
                 className="flex-1 px-4 py-3 bg-[#00FF66] text-black font-bold rounded-xl hover:bg-[#00cc52] transition-colors shadow-lg shadow-[#00FF66]/20"
               >
-                Añadir Producto
+                {editingId ? "Guardar cambios" : "Añadir Producto"}
               </button>
             </div>
           </div>
@@ -311,7 +318,7 @@ export default function InventoryCatalogView({
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleAdd}
           className="px-4 py-2 bg-[#00FF66] text-black text-sm font-bold rounded-xl hover:bg-[#00cc52] transition-colors flex items-center gap-2"
         >
           <i className="fa-solid fa-plus"></i> Añadir Producto
@@ -331,17 +338,17 @@ export default function InventoryCatalogView({
             />
           </div>
           <div className="flex gap-4">
-            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm text-gray-600 dark:text-gray-400 focus:outline-none">
-              <option>Todías las categorías</option>
-              <option>Tops</option>
-              <option>Bottoms</option>
-              <option>Outerwear</option>
+            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todas las categorías</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Tops</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Bottoms</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Outerwear</option>
             </select>
-            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm text-gray-600 dark:text-gray-400 focus:outline-none">
-              <option>Todos los deportes</option>
-              <option>Gym</option>
-              <option>Running</option>
-              <option>Yoga</option>
+            <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todos los deportes</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Gym</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Running</option>
+              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Yoga</option>
             </select>
           </div>
         </div>

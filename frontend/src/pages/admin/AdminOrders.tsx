@@ -167,24 +167,12 @@ export default function AdminOrders() {
               {filtered.map((order) => (
                 <Fragment key={order.id}>
                   <tr className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-4 px-6 font-bold text-slate-900">
-                      #{order.orderNumber}
-                    </td>
-                    <td className="py-4 px-6 font-bold text-slate-800">
-                      {order.clientName}
-                    </td>
-                    <td className="py-4 px-6 text-slate-400">
-                      {formatDate(order.date)}
-                    </td>
-                    <td className="py-4 px-6 text-slate-500">
-                      {order.items.length} items
-                    </td>
-                    <td className="py-4 px-6 font-extrabold text-slate-900">
-                      ${order.total.toFixed(2)}
-                    </td>
-                    <td className="py-4 px-6">
-                      <StatusBadge status={order.status} />
-                    </td>
+                    <td className="py-4 px-6 font-bold text-slate-900">#{order.orderNumber}</td>
+                    <td className="py-4 px-6 font-bold text-slate-800">{order.clientName}</td>
+                    <td className="py-4 px-6 text-slate-400">{formatDate(order.date)}</td>
+                    <td className="py-4 px-6 text-slate-500">{order.items.length} items</td>
+                    <td className="py-4 px-6 font-extrabold text-slate-900">S/ {order.total.toFixed(2)}</td>
+                    <td className="py-4 px-6"><StatusBadge status={order.status} /></td>
                     <td className="py-4 px-6 text-right">
                       <button
                         onClick={() =>
@@ -236,9 +224,7 @@ export default function AdminOrders() {
                                         Talla {item.size} · Cant {item.quantity}
                                       </p>
                                     </div>
-                                    <span className="font-bold text-slate-900 whitespace-nowrap">
-                                      ${(item.price * item.quantity).toFixed(2)}
-                                    </span>
+                                    <span className="font-bold text-slate-900 whitespace-nowrap">S/ {(item.price * item.quantity).toFixed(2)}</span>
                                   </div>
                                 );
                               })}

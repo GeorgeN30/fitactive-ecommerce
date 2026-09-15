@@ -1,6 +1,10 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth";
 import { adminService } from "../services/admin";
+import {
+  discountService,
+  type DiscountRequestInput,
+} from "../services/discounts";
 import { notifications } from "../services/notifications";
 import { HTTP_STATUS } from "../constants";
 
@@ -16,6 +20,11 @@ const VALIDATION_ERRORS = new Set([
   "MOTIVE_REQUIRED",
   "DUPLICATE_SIZE",
   "INVALID_ENTRY",
+  "INVALID_DISCOUNT_PERCENTAGE",
+  "DISCOUNT_REASON_REQUIRED",
+  "INVALID_DISCOUNT_STATUS",
+  "INVALID_DISCOUNT_DECISION",
+  "DISCOUNT_COMMENT_TOO_LONG",
 ]);
 
 const NOT_FOUND_ERRORS = new Set([
@@ -23,6 +32,7 @@ const NOT_FOUND_ERRORS = new Set([
   "ORDER_NOT_FOUND",
   "CUSTOMER_NOT_FOUND",
   "SIZE_NOT_FOUND",
+  "DISCOUNT_REQUEST_NOT_FOUND",
 ]);
 
 function respondWithError(res: Response, err: unknown, fallback: string): void {
@@ -36,7 +46,15 @@ function respondWithError(res: Response, err: unknown, fallback: string): void {
     res.status(HTTP_STATUS.NOT_FOUND).json({ error: message });
     return;
   }
-  if (message === "PRODUCT_HAS_ORDERS" || message === "INSUFFICIENT_STOCK") {
+  if (
+    message === "PRODUCT_HAS_ORDERS" ||
+    message === "INSUFFICIENT_STOCK" ||
+    message === "STOCK_CONFLICT" ||
+    message === "DISCOUNT_ALREADY_ACTIVE" ||
+    message === "DISCOUNT_REQUEST_ALREADY_PENDING" ||
+    message === "DISCOUNT_REQUEST_ALREADY_RESOLVED" ||
+    message === "DISCOUNT_NOT_ACTIVE"
+  ) {
     res.status(HTTP_STATUS.CONFLICT).json({ error: message });
     return;
   }
@@ -46,6 +64,88 @@ function respondWithError(res: Response, err: unknown, fallback: string): void {
 }
 
 export const adminController = {
+  // POST /api/inventory/discount-requests
+  async createDiscountRequest(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+      const requests = await discountService.createRequest(
+        req.user.userId,
+        req.body as DiscountRequestInput,
+      );
+      void notifications.notifyDiscountRequestCreated(requests);
+      res.status(HTTP_STATUS.CREATED).json({ requests });
+    } catch (err) {
+      respondWithError(res, err, "DISCOUNT_REQUEST_CREATE_FAILED");
+    }
+  },
+
+  // GET /api/inventory/discount-requests
+  async listMyDiscountRequests(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+      const requests = await discountService.listForRequester(req.user.userId);
+      res.status(HTTP_STATUS.OK).json({ requests });
+    } catch (err) {
+      respondWithError(res, err, "DISCOUNT_REQUEST_LIST_FAILED");
+    }
+  },
+
+  // GET /api/admin/discount-requests
+  async listDiscountRequests(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const requests = await discountService.listForAdmin(
+        typeof req.query.status === "string" ? req.query.status : undefined,
+      );
+      res.status(HTTP_STATUS.OK).json({ requests });
+    } catch (err) {
+      respondWithError(res, err, "DISCOUNT_REQUEST_LIST_FAILED");
+    }
+  },
+
+  // PUT /api/admin/discount-requests/:id/review
+  async reviewDiscountRequest(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+      const request = await discountService.reviewRequest(
+        req.params.id,
+        req.user.userId,
+        req.body.decision,
+        req.body.comment,
+      );
+      void notifications.notifyDiscountDecision(request);
+      res.status(HTTP_STATUS.OK).json({ request });
+    } catch (err) {
+      respondWithError(res, err, "DISCOUNT_REQUEST_REVIEW_FAILED");
+    }
+  },
+
+  // PUT /api/admin/discount-requests/:id/revert
+  async revertDiscountRequest(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NOT_AUTHENTICATED" });
+        return;
+      }
+      const request = await discountService.revertRequest(
+        req.params.id,
+        req.user.userId,
+      );
+      void notifications.notifyDiscountReverted(request);
+      res.status(HTTP_STATUS.OK).json({ request });
+    } catch (err) {
+      respondWithError(res, err, "DISCOUNT_REQUEST_REVERT_FAILED");
+    }
+  },
+
   // GET /api/admin/products
   async listProducts(_req: AuthRequest, res: Response): Promise<void> {
     try {

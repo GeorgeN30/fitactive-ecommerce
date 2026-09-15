@@ -98,12 +98,15 @@ export default function InventoryDashboard() {
         id: live.id,
         title: live.title,
         message: live.message,
-        type: event.type === "STOCK_ALERT" ? "critical" : "info",
+        type: event.type === "DISCOUNT_APPROVED" ? "success" : event.type === "STOCK_ALERT" || event.type === "DISCOUNT_REJECTED" || event.type === "DISCOUNT_REVERTED" ? "critical" : "info",
         time: live.date,
         read: false,
       },
       ...current,
     ]);
+    if (event.type === "DISCOUNT_APPROVED" || event.type === "DISCOUNT_REVERTED") {
+      void fetchInventory().then(setProducts).catch(() => undefined);
+    }
   }), []);
 
   const addNotification = (notification: Omit<InventoryNotification, "id">) => {

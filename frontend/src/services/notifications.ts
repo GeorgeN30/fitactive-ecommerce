@@ -1,5 +1,6 @@
-const WS_BASE = "wss://core.geozns.com/v1/ws";
-const APP_ID = "integrador2_web";
+const WS_BASE =
+  import.meta.env.VITE_BAAS_WS_URL || "wss://core.geozns.com/v1/ws";
+const APP_ID = import.meta.env.VITE_JWT_APP_ID || "integrador2_web";
 
 export interface AdminNotification {
   id: string;
@@ -15,6 +16,10 @@ export type LiveEvent =
   | { type: "NEW_ORDER"; data?: Record<string, unknown> }
   | { type: "ORDER_STATUS"; data?: Record<string, unknown> }
   | { type: "STOCK_ALERT"; data?: Record<string, unknown> }
+  | { type: "DISCOUNT_REQUESTED"; data?: Record<string, unknown> }
+  | { type: "DISCOUNT_APPROVED"; data?: Record<string, unknown> }
+  | { type: "DISCOUNT_REJECTED"; data?: Record<string, unknown> }
+  | { type: "DISCOUNT_REVERTED"; data?: Record<string, unknown> }
   | { type: string; data?: Record<string, unknown> };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,6 +85,46 @@ export function mapLiveEventToAdminNotification(
         title: "Alerta de stock bajo",
         message: `${(data.productName as string) || "Producto"} (talla ${(data.size as string) || "-"}) quedó con ${(data.stock as number) ?? 0} unidades.`,
         type: "stock",
+        date: "Justo ahora",
+        read: false,
+        priority: "high",
+      };
+    case "DISCOUNT_REQUESTED":
+      return {
+        id: `live-${Date.now()}`,
+        title: "Solicitud de descuento pendiente",
+        message: `${(data.requesterName as string) || "El gestor"} solicita ${(data.percent as number) || 0}% para ${(data.productName as string) || "un producto"} (talla ${(data.size as string) || "-"}).`,
+        type: "discount",
+        date: "Justo ahora",
+        read: false,
+        priority: "high",
+      };
+    case "DISCOUNT_APPROVED":
+      return {
+        id: `live-${Date.now()}`,
+        title: "Descuento aprobado",
+        message: `Se aprobó el ${(data.percent as number) || 0}% de descuento para ${(data.productName as string) || "el producto"} (talla ${(data.size as string) || "-"}).`,
+        type: "discount",
+        date: "Justo ahora",
+        read: false,
+        priority: "medium",
+      };
+    case "DISCOUNT_REJECTED":
+      return {
+        id: `live-${Date.now()}`,
+        title: "Descuento rechazado",
+        message: `Se rechazó la solicitud de descuento para ${(data.productName as string) || "el producto"} (talla ${(data.size as string) || "-"}).${data.comment ? ` Motivo: ${data.comment as string}` : ""}`,
+        type: "discount",
+        date: "Justo ahora",
+        read: false,
+        priority: "high",
+      };
+    case "DISCOUNT_REVERTED":
+      return {
+        id: `live-${Date.now()}`,
+        title: "Descuento revertido",
+        message: `El administrador retiró el descuento de ${(data.productName as string) || "el producto"} (talla ${(data.size as string) || "-"}).`,
+        type: "discount",
         date: "Justo ahora",
         read: false,
         priority: "high",

@@ -29,7 +29,13 @@ export default function ProductDetailPage() {
       try {
         setCargando(true);
         const response = await api.get('/products');
-        const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : (response.data.products || response.data.data || []);
+        const data = rawData.map((item: any) => ({
+          ...item,
+          producto_tallas: item.producto_tallas || item.tallas || [],
+        }));
 
         const productoEncontrado = data.find((item: any) => String(item.id) === String(id)) || data[0];
         setProducto(productoEncontrado);
@@ -94,7 +100,14 @@ export default function ProductDetailPage() {
     .filter((t: any) => Number(t.stock) > 0)
     .sort((a: any, b: any) => (ordenTallas[a.talla] || 99) - (ordenTallas[b.talla] || 99));
 
-  const esMujer = producto?.genero?.toLowerCase() === 'mujer';
+  const selectedTalla = (producto.producto_tallas || []).find(
+    (t: any) => t.talla === selectedSize,
+  );
+  const precioActual = Number(
+    selectedTalla?.salePrice || producto.precio || producto.price || 0,
+  );
+  const descuentoActual = Number(selectedTalla?.discountPercent || 0);
+  const esMujer = ['mujer', 'female'].includes(producto?.genero?.toLowerCase());
   const guiaTallas = esMujer ? [
     { t: 'S', p: '83-90', c: '67-74', ca: '91-98' },
     { t: 'M', p: '90-97', c: '74-81', ca: '98-105' },
@@ -125,7 +138,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col lg:flex-row gap-12 mb-16">
             <div className="w-full lg:w-1/2 flex justify-center">
               <div className="w-full max-w-lg bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden aspect-[4/5]">
-                <img src={producto.imagen_url || producto.img} alt={producto.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
+                <img src={producto.imagenUrl || producto.imagen_url || producto.img} alt={producto.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
               </div>
             </div>
 
@@ -144,7 +157,7 @@ export default function ProductDetailPage() {
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white mb-2 leading-tight tracking-tight">
                 {producto.nombre || producto.name}
               </h1>
-              <div className="text-2xl font-black text-brand-green mb-6">S/ {producto.precio || producto.price}</div>
+              <div className="text-2xl font-black text-brand-green mb-6">S/ {precioActual.toFixed(2)} {descuentoActual > 0 && <span className="text-sm text-gray-400 line-through ml-2">S/ {Number(producto.precio || producto.price || 0).toFixed(2)}</span>}</div>
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed font-medium">
                 {producto.descripcion || 'Prenda de alto rendimiento diseñada para maximizar tu potencial.'}
@@ -191,8 +204,8 @@ export default function ProductDetailPage() {
                       id: String(producto.id),
                       cat: producto.categoria || 'General',
                       name: producto.nombre || producto.name,
-                      price: Number(producto.precio || producto.price || 0),
-                      img: producto.imagen_url || producto.img || '',
+                      price: precioActual,
+                      img: producto.imagenUrl || producto.imagen_url || producto.img || '',
                     });
                   }}
                   className={`w-14 h-14 flex items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${isFavorite(String(producto.id)) ? 'border-red-500 bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-gray-200 dark:border-white/10 text-gray-400 hover:border-red-500 hover:text-red-500'}`}
@@ -210,8 +223,8 @@ export default function ProductDetailPage() {
                   addToCart({
                     id: String(producto.id),
                     name: producto.nombre || producto.name,
-                    price: Number(producto.precio || producto.price || 0),
-                    img: producto.imagen_url || producto.img,
+                    price: precioActual,
+                    img: producto.imagenUrl || producto.imagen_url || producto.img,
                     quantity: quantity,
                     size: selectedSize,
                     color: 'default',
@@ -330,31 +343,11 @@ export default function ProductDetailPage() {
                         Probar AR
                       </button>
                     </div>
-                  </div>
-                  <div className="mb-1 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">
-                    {item.cat}
-                  </div>
-                  <h3 className="font-extrabold text-sm text-gray-900 dark:text-white leading-tight mb-2 truncate">
-                    <Link to={`/producto/${item.id}`}>{item.name}</Link>
-                  </h3>
-                  <div className="font-black text-lg mb-4 mt-auto dark:text-gray-200">
-                    {item.price}
-                  </div>
-                  <div className="flex gap-2">
-                    <Link
-                      to={`/producto/${item.id}`}
-                      className="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition text-center flex items-center justify-center"
-                    >
-                      Ver Detalle
-                    </Link>
-                    <button className="flex-1 py-2 bg-white border border-brand-green text-brand-green text-xs font-bold rounded-md hover:bg-brand-green hover:text-black transition flex items-center justify-center shadow-sm">
-                      Probar AR
-                    </button>
-                  </div>
-                </div>
-              ))}
+                   </div>
+               ))}
+             </div>
             </div>
-          )}
+           )}
 
         </div>
       </div>

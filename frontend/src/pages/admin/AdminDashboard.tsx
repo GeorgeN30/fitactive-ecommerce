@@ -12,7 +12,7 @@ import AdminCustomersView from "../../components/admin/views/AdminCustomersView"
 import AdminNotificationsView from "../../components/admin/views/AdminNotificationsView";
 import AdminSettingsView from "../../components/admin/views/AdminSettingsView";
 import VirtualTryOnMetrics from "../../components/admin/views/VirtualTryOnMetrics";
-import InventoryDiscountsView from "../../components/inventory/views/InventoryDiscountsView";
+import AdminDiscountRequestsView from "../../components/admin/views/AdminDiscountRequestsView";
 
 import {
   fetchOrders,
@@ -617,16 +617,20 @@ export default function AdminDashboard() {
             <AdminNotificationsView
               notifications={notifications}
               setNotifications={setNotifications}
+              onNotificationAction={(notification) => {
+                if (notification.type === "discount") setSection("discounts");
+                else if (notification.type === "order") setSection("orders");
+              }}
             />
           )}
-          {section === "discounts" && <InventoryDiscountsView />}
+          {section === "discounts" && <AdminDiscountRequestsView />}
 
           {section === "config" && <AdminSettingsView />}
         </main>
       </div>
 
       {productModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={() => setProductModalOpen(false)}
@@ -635,9 +639,9 @@ export default function AdminDashboard() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-modal-title"
-            className="relative bg-white rounded-2xl p-6 max-w-2xl w-full shadow-2xl max-h-[92vh] overflow-y-auto"
+            className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col"
           >
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between p-6 mb-0 flex-shrink-0">
               <div>
                 <h2
                   id="product-modal-title"
@@ -659,7 +663,7 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleProductSubmit} className="space-y-5">
+            <form onSubmit={handleProductSubmit} className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 space-y-5 custom-scrollbar">
               <div className="grid sm:grid-cols-2 gap-4">
                 <label className="block sm:col-span-2">
                   <span className="block text-xs font-bold text-gray-600 mb-1.5">

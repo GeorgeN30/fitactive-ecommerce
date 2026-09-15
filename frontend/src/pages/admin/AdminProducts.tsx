@@ -341,9 +341,7 @@ export default function AdminProducts() {
                         ))}
                     </div>
                   </td>
-                  <td className="py-4 px-6 font-extrabold text-slate-900">
-                    ${p.price.toFixed(2)}
-                  </td>
+                  <td className="py-4 px-6 font-extrabold text-slate-900">S/ {p.price.toFixed(2)}</td>
                   <td className="py-4 px-6">
                     <span
                       className={`font-extrabold ${p.totalStock < 5 ? "text-amber-500" : "text-emerald-600"}`}

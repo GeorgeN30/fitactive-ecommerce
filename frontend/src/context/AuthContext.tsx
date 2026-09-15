@@ -56,10 +56,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      const storedSessionUser = normalizeUser(JSON.parse(storedUser) as User);
-      setUser(storedSessionUser);
-      localStorage.setItem("user", JSON.stringify(storedSessionUser));
+      try {
+        const parsed: unknown = JSON.parse(storedUser);
+        if (!parsed || typeof parsed !== "object" ||
+          typeof (parsed as User).id !== "string" ||
+          typeof (parsed as User).email !== "string" ||
+          typeof (parsed as User).role !== "string") {
+          throw new Error("INVALID_STORED_USER");
+        }
+        const storedSessionUser = normalizeUser(parsed as User);
+        setToken(storedToken);
+        setUser(storedSessionUser);
+        localStorage.setItem("user", JSON.stringify(storedSessionUser));
+      } catch {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
     }
     setLoading(false);
   }, []);

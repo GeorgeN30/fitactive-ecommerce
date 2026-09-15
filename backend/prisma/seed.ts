@@ -17,11 +17,11 @@ async function normalizeSeedEmail(email: string): Promise<string> {
   const normalizedEmail = email.trim().toLowerCase();
   if (email === normalizedEmail) return normalizedEmail;
 
-  const existingNormalized = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const existingNormalized = await prisma.usuarios.findUnique({ where: { email: normalizedEmail } });
   if (!existingNormalized) {
-    const existingOriginal = await prisma.user.findUnique({ where: { email } });
+    const existingOriginal = await prisma.usuarios.findUnique({ where: { email } });
     if (existingOriginal) {
-      await prisma.user.update({
+      await prisma.usuarios.update({
         where: { email },
         data: { email: normalizedEmail },
       });
@@ -37,16 +37,16 @@ async function main() {
   const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
   const inventoryPasswordHash = await bcrypt.hash(INVENTORY_PASSWORD, 12);
 
-  await prisma.user.upsert({
+  await prisma.usuarios.upsert({
     where: { email: adminEmail },
-    update: { name: "Administrador", role: "admin", provider: "password", passwordHash: adminPasswordHash, isActive: true },
+    update: { name: "Administrador", role: "admin", provider: "password", passwordHash: adminPasswordHash },
     create: { email: adminEmail, name: "Administrador", role: "admin", provider: "password", passwordHash: adminPasswordHash },
   });
   console.log("Admin account synchronized:", adminEmail);
 
-  await prisma.user.upsert({
+  await prisma.usuarios.upsert({
     where: { email: inventoryEmail },
-    update: { name: "Gestor de Inventario", role: INVENTORY_ROLE, provider: "password", passwordHash: inventoryPasswordHash, isActive: true },
+    update: { name: "Gestor de Inventario", role: INVENTORY_ROLE, provider: "password", passwordHash: inventoryPasswordHash },
     create: { email: inventoryEmail, name: "Gestor de Inventario", role: INVENTORY_ROLE, provider: "password", passwordHash: inventoryPasswordHash },
   });
   console.log("Inventory account synchronized:", inventoryEmail);

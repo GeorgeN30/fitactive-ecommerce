@@ -4,13 +4,13 @@ import type { AdminNotification } from "../../../services/notifications";
 export default function AdminNotificationsView({
   notifications,
   setNotifications,
+  onNotificationAction,
 }: {
   notifications?: AdminNotification[];
   setNotifications?: (updater: (prev: AdminNotification[]) => AdminNotification[]) => void;
+  onNotificationAction?: (notification: AdminNotification) => void;
 } = {}) {
   const [internalNotifications, setInternalNotifications] = useState<AdminNotification[]>([]);
-
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const display = notifications !== undefined ? notifications : internalNotifications;
 
@@ -23,22 +23,13 @@ export default function AdminNotificationsView({
     apply((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
-  const takeAction = (id: string) => {
-    setResolvingId(id);
-    setTimeout(() => {
-      apply((prev) =>
-        prev.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                read: true,
-                message: n.message + " [RESOLVIDO POR SISTEMA]",
-              }
-            : n,
-        ),
-      );
-      setResolvingId(null);
-    }, 1500);
+  const takeAction = (notification: AdminNotification) => {
+    apply((prev) =>
+      prev.map((item) =>
+        item.id === notification.id ? { ...item, read: true } : item,
+      ),
+    );
+    onNotificationAction?.(notification);
   };
 
   const getIcon = (type: string) => {
@@ -51,6 +42,8 @@ export default function AdminNotificationsView({
         return "fa-shield-halved text-green-500";
       case "payment":
         return "fa-money-bill-transfer text-purple-500";
+      case "discount":
+        return "fa-tag text-indigo-500";
       case "report":
         return "fa-file-contract text-gray-500";
       default:
@@ -104,23 +97,13 @@ export default function AdminNotificationsView({
 
                 {!n.read && (
                   <div className="mt-3">
-                    {n.priority === "high" ? (
+                    {(n.priority === "high" && (n.type === "discount" || n.type === "order")) ? (
                       <button
-                        onClick={() => takeAction(n.id)}
-                        disabled={resolvingId !== null}
-                        className={`text-xs font-bold border px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 ${resolvingId === n.id ? "bg-gray-100 text-gray-500 border-gray-200 dark:bg-zinc-800 dark:border-zinc-700" : "bg-red-50 text-red-600 border-red-100 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"}`}
+                        onClick={() => takeAction(n)}
+                        className="text-xs font-bold border px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-900/50 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
                       >
-                        {resolvingId === n.id ? (
-                          <>
-                            <i className="fa-solid fa-spinner fa-spin"></i>{" "}
-                            Resolviendo...
-                          </>
-                        ) : (
-                          <>
-                            <i className="fa-solid fa-bolt"></i> Tomar Acción
-                            Inmediata
-                          </>
-                        )}
+                        <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                        {n.type === "discount" ? "Ver descuentos" : "Ir al módulo"}
                       </button>
                     ) : (
                       <button

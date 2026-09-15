@@ -6,6 +6,7 @@ import {
   MOVEMENT_TYPE,
   ROLES,
 } from "../constants";
+import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
 
 export interface ProductTallaInput {
   talla: string;
@@ -33,7 +34,15 @@ export interface ProductResult {
   imagenUrl: string | null;
   genero: string | null;
   fechaCreacion: Date | null;
-  tallas: { id: string; talla: string; stock: number }[];
+  tallas: {
+    id: string;
+    talla: string;
+    stock: number;
+    discountPercent: number;
+    salePrice: number;
+    rangoCmMin: number | null;
+    rangoCmMax: number | null;
+  }[];
   totalStock: number;
 }
 
@@ -101,12 +110,24 @@ function mapProduct(prod: {
   imagen_url: string | null;
   genero: string | null;
   fecha_creacion: Date | null;
-  producto_tallas: { id: string; talla: string; stock: number | null }[];
+  producto_tallas: {
+    id: string;
+    talla: string;
+    stock: number | null;
+    descuento_porcentaje?: number | null;
+    rango_cm_min?: { toNumber: () => number } | null;
+    rango_cm_max?: { toNumber: () => number } | null;
+  }[];
 }): ProductResult {
+  const basePrice = prod.precio.toNumber();
   const tallas = prod.producto_tallas.map((t) => ({
     id: t.id,
     talla: t.talla,
     stock: t.stock ?? 0,
+    discountPercent: t.descuento_porcentaje ?? 0,
+    salePrice: calculateDiscountedPrice(basePrice, t.descuento_porcentaje ?? 0),
+    rangoCmMin: t.rango_cm_min?.toNumber() ?? null,
+    rangoCmMax: t.rango_cm_max?.toNumber() ?? null,
   }));
   return {
     id: prod.id,
@@ -121,10 +142,6 @@ function mapProduct(prod: {
     tallas,
     totalStock: tallas.reduce((sum, t) => sum + t.stock, 0),
   };
-}
-
-function roundToCents(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function validateProductTallas(tallas: ProductTallaInput[]): void {
@@ -239,10 +256,13 @@ export const adminService = {
             (t) => t.talla === normalizedSize,
           );
           if (match) {
-            await tx.producto_tallas.update({
-              where: { id: match.id },
+            const updatedStock = await tx.producto_tallas.updateMany({
+              where: { id: match.id, stock: match.stock },
               data: { stock: tallaInput.stock ?? match.stock },
             });
+            if (updatedStock.count !== 1) {
+              throw new Error("STOCK_CONFLICT");
+            }
           } else {
             await tx.producto_tallas.create({
               data: { producto_id: id, talla: normalizedSize, stock: tallaInput.stock ?? 0 },
@@ -427,10 +447,14 @@ export const adminService = {
     const tipo = delta >= 0 ? MOVEMENT_TYPE.INPUT : MOVEMENT_TYPE.OUTPUT;
 
     await prisma.$transaction(async (tx) => {
-      await tx.producto_tallas.update({
-        where: { id: productoTalla.id },
+      const updated = await tx.producto_tallas.updateMany({
+        where: { id: productoTalla.id, stock: productoTalla.stock },
         data: { stock: quantity },
       });
+
+      if (updated.count !== 1) {
+        throw new Error("STOCK_CONFLICT");
+      }
 
       if (delta !== 0) {
         await tx.inventory_movements.create({
@@ -624,10 +648,13 @@ export const adminService = {
     }
 
     const movement = await prisma.$transaction(async (tx) => {
-      await tx.producto_tallas.update({
-        where: { id: productoTalla.id },
+      const updated = await tx.producto_tallas.updateMany({
+        where: { id: productoTalla.id, stock: productoTalla.stock },
         data: { stock: nextStock },
       });
+      if (updated.count !== 1) {
+        throw new Error("STOCK_CONFLICT");
+      }
       return tx.inventory_movements.create({
         data: {
           producto_talla_id: productoTalla.id,

@@ -29,4 +29,8 @@ router.get("/dashboard/sales-chart", adminController.getSalesChart);
 router.get("/dashboard/top-products", adminController.getTopProducts);
 router.get("/dashboard/categories", adminController.getCategories);
 
+router.get("/discount-requests", adminController.listDiscountRequests);
+router.put("/discount-requests/:id/review", adminController.reviewDiscountRequest);
+router.put("/discount-requests/:id/revert", adminController.revertDiscountRequest);
+
 export default router;

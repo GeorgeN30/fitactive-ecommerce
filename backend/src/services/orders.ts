@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { ORDER_STATUS } from "../constants";
+import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
 
 export interface OrderEntryInput {
   productoTallaId: string;
@@ -36,10 +38,6 @@ function buildOrderNumber(orderId: string): string {
   return `ORD-${year}-${suffix}`;
 }
 
-function roundToCents(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function validateEntries(entries: OrderEntryInput[]): void {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("EMPTY_ORDER");
@@ -57,6 +55,44 @@ function validateEntries(entries: OrderEntryInput[]): void {
       throw new Error("INVALID_QUANTITY");
     }
   }
+}
+
+function consolidateEntries(entries: OrderEntryInput[]): OrderEntryInput[] {
+  const quantities = new Map<string, number>();
+  for (const entry of entries) {
+    quantities.set(
+      entry.productoTallaId,
+      (quantities.get(entry.productoTallaId) ?? 0) + entry.cantidad,
+    );
+  }
+  return Array.from(quantities.entries()).map(([productoTallaId, cantidad]) => ({
+    productoTallaId,
+    cantidad,
+  }));
+}
+
+async function runSerializableTransaction<T>(
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await prisma.$transaction(operation, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      const isSerializationConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034";
+
+      if (!isSerializationConflict || attempt === maxAttempts) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("TRANSACTION_RETRY_EXHAUSTED");
 }
 
 function mapDetail(detail: {
@@ -82,14 +118,15 @@ export const orderService = {
     rawEntries: OrderEntryInput[]
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
+    const entries = consolidateEntries(rawEntries);
 
     const orderId = randomUUID();
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await runSerializableTransaction(async (tx) => {
       const computed: Omit<OrderEntryResult, "nombre" | "talla">[] = [];
       let total = 0;
 
-      for (const entry of rawEntries) {
+      for (const entry of entries) {
         const productoTalla = await tx.producto_tallas.findUnique({
           where: { id: entry.productoTallaId },
           include: { productos: true },
@@ -106,7 +143,11 @@ export const orderService = {
           throw new Error("INSUFFICIENT_STOCK");
         }
 
-        const precioUnitario = productoTalla.productos.precio.toNumber();
+        const precioBase = productoTalla.productos.precio.toNumber();
+        const precioUnitario = calculateDiscountedPrice(
+          precioBase,
+          productoTalla.descuento_porcentaje ?? 0,
+        );
         total = roundToCents(total + precioUnitario * entry.cantidad);
 
         computed.push({
@@ -115,6 +156,20 @@ export const orderService = {
           precioUnitario,
           subtotal: roundToCents(precioUnitario * entry.cantidad),
         });
+      }
+
+      for (const entry of entries) {
+        const updated = await tx.producto_tallas.updateMany({
+          where: {
+            id: entry.productoTallaId,
+            stock: { gte: entry.cantidad },
+          },
+          data: { stock: { decrement: entry.cantidad } },
+        });
+
+        if (updated.count !== 1) {
+          throw new Error("INSUFFICIENT_STOCK");
+        }
       }
 
       const created = await tx.ordenes.create({
@@ -133,13 +188,6 @@ export const orderService = {
           },
         },
       });
-
-      for (const entry of rawEntries) {
-        await tx.producto_tallas.update({
-          where: { id: entry.productoTallaId },
-          data: { stock: { decrement: entry.cantidad } },
-        });
-      }
 
       const details = await tx.orden_detalles.findMany({
         where: { orden_id: created.id },

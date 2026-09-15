@@ -58,6 +58,19 @@ describe("AuthContext", () => {
     expect(result.current.token).toBe("stored-token");
   });
 
+  it("removes a corrupt stored session and lets the app start", async () => {
+    localStorage.setItem("token", "stale-token");
+    localStorage.setItem("user", "{broken-json");
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(result.current.token).toBeNull();
+    expect(localStorage.getItem("token")).toBeNull();
+    expect(localStorage.getItem("user")).toBeNull();
+  });
+
   it("loginWithPassword persists session on success", async () => {
     const fakeUser = {
       id: "u1",

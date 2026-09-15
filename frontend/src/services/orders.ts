@@ -39,7 +39,9 @@ export async function resolveOrderEntries(
   const { data } = await api.get("/products");
   const products: unknown[] = Array.isArray(data)
     ? data
-    : ((data as { data?: unknown[] }).data ?? []);
+    : ((data as { products?: unknown[]; data?: unknown[] }).products ??
+      (data as { data?: unknown[] }).data ??
+      []);
 
   return items.map((item) => {
     const product = products.find(
@@ -48,8 +50,14 @@ export async function resolveOrderEntries(
     );
     const tallaRow = (
       (product as
-        | { producto_tallas?: { id: string; talla: string }[] }
+        | {
+            producto_tallas?: { id: string; talla: string }[];
+            tallas?: { id: string; talla: string }[];
+          }
         | undefined)?.producto_tallas ?? []
+    ).concat(
+      (product as { tallas?: { id: string; talla: string }[] } | undefined)
+        ?.tallas ?? [],
     ).find((t) => String(t.talla) === String(item.size));
 
     const productoTallaId = item.tallaId ?? tallaRow?.id;

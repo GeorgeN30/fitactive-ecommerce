@@ -68,7 +68,7 @@ export default function AdminSettingsView() {
           key: "currency",
           label: "Moneda Principal",
           type: "select",
-          options: ["PEN - Sol Peruano", "USD - Dólar", "EUR - Euro"],
+          options: ["PEN - Sol Peruano"],
         },
       ] satisfies SettingField[],
     },

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("../src/config/env", () => ({
   config: {
@@ -47,7 +48,7 @@ function buildTx() {
   return {
     producto_tallas: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     ordenes: {
       create: vi.fn(),
@@ -64,12 +65,14 @@ function productoTalla(
   stock: number,
   precio: number,
   nombre: string,
+  discount = 0,
 ) {
   return {
     id,
     talla,
     stock,
     productos: { nombre, precio: decimal(precio) },
+    descuento_porcentaje: discount,
   } as never;
 }
 
@@ -163,15 +166,15 @@ describe("orderService.createOrder", () => {
     });
 
     expect(tx.ordenes.create).toHaveBeenCalledTimes(1);
-    expect(tx.producto_tallas.update).toHaveBeenCalledWith(
+    expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "talla-1" },
+        where: { id: "talla-1", stock: { gte: 2 } },
         data: { stock: { decrement: 2 } },
       }),
     );
-    expect(tx.producto_tallas.update).toHaveBeenCalledWith(
+    expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "talla-2" },
+        where: { id: "talla-2", stock: { gte: 1 } },
         data: { stock: { decrement: 1 } },
       }),
     );
@@ -193,7 +196,7 @@ describe("orderService.createOrder", () => {
     ).rejects.toThrow("INSUFFICIENT_STOCK");
 
     expect(tx.ordenes.create).not.toHaveBeenCalled();
-    expect(tx.producto_tallas.update).not.toHaveBeenCalled();
+    expect(tx.producto_tallas.updateMany).not.toHaveBeenCalled();
   });
 
   it("throws PRODUCT_NOT_FOUND when the size row does not exist", async () => {
@@ -208,6 +211,121 @@ describe("orderService.createOrder", () => {
         { productoTallaId: "missing-1", cantidad: 1 },
       ]),
     ).rejects.toThrow("PRODUCT_NOT_FOUND");
+  });
+
+  it("uses the approved variant discount from the database, not the cart price", async () => {
+    const tx = buildTx();
+    tx.producto_tallas.findUnique.mockResolvedValue(
+      productoTalla("talla-1", "M", 5, 49.9, "Polo Run", 20),
+    );
+    tx.ordenes.create.mockResolvedValue({
+      id: "order-1",
+      numero: "ORD-2026-DISC20",
+      total: decimal(79.84),
+      estado: "pending",
+      fecha_orden: new Date(),
+    });
+    tx.orden_detalles.findMany.mockResolvedValue([
+      detail("talla-1", "M", 2, 39.92, "Polo Run"),
+    ]);
+    mockPrisma.$transaction.mockImplementation(
+      (callback: (transaction: ReturnType<typeof buildTx>) => unknown) => callback(tx),
+    );
+
+    const order = await orderService.createOrder("user-1", [
+      { productoTallaId: "talla-1", cantidad: 2 },
+    ]);
+
+    expect(tx.ordenes.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        total: 79.84,
+        orden_detalles: { create: [{ producto_talla_id: "talla-1", cantidad: 2, precio_unitario: 39.92 }] },
+      }),
+    });
+    expect(order.total).toBe(79.84);
+    expect(order.entries[0].precioUnitario).toBe(39.92);
+  });
+
+  it("retries a serialization conflict before creating the order", async () => {
+    const tx = buildTx();
+    tx.producto_tallas.findUnique.mockResolvedValue(
+      productoTalla("talla-1", "M", 5, 30, "Polo Run"),
+    );
+    tx.ordenes.create.mockResolvedValue({
+      id: "order-1",
+      numero: "ORD-2026-RETRY",
+      total: decimal(30),
+      estado: "pending",
+      fecha_orden: new Date(),
+    });
+    tx.orden_detalles.findMany.mockResolvedValue([
+      detail("talla-1", "M", 1, 30, "Polo Run"),
+    ]);
+    mockPrisma.$transaction
+      .mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError(
+        "Serialization conflict",
+        { code: "P2034", clientVersion: "5.22.0" },
+      ))
+      .mockImplementation(
+        (callback: (transaction: ReturnType<typeof buildTx>) => unknown) => callback(tx),
+      );
+
+    const order = await orderService.createOrder("user-1", [
+      { productoTallaId: "talla-1", cantidad: 1 },
+    ]);
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(tx.ordenes.create).toHaveBeenCalledTimes(1);
+    expect(order.total).toBe(30);
+  });
+
+  it("consolidates repeated cart lines before reserving stock", async () => {
+    const tx = buildTx();
+    tx.producto_tallas.findUnique.mockResolvedValue(
+      productoTalla("talla-1", "M", 10, 49.9, "Polo Run"),
+    );
+    tx.orden_detalles.findMany.mockResolvedValue([
+      detail("talla-1", "M", 5, 49.9, "Polo Run"),
+    ]);
+    tx.ordenes.create.mockResolvedValue({
+      id: "order-1",
+      numero: "ORD-2026-ABC123",
+      total: decimal(249.5),
+      estado: "pending",
+      fecha_orden: new Date(),
+    });
+    mockPrisma.$transaction.mockImplementation(
+      (cb: (tx: ReturnType<typeof buildTx>) => unknown) => cb(tx),
+    );
+
+    await orderService.createOrder("user-1", [
+      { productoTallaId: "talla-1", cantidad: 2 },
+      { productoTallaId: "talla-1", cantidad: 3 },
+    ]);
+
+    expect(tx.producto_tallas.findUnique).toHaveBeenCalledTimes(1);
+    expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith({
+      where: { id: "talla-1", stock: { gte: 5 } },
+      data: { stock: { decrement: 5 } },
+    });
+  });
+
+  it("fails safely when a concurrent reservation wins the stock update", async () => {
+    const tx = buildTx();
+    tx.producto_tallas.findUnique.mockResolvedValue(
+      productoTalla("talla-1", "M", 1, 49.9, "Polo Run"),
+    );
+    tx.producto_tallas.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.$transaction.mockImplementation(
+      (cb: (tx: ReturnType<typeof buildTx>) => unknown) => cb(tx),
+    );
+
+    await expect(
+      orderService.createOrder("user-1", [
+        { productoTallaId: "talla-1", cantidad: 1 },
+      ]),
+    ).rejects.toThrow("INSUFFICIENT_STOCK");
+    expect(tx.ordenes.create).not.toHaveBeenCalled();
   });
 });
 

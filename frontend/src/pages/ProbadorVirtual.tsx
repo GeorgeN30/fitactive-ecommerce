@@ -18,7 +18,19 @@ export default function ProbadorVirtual() {
     const cargarDatos = async () => {
       try {
         const response = await api.get('/products');
-        const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : (response.data.products || response.data.data || []);
+        const data = rawData.map((item: any) => ({
+          ...item,
+          genero: item.genero === 'male' ? 'Hombre' : item.genero === 'female' ? 'Mujer' : item.genero || 'Unisex',
+          categoria: item.categoria || 'General',
+          producto_tallas: (item.producto_tallas || item.tallas || []).map((talla: any) => ({
+            ...talla,
+            rango_cm_min: talla.rango_cm_min ?? talla.rangoCmMin,
+            rango_cm_max: talla.rango_cm_max ?? talla.rangoCmMax,
+          })),
+        }));
 
         const productosValidos = Array.isArray(data) ? data : [];
         setProductos(productosValidos);
@@ -48,7 +60,7 @@ export default function ProbadorVirtual() {
   }, [productoIdUrl]);
 
   const seleccionarPorDefecto = (listaValidos: any[]) => {
-    const inicialesHombre = listaValidos.filter((p: any) => p.genero?.toLowerCase() === 'hombre');
+    const inicialesHombre = listaValidos.filter((p: any) => ['hombre', 'male'].includes(p.genero?.toLowerCase()));
     if (inicialesHombre.length > 0) {
       setSelectedProduct(inicialesHombre[0]);
     } else if (listaValidos.length > 0) {
@@ -73,7 +85,10 @@ export default function ProbadorVirtual() {
       setMedidas({ pecho: 96, cintura: 82, cadera: 95 });
     }
 
-    const prodsNuevos = productos.filter(p => p?.genero?.toLowerCase() === nuevoGenero.toLowerCase());
+    const prodsNuevos = productos.filter(p => {
+      const productGender = p?.genero?.toLowerCase();
+      return productGender === nuevoGenero.toLowerCase() || (nuevoGenero === 'Hombre' && productGender === 'male') || (nuevoGenero === 'Mujer' && productGender === 'female');
+    });
     if (prodsNuevos.length > 0) {
       setSelectedProduct(prodsNuevos[0]);
     } else {

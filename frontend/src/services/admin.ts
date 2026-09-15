@@ -21,6 +21,10 @@ interface BackendTalla {
   id: string;
   talla: string;
   stock: number;
+  discountPercent?: number;
+  salePrice?: number;
+  rangoCmMin?: number | null;
+  rangoCmMax?: number | null;
 }
 
 interface BackendProduct {
@@ -107,6 +111,18 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
   const stock: Record<string, number> = Object.fromEntries(
     p.tallas.map((t) => [t.talla, t.stock]),
   );
+  const tallaIds: Record<string, string> = Object.fromEntries(
+    p.tallas.map((t) => [t.talla, t.id]),
+  );
+  const discounts = Object.fromEntries(
+    p.tallas.map((t) => [
+      t.talla,
+      {
+        percent: t.discountPercent ?? 0,
+        salePrice: t.salePrice ?? p.precio,
+      },
+    ]),
+  );
   const image = p.imagenUrl || DEFAULT_PRODUCT_IMAGE;
   return {
     id: p.id,
@@ -120,6 +136,8 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
     availableColors: [{ name: "Único", hex: "#1a1a1a" }],
     description: p.descripcion || "",
     stock,
+    tallaIds,
+    discounts,
     gender:
       p.genero === "male"
         ? "male"

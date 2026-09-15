@@ -77,6 +77,7 @@ function buildTx() {
   return {
     producto_tallas: {
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       create: vi.fn(),
     },
     productos: {
@@ -125,8 +126,8 @@ describe("adminService.updateStock", () => {
     const result = await adminService.updateStock("p-1", "M", 20, "user-admin", "Nueva compra");
 
     expect(result.tallas[0].stock).toBe(20);
-    expect(tx.producto_tallas.update).toHaveBeenCalledWith({
-      where: { id: "talla-1" },
+    expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith({
+      where: { id: "talla-1", stock: 5 },
       data: { stock: 20 },
     });
     expect(tx.inventory_movements.create).toHaveBeenCalledWith({
@@ -198,5 +199,24 @@ describe("adminService.updateStock", () => {
     await expect(
       adminService.updateStock("p-1", "XL", 10, "user-admin"),
     ).rejects.toThrow("SIZE_NOT_FOUND");
+  });
+
+  it("does not overwrite stock when a product edit uses a stale stock snapshot", async () => {
+    const tx = buildTx();
+    mockPrisma.productos.findUnique.mockResolvedValue(productRow("p-1", 5));
+    tx.producto_tallas.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.$transaction.mockImplementation(
+      (cb: (tx: ReturnType<typeof buildTx>) => unknown) => cb(tx),
+    );
+
+    await expect(
+      adminService.updateProduct("p-1", {
+        tallas: [{ talla: "M", stock: 20 }],
+      }),
+    ).rejects.toThrow("STOCK_CONFLICT");
+    expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith({
+      where: { id: "talla-1", stock: 5 },
+      data: { stock: 20 },
+    });
   });
 });

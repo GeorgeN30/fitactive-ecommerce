@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import { useFavorites } from "../context/FavoritesContext";
+import { formatSoles } from "../utils/money";
 
 export default function FavoritesPage() {
   const { favorites, removeFavorite } = useFavorites();
@@ -77,7 +78,7 @@ export default function FavoritesPage() {
                   </h3>
 
                   <div className="font-black text-lg dark:text-gray-200">
-                    ${item.price.toFixed(2)}
+                    {formatSoles(item.price)}
                   </div>
 
                   <Link

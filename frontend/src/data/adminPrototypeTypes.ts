@@ -28,8 +28,10 @@ export interface Product {
   availableColors: { name: string; hex: string }[];
   description: string;
   stock: Record<string, number>;
-  gender: "male" | "female" | "unisex";
-  tag?: "new" | "sale" | "trending";
+  tallaIds?: Record<string, string>;
+  discounts?: Record<string, { percent: number; salePrice: number }>;
+  gender: 'male' | 'female' | 'unisex';
+  tag?: 'new' | 'sale' | 'trending';
   measurements: {
     chest: [number, number];
     waist: [number, number];

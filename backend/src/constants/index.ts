@@ -27,6 +27,16 @@ export const MOVEMENT_TYPE = {
   OUTPUT: "SALIDA",
 } as const;
 
+export const DISCOUNT_REQUEST_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVERTED: "REVERTED",
+} as const;
+
+export type DiscountRequestStatus =
+  (typeof DISCOUNT_REQUEST_STATUS)[keyof typeof DISCOUNT_REQUEST_STATUS];
+
 export const LOW_STOCK_THRESHOLD = 5;
 
 export const HTTP_STATUS = {
