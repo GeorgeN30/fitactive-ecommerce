@@ -64,7 +64,7 @@ export default function FavoritesPage() {
                       <img
                         src={item.img}
                         alt={item.name}
-                        className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-500"
+                        className="object-contain p-2 w-full h-full mix-blend-multiply dark:mix-blend-normal"
                       />
                     </Link>
                   </div>

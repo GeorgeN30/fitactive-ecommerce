@@ -3,6 +3,14 @@ import { Link, useSearchParams } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import api from '../services/api';
 
+export const PRODUCTS_PER_PAGE = 5;
+
+export function paginateProducts<T>(products: T[], page: number, pageSize = PRODUCTS_PER_PAGE): T[] {
+  const safePage = Math.max(1, page);
+  const startIndex = (safePage - 1) * pageSize;
+  return products.slice(startIndex, startIndex + pageSize);
+}
+
 export default function ProbadorVirtual() {
   const [searchParams] = useSearchParams();
   const productoIdUrl = searchParams.get('producto');
@@ -13,6 +21,7 @@ export default function ProbadorVirtual() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('Todas');
+  const [productPage, setProductPage] = useState(1);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -23,6 +32,7 @@ export default function ProbadorVirtual() {
           : (response.data.products || response.data.data || []);
         const data = rawData.map((item: any) => ({
           ...item,
+          imagen_url: item.imagen_url || item.imagenUrl || item.img,
           genero: item.genero === 'male' ? 'Hombre' : item.genero === 'female' ? 'Mujer' : item.genero || 'Unisex',
           categoria: item.categoria || 'General',
           producto_tallas: (item.producto_tallas || item.tallas || []).map((talla: any) => ({
@@ -74,10 +84,16 @@ export default function ProbadorVirtual() {
   const productosFiltrados = categoriaFiltro === 'Todas'
     ? productosDelGenero
     : productosDelGenero.filter(p => p?.categoria === categoriaFiltro);
+  const productPageCount = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTS_PER_PAGE));
+  const currentProductPage = Math.min(productPage, productPageCount);
+  const productPageStart = (currentProductPage - 1) * PRODUCTS_PER_PAGE;
+  const visibleProducts = paginateProducts(productosFiltrados, currentProductPage);
+  const productPageEnd = Math.min(productPageStart + PRODUCTS_PER_PAGE, productosFiltrados.length);
 
   const handleCambioGenero = (nuevoGenero: string) => {
     setGenero(nuevoGenero);
     setCategoriaFiltro('Todas');
+    setProductPage(1);
 
     if (nuevoGenero === 'Mujer') {
       setMedidas({ pecho: 90, cintura: 74, cadera: 98 });
@@ -322,7 +338,10 @@ export default function ProbadorVirtual() {
                     {categoriasUnicas.map(cat => (
                       <button
                         key={cat}
-                        onClick={() => setCategoriaFiltro(cat)}
+                        onClick={() => {
+                          setCategoriaFiltro(cat);
+                          setProductPage(1);
+                        }}
                         className={`whitespace-nowrap px-5 py-2 rounded-full text-[11px] font-bold transition-all cursor-pointer ${categoriaFiltro === cat ? 'bg-brand-green text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 border border-transparent dark:border-white/5'}`}
                       >
                         {cat}
@@ -331,14 +350,14 @@ export default function ProbadorVirtual() {
                   </div>
                 </div>
 
-                <div className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
-                  {productosFiltrados.map(prod => (
+                <div role="group" aria-label="Selector de prendas" className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
+                  {visibleProducts.map(prod => (
                     <button
                       key={prod.id}
                       onClick={() => setSelectedProduct(prod)}
                       className={`flex-shrink-0 w-28 h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300 relative bg-gray-50 dark:bg-black/20 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green scale-105 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-transparent opacity-70 hover:opacity-100 dark:border-white/5'}`}
                     >
-                      <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal" />
+                      <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal" />
                       {selectedProduct?.id === prod.id && (
                         <div className="absolute inset-0 bg-brand-green/20 flex items-center justify-center backdrop-blur-[2px]">
                           <div className="bg-brand-green text-black rounded-full p-1.5 shadow-lg">
@@ -354,6 +373,33 @@ export default function ProbadorVirtual() {
                     </div>
                   )}
                 </div>
+
+                {productosFiltrados.length > PRODUCTS_PER_PAGE && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-gray-500 dark:text-gray-400">
+                    <span>Mostrando {productPageStart + 1}-{productPageEnd} de {productosFiltrados.length} prendas</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label="Prendas anteriores"
+                        disabled={currentProductPage === 1}
+                        onClick={() => setProductPage((page) => Math.max(1, page - 1))}
+                        className="px-3 h-8 rounded-lg border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-green hover:text-brand-green transition-colors"
+                      >
+                        Anterior
+                      </button>
+                      <span className="min-w-24 text-center">Página {currentProductPage} de {productPageCount}</span>
+                      <button
+                        type="button"
+                        aria-label="Prendas siguientes"
+                        disabled={currentProductPage === productPageCount}
+                        onClick={() => setProductPage((page) => Math.min(productPageCount, page + 1))}
+                        className="px-3 h-8 rounded-lg border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-green hover:text-brand-green transition-colors"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {selectedProduct && analisis ? (
@@ -361,7 +407,7 @@ export default function ProbadorVirtual() {
 
                   <div className="w-full md:w-1/3 flex flex-col justify-center items-center">
                     <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 dark:bg-black/40 shadow-inner border border-gray-200/50 dark:border-white/5">
-                      <img src={selectedProduct.imagen_url || selectedProduct.img} alt={selectedProduct.nombre} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal hover:scale-110 transition-transform duration-1000 ease-out" />
+                      <img src={selectedProduct.imagen_url || selectedProduct.img} alt={selectedProduct.nombre} className="w-full h-full object-contain p-4 mix-blend-multiply dark:mix-blend-normal" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex items-end p-5">
                         <div className="text-white">
                           <p className="text-[9px] font-black uppercase tracking-widest text-brand-green mb-1.5 drop-shadow-md">{selectedProduct.categoria}</p>

@@ -138,7 +138,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col lg:flex-row gap-12 mb-16">
             <div className="w-full lg:w-1/2 flex justify-center">
               <div className="w-full max-w-lg bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden aspect-[4/5]">
-                <img src={producto.imagenUrl || producto.imagen_url || producto.img} alt={producto.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-700" />
+                <img src={producto.imagenUrl || producto.imagen_url || producto.img} alt={producto.nombre} className="object-contain p-4 w-full h-full mix-blend-multiply dark:mix-blend-normal" />
               </div>
             </div>
 
@@ -326,7 +326,7 @@ export default function ProductDetailPage() {
                         </svg>
                       </button>
                       <Link to={`/producto/${item.id}`} className="w-full h-full">
-                        <img src={item.imagen_url || item.img} alt={item.nombre} className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal hover:scale-105 transition-transform duration-500" />
+                        <img src={item.imagen_url || item.img} alt={item.nombre} className="object-contain p-3 w-full h-full mix-blend-multiply dark:mix-blend-normal" />
                       </Link>
                     </div>
                     <div className="mb-1 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">{item.categoria}</div>
