@@ -204,7 +204,7 @@ export default function CheckoutPage() {
                       <img
                         src={item.img}
                         alt={item.name}
-                        className="w-20 h-20 rounded-xl object-cover"
+                        className="w-20 h-20 rounded-xl object-contain p-1"
                       />
 
                       <div className="flex-1 min-w-0">
@@ -637,7 +637,7 @@ export default function CheckoutPage() {
                         <img
                           src={item.img}
                           alt={item.name}
-                          className="w-20 h-20 rounded-xl object-cover"
+                          className="w-20 h-20 rounded-xl object-contain p-1"
                         />
 
                         <div className="flex-1">
