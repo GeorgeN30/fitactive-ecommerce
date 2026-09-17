@@ -120,16 +120,18 @@ export default function InventoryDashboard() {
     name: string;
     sku: string;
     price: number;
+    stock: number;
+    imageUrls: string[];
   }) => {
     try {
       const input: ProductInput = {
         nombre: data.name,
         precio: data.price || 0,
         categoria: "Clothing",
-        tallas: [{ talla: "M", stock: 0 }],
+        imageUrls: data.imageUrls,
+        tallas: [{ talla: "M", stock: data.stock }],
       };
       const created = await createProduct(input, "/inventory");
-      setProducts((current) => [created, ...current]);
       return created;
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
@@ -139,20 +141,19 @@ export default function InventoryDashboard() {
 
   const handleUpdateProduct = async (
     product: Product,
-    data: { name: string; sku: string; price: number },
+    data: { name: string; sku: string; price: number; stock: number; imageUrls: string[] },
   ) => {
     try {
+      const sizes = Object.entries(product.stock || {}).map(([talla, stock], index) => ({
+        talla,
+        stock: talla === "M" || index === 0 ? data.stock : stock,
+      }));
       const updated = await updateProduct(String(product.id), {
         nombre: data.name,
         precio: data.price || 0,
-        tallas: Object.entries(product.stock || {}).map(([talla, stock]) => ({
-          talla,
-          stock: stock as number,
-        })),
+        imageUrls: data.imageUrls,
+        tallas: sizes.length > 0 ? sizes : [{ talla: "M", stock: data.stock }],
       }, "/inventory");
-      setProducts((current) =>
-        current.map((p) => (p.id === product.id ? updated : p)),
-      );
       return updated;
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();

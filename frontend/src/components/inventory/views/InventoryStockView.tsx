@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ModalPortal from "../../ModalPortal";
 import type { Product } from "../../../data/adminPrototypeTypes";
 
 export default function InventoryStockView({
@@ -118,14 +119,22 @@ export default function InventoryStockView({
       )}
 
       {isEditModalOpen && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsEditModalOpen(false)}
-          ></div>
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800">
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsEditModalOpen(false)}
+            ></div>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="inventory-stock-modal-title"
+              className="relative z-10 bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-md max-h-[calc(100dvh-2rem)] shadow-2xl overflow-y-auto animate-scale-up border border-gray-100 dark:border-zinc-800"
+            >
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Ajustar Stock</h2>
+              <h2 id="inventory-stock-modal-title" className="text-xl font-bold">
+                Ajustar Stock
+              </h2>
               <button
                 onClick={() => setIsEditModalOpen(false)}
                 className="text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -212,8 +221,9 @@ export default function InventoryStockView({
                 Guardar Ajuste
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       <div>

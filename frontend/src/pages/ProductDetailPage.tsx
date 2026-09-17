@@ -1,9 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
+import ModalPortal from '../components/ModalPortal';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useFavorites } from "../context/FavoritesContext";
+
+function getProductImages(product: any): string[] {
+  const imageValues = [
+    ...(Array.isArray(product?.imageUrls) ? product.imageUrls : []),
+    ...(Array.isArray(product?.imagenes) ? product.imagenes : []),
+    product?.imagenUrl,
+    product?.imagen_url,
+    product?.img,
+  ];
+  return Array.from(
+    new Set(imageValues.filter((image): image is string => typeof image === "string" && image.length > 0)),
+  );
+}
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -21,6 +35,7 @@ export default function ProductDetailPage() {
   const [isSizeModalOpen, setIsSizeModalOpen] = useState(false);
   const [rating, setRating] = useState('4.5');
   const [reviewsCount, setReviewsCount] = useState(0);
+  const [activeImage, setActiveImage] = useState("");
 
   const ordenTallas: Record<string, number> = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5 };
 
@@ -39,6 +54,7 @@ export default function ProductDetailPage() {
 
         const productoEncontrado = data.find((item: any) => String(item.id) === String(id)) || data[0];
         setProducto(productoEncontrado);
+        setActiveImage(getProductImages(productoEncontrado)[0] || "");
 
         const otrosProductos = data.filter((item: any) => String(item.id) !== String(id)).slice(0, 4);
         setRelacionados(otrosProductos);
@@ -107,6 +123,8 @@ export default function ProductDetailPage() {
     selectedTalla?.salePrice || producto.precio || producto.price || 0,
   );
   const descuentoActual = Number(selectedTalla?.discountPercent || 0);
+  const productImages = getProductImages(producto);
+  const mainImage = activeImage || productImages[0] || "";
   const esMujer = ['mujer', 'female'].includes(producto?.genero?.toLowerCase());
   const guiaTallas = esMujer ? [
     { t: 'S', p: '83-90', c: '67-74', ca: '91-98' },
@@ -137,8 +155,25 @@ export default function ProductDetailPage() {
 
           <div className="flex flex-col lg:flex-row gap-12 mb-16">
             <div className="w-full lg:w-1/2 flex justify-center">
-              <div className="w-full max-w-lg bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden aspect-[4/5]">
-                <img src={producto.imagenUrl || producto.imagen_url || producto.img} alt={producto.nombre} className="object-contain p-4 w-full h-full mix-blend-multiply dark:mix-blend-normal" />
+              <div className="w-full max-w-lg">
+                <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden aspect-[4/5]">
+                  <img src={mainImage} alt={producto.nombre} className="object-contain p-4 w-full h-full mix-blend-multiply dark:mix-blend-normal" />
+                </div>
+                {productImages.length > 1 && (
+                  <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
+                    {productImages.map((image, index) => (
+                      <button
+                        type="button"
+                        key={`${image}-${index}`}
+                        onClick={() => setActiveImage(image)}
+                        aria-label={`Ver imagen ${index + 1}`}
+                        className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-colors ${mainImage === image ? "border-brand-green" : "border-gray-200 dark:border-white/10"}`}
+                      >
+                        <img src={image} alt={`Miniatura ${index + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -352,16 +387,30 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* MODAL DE GUÍA DE TALLAS CORREGIDO PERFECTAMENTE */}
+      {/* Render outside the route animation so fixed positioning uses the viewport. */}
       {isSizeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-brand-card-dark rounded-3xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-white/10 overflow-hidden">
+        <ModalPortal>
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            role="presentation"
+          >
+            <div
+              className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-brand-card-dark"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="size-guide-title"
+            >
             <div className="p-6 sm:p-8">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-black dark:text-white uppercase tracking-widest">
+                <h3 id="size-guide-title" className="text-lg font-black dark:text-white uppercase tracking-widest">
                   Guía de Tallas
                 </h3>
-                <button onClick={() => setIsSizeModalOpen(false)} className="text-gray-400 hover:text-brand-green transition cursor-pointer p-1">
+                <button
+                  type="button"
+                  aria-label="Cerrar guía de tallas"
+                  onClick={() => setIsSizeModalOpen(false)}
+                  className="text-gray-400 hover:text-brand-green transition cursor-pointer p-1"
+                >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -390,7 +439,8 @@ export default function ProductDetailPage() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </ModalPortal>
       )}
     </AppLayout>
   );

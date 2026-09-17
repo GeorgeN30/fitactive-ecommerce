@@ -27,6 +27,8 @@ services:
         condition: service_healthy
     ports:
       - "4000:4000"
+    volumes:
+      - product-uploads:/app/uploads
     environment:
       - PORT=4000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/fitactive
@@ -60,3 +62,4 @@ services:
 
 volumes:
   pg-data:
+  product-uploads:

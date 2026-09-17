@@ -9,10 +9,12 @@ interface Client extends User {
 
 interface AdminCustomersViewProps {
   clients: User[];
+  onToggleBlock: (client: User) => Promise<User>;
 }
 
 export default function AdminCustomersView({
   clients: initialClients,
+  onToggleBlock,
 }: AdminCustomersViewProps) {
   const toClient = (client: User): Client => ({
     ...client,
@@ -26,11 +28,37 @@ export default function AdminCustomersView({
 
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [updatingClientId, setUpdatingClientId] = useState<string | null>(null);
 
   useEffect(() => {
-    setClients(initialClients.map(toClient));
-    setSelectedClient(null);
+    const nextClients = initialClients.map(toClient);
+    setClients(nextClients);
+    setSelectedClient((current) =>
+      current
+        ? nextClients.find((client) => client.id === current.id) || null
+        : null,
+    );
   }, [initialClients]);
+
+  async function handleToggleBlock() {
+    if (!selectedClient || updatingClientId) return;
+
+    setUpdatingClientId(selectedClient.id);
+    try {
+      const updated = await onToggleBlock(selectedClient);
+      const nextClient = toClient(updated);
+      setClients((current) =>
+        current.map((client) =>
+          client.id === nextClient.id ? nextClient : client,
+        ),
+      );
+      setSelectedClient(nextClient);
+    } catch {
+      window.alert("No se pudo actualizar el estado del cliente.");
+    } finally {
+      setUpdatingClientId(null);
+    }
+  }
 
   const filteredClients = clients.filter(
     (c) =>
@@ -154,6 +182,22 @@ export default function AdminCustomersView({
             >
               {selectedClient.status === "active" ? "activo" : "bloqueado"}
             </span>
+            <button
+              type="button"
+              onClick={() => void handleToggleBlock()}
+              disabled={updatingClientId === selectedClient.id}
+              className={`mt-4 w-full rounded-xl px-3 py-2 text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                selectedClient.status === "active"
+                  ? "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                  : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+              }`}
+            >
+              {updatingClientId === selectedClient.id
+                ? "Actualizando..."
+                : selectedClient.status === "active"
+                  ? "Bloquear cliente"
+                  : "Desbloquear cliente"}
+            </button>
           </div>
 
           <div className="p-6 space-y-4">
@@ -180,6 +224,35 @@ export default function AdminCustomersView({
                   S/ {selectedClient.spent.toFixed(2)}
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/50">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">
+                Medidas registradas
+              </p>
+              {selectedClient.customerMeasurements ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ["Pecho", selectedClient.customerMeasurements.chest],
+                    ["Cintura", selectedClient.customerMeasurements.waist],
+                    ["Cadera", selectedClient.customerMeasurements.hips],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-lg bg-white p-2 dark:bg-zinc-900"
+                    >
+                      <p className="text-[10px] text-gray-500">{label}</p>
+                      <p className="font-bold text-sm">
+                        {value === null ? "-" : `${value} cm`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  El cliente aún no registra sus medidas.
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-gray-500">

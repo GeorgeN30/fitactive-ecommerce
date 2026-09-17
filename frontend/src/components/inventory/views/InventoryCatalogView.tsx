@@ -1,17 +1,54 @@
 import { useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { ChangeEvent, Dispatch, SetStateAction } from "react";
+import ModalPortal from "../../ModalPortal";
 import type { Product } from "../../../data/adminPrototypeTypes";
 
 interface ProductFormErrors {
   name?: string;
   sku?: string;
   price?: string;
+  stock?: string;
+  image?: string;
 }
 
 interface ProductFormInput {
   name: string;
   sku: string;
   price: number;
+  stock: number;
+  imageUrls: string[];
+}
+
+interface ProductFormData {
+  name: string;
+  sku: string;
+  price: string;
+  stock: string;
+  imageUrls: string[];
+}
+
+const EMPTY_FORM: ProductFormData = {
+  name: "",
+  sku: "",
+  price: "",
+  stock: "0",
+  imageUrls: [],
+};
+
+const MAX_PRODUCT_IMAGES = 5;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("IMAGE_READ_FAILED"));
+    });
+    reader.addEventListener("error", () => reject(new Error("IMAGE_READ_FAILED")));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function InventoryCatalogView({
@@ -34,12 +71,100 @@ export default function InventoryCatalogView({
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({ name: "", sku: "", price: "" });
+  const [formData, setFormData] = useState<ProductFormData>(EMPTY_FORM);
+  const [imageUrlInput, setImageUrlInput] = useState("");
   const [errors, setErrors] = useState<ProductFormErrors>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 3000);
+  };
+
+  const resetForm = () => {
+    setFormData({ ...EMPTY_FORM, imageUrls: [] });
+    setImageUrlInput("");
+    setErrors({});
+    setEditingId(null);
+  };
+
+  const handleImageSelection = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    if (formData.imageUrls.length + files.length > MAX_PRODUCT_IMAGES) {
+      setErrors((current) => ({
+        ...current,
+        image: `Puedes agregar hasta ${MAX_PRODUCT_IMAGES} imágenes.`,
+      }));
+      return;
+    }
+
+    const invalidFile = files.find(
+      (file) => !ACCEPTED_IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_SIZE,
+    );
+    if (invalidFile) {
+      setErrors((current) => ({
+        ...current,
+        image: "Usa imágenes JPG, PNG o WebP de máximo 5 MB.",
+      }));
+      return;
+    }
+
+    try {
+      const imageUrls = await Promise.all(files.map(readFileAsDataUrl));
+      setFormData((current) => ({
+        ...current,
+        imageUrls: [...current.imageUrls, ...imageUrls],
+      }));
+      setErrors((current) => ({ ...current, image: undefined }));
+    } catch {
+      setErrors((current) => ({
+        ...current,
+        image: "No se pudo leer una de las imágenes.",
+      }));
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    const imageUrl = imageUrlInput.trim();
+    if (!imageUrl) return;
+    if (formData.imageUrls.length >= MAX_PRODUCT_IMAGES) {
+      setErrors((current) => ({
+        ...current,
+        image: `Puedes agregar hasta ${MAX_PRODUCT_IMAGES} imágenes.`,
+      }));
+      return;
+    }
+    try {
+      const parsedUrl = new URL(imageUrl);
+      if (!/^https?:$/.test(parsedUrl.protocol)) throw new Error("INVALID_IMAGE");
+    } catch {
+      setErrors((current) => ({
+        ...current,
+        image: "Ingresa una URL válida que empiece con https://.",
+      }));
+      return;
+    }
+    if (formData.imageUrls.includes(imageUrl)) {
+      setErrors((current) => ({ ...current, image: "Esa imagen ya fue agregada." }));
+      return;
+    }
+    setFormData((current) => ({
+      ...current,
+      imageUrls: [...current.imageUrls, imageUrl],
+    }));
+    setImageUrlInput("");
+    setErrors((current) => ({ ...current, image: undefined }));
+  };
+
+  const removeImage = (imageUrl: string) => {
+    setFormData((current) => ({
+      ...current,
+      imageUrls: current.imageUrls.filter((item) => item !== imageUrl),
+    }));
   };
 
   const handleSaveProduct = async () => {
@@ -48,6 +173,8 @@ export default function InventoryCatalogView({
     if (!formData.sku.trim()) newErrors.sku = "Requerido";
     if (!formData.price || isNaN(Number(formData.price)))
       newErrors.price = "Inválido";
+    if (!formData.stock || !Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0)
+      newErrors.stock = "Inválido";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -65,17 +192,17 @@ export default function InventoryCatalogView({
             name: formData.name.trim(),
             sku: formData.sku.trim(),
             price: Number(formData.price),
+            stock: Number(formData.stock),
+            imageUrls: formData.imageUrls,
           });
           if (updated) {
-            setProducts(
-              products.map((p) => (p.id === editingId ? updated : p)),
+            setProducts((currentProducts) =>
+              currentProducts.map((p) => (p.id === editingId ? updated : p)),
             );
           }
           showToast("¡Producto editado exitosamente!");
         setIsModalOpen(false);
-        setFormData({ name: "", sku: "", price: "" });
-        setErrors({});
-        setEditingId(null);
+        resetForm();
       } catch {
         showToast("No se pudo guardar el producto. Intenta nuevamente.");
         return;
@@ -86,15 +213,15 @@ export default function InventoryCatalogView({
             name: formData.name.trim(),
             sku: formData.sku.trim(),
             price: Number(formData.price),
+            stock: Number(formData.stock),
+            imageUrls: formData.imageUrls,
           });
           if (created) {
-            setProducts([created, ...products]);
+            setProducts((currentProducts) => [created, ...currentProducts]);
           }
           showToast("Producto añadido al catálogo exitosamente.");
         setIsModalOpen(false);
-        setFormData({ name: "", sku: "", price: "" });
-        setErrors({});
-        setEditingId(null);
+        resetForm();
       } catch {
         showToast("No se pudo guardar el producto. Intenta nuevamente.");
         return;
@@ -106,9 +233,7 @@ export default function InventoryCatalogView({
     }
 
     setIsModalOpen(false);
-    setFormData({ name: "", sku: "", price: "" });
-    setErrors({});
-    setEditingId(null);
+    resetForm();
   };
 
   const handleDelete = (id: string) => {
@@ -137,14 +262,16 @@ export default function InventoryCatalogView({
       name: p.name,
       sku: `FIT-001-${p.id}`,
       price: p.price.toString(),
+      stock: String(Object.values(p.stock).reduce((sum, stock) => sum + stock, 0)),
+      imageUrls: p.images || [],
     });
+    setImageUrlInput("");
+    setErrors({});
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
-    setEditingId(null);
-    setFormData({ name: "", sku: "", price: "" });
-    setErrors({});
+    resetForm();
     setIsModalOpen(true);
   };
 
@@ -158,14 +285,22 @@ export default function InventoryCatalogView({
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsModalOpen(false)}
-          ></div>
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800 flex flex-col">
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsModalOpen(false)}
+            ></div>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="inventory-product-modal-title"
+              className="relative z-10 bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800 flex flex-col"
+            >
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center flex-shrink-0">
-              <h2 className="text-xl font-bold">{editingId ? "Editar producto" : "Nuevo Producto"}</h2>
+              <h2 id="inventory-product-modal-title" className="text-xl font-bold">
+                {editingId ? "Editar producto" : "Nuevo Producto"}
+              </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -177,10 +312,11 @@ export default function InventoryCatalogView({
             <div className="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">
+                  <label htmlFor="inventory-product-name" className="text-xs font-bold text-gray-500 uppercase">
                     Nombre del producto *
                   </label>
                   <input
+                    id="inventory-product-name"
                     type="text"
                     value={formData.name}
                     onChange={(e) =>
@@ -191,10 +327,11 @@ export default function InventoryCatalogView({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">
+                  <label htmlFor="inventory-product-sku" className="text-xs font-bold text-gray-500 uppercase">
                     SKU *
                   </label>
                   <input
+                    id="inventory-product-sku"
                     type="text"
                     value={formData.sku}
                     onChange={(e) =>
@@ -215,10 +352,11 @@ export default function InventoryCatalogView({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">
+                  <label htmlFor="inventory-product-price" className="text-xs font-bold text-gray-500 uppercase">
                     Precio (S/) *
                   </label>
                   <input
+                    id="inventory-product-price"
                     type="number"
                     value={formData.price}
                     onChange={(e) =>
@@ -229,13 +367,19 @@ export default function InventoryCatalogView({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">
+                  <label htmlFor="inventory-product-stock" className="text-xs font-bold text-gray-500 uppercase">
                     Stock Actual
                   </label>
                   <input
+                    id="inventory-product-stock"
                     type="number"
+                    min="0"
+                    value={formData.stock}
+                    onChange={(e) =>
+                      setFormData({ ...formData, stock: e.target.value })
+                    }
                     placeholder="0"
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B]"
+                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border ${errors.stock ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B]`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -278,17 +422,83 @@ export default function InventoryCatalogView({
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase">
-                  Imagen del producto *
+                  Imágenes del producto
                 </label>
-                <div className="w-full border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer">
+                <input
+                  id="inventory-product-images"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handleImageSelection}
+                  aria-label="Imágenes del producto"
+                  className="sr-only"
+                />
+                <label
+                  htmlFor="inventory-product-images"
+                  className="w-full border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-2xl p-8 flex flex-col items-center justify-center text-gray-400 hover:border-[#00FF66] hover:bg-[#00FF66]/5 transition-colors cursor-pointer"
+                >
                   <i className="fa-solid fa-camera text-3xl mb-3"></i>
                   <p className="font-bold text-sm text-gray-900 dark:text-gray-100">
-                    Clic para subir imagen del producto
+                    Clic para subir imágenes
                   </p>
                   <p className="text-xs mt-1">
-                    PNG, JPG, SVG • Máx. 5MB • Recomendado: 600x700px
+                    JPG, PNG o WebP • Máximo 5 imágenes de 5 MB
                   </p>
+                </label>
+
+                <div className="flex gap-2 pt-2">
+                  <input
+                    type="url"
+                    value={imageUrlInput}
+                    onChange={(event) => setImageUrlInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleAddImageUrl();
+                      }
+                    }}
+                    placeholder="https://sitio.com/imagen.jpg"
+                    aria-label="URL de imagen"
+                    className="min-w-0 flex-1 px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-[#F59E0B]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddImageUrl}
+                    className="px-4 py-2.5 bg-gray-100 dark:bg-zinc-800 rounded-xl text-sm font-bold hover:bg-gray-200 dark:hover:bg-zinc-700"
+                  >
+                    Agregar URL
+                  </button>
                 </div>
+
+                {formData.imageUrls.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 pt-2">
+                    {formData.imageUrls.map((imageUrl, index) => (
+                      <div key={`${imageUrl}-${index}`} className="relative group aspect-square">
+                        <img
+                          src={imageUrl}
+                          alt={`Vista previa ${index + 1}`}
+                          className="w-full h-full object-cover rounded-xl border border-gray-200 dark:border-zinc-700"
+                        />
+                        {index === 0 && (
+                          <span className="absolute left-1 bottom-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            Principal
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(imageUrl)}
+                          aria-label={`Eliminar imagen ${index + 1}`}
+                          className="absolute right-1 top-1 w-6 h-6 rounded-full bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <i className="fa-solid fa-xmark" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {errors.image && (
+                  <p className="text-xs text-red-500">{errors.image}</p>
+                )}
               </div>
             </div>
 
@@ -306,8 +516,9 @@ export default function InventoryCatalogView({
                 {editingId ? "Guardar cambios" : "Añadir Producto"}
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       <div className="flex justify-between items-center">
@@ -492,16 +703,24 @@ export default function InventoryCatalogView({
       </div>
 
       {deleteId && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setDeleteId(null)}
-          ></div>
-          <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center border border-gray-100 dark:border-zinc-800 animate-scale-up">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setDeleteId(null)}
+            ></div>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-product-modal-title"
+              className="relative z-10 bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center border border-gray-100 dark:border-zinc-800 animate-scale-up"
+            >
             <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
               <i className="fa-solid fa-trash-can"></i>
             </div>
-            <h3 className="text-xl font-bold mb-2">Eliminar producto</h3>
+            <h3 id="delete-product-modal-title" className="text-xl font-bold mb-2">
+              Eliminar producto
+            </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               ¿Estás seguro de que deseas eliminar este producto? Esta acción no
               se puede deshacer.
@@ -520,8 +739,9 @@ export default function InventoryCatalogView({
                 Eliminar
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

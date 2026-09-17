@@ -13,6 +13,9 @@ import AdminNotificationsView from "../../components/admin/views/AdminNotificati
 import AdminSettingsView from "../../components/admin/views/AdminSettingsView";
 import VirtualTryOnMetrics from "../../components/admin/views/VirtualTryOnMetrics";
 import AdminDiscountRequestsView from "../../components/admin/views/AdminDiscountRequestsView";
+import AdminRolesAccessView from "../../components/admin/views/AdminRolesAccessView";
+import AdminReturnsView from "../../components/admin/views/AdminReturnsView";
+import ModalPortal from "../../components/ModalPortal";
 
 import {
   fetchOrders,
@@ -24,6 +27,9 @@ import {
   updateProduct,
   deleteProduct,
   updateOrderStatus as updateOrderStatusApi,
+  updateCustomerStatus as updateCustomerStatusApi,
+  updateCustomerRole as updateCustomerRoleApi,
+  fetchUsers,
 } from "../../services/admin";
 import type { ProductInput } from "../../services/admin";
 import {
@@ -85,10 +91,12 @@ type Section =
   | "dashboard"
   | "orders"
   | "clients"
+  | "roles"
   | "metrics"
   | "notifications"
   | "config"
-  | "discounts";
+  | "discounts"
+  | "returns";
 
 interface ProductFormData {
   name: string;
@@ -181,6 +189,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [sales, setSales] = useState<SalesDataPoint[]>([]);
 
@@ -203,15 +212,75 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCustomerStatus = async (client: User): Promise<User> => {
+    try {
+      const updated = await updateCustomerStatusApi(client.id, !client.blocked);
+      setCustomers((current) =>
+        current.map((customer) =>
+          customer.id === updated.id ? updated : customer,
+        ),
+      );
+      setUsers((current) =>
+        current.map((user) => (user.id === updated.id ? updated : user)),
+      );
+      return updated;
+    } catch (error) {
+      if (isAuthError(error)) {
+        handleUnauthorized();
+      }
+      throw error;
+    }
+  };
+
+  const handleRoleChange = async (
+    user: User,
+    role: User["role"],
+  ): Promise<User> => {
+    const backendRole = role === "client" ? "customer" : role;
+    try {
+      const updated = await updateCustomerRoleApi(user.id, backendRole);
+      setUsers((current) =>
+        current.map((currentUser) =>
+          currentUser.id === updated.id ? updated : currentUser,
+        ),
+      );
+      setCustomers((current) => {
+        if (updated.role !== "client") {
+          return current.filter((customer) => customer.id !== updated.id);
+        }
+        const exists = current.some((customer) => customer.id === updated.id);
+        return exists
+          ? current.map((customer) =>
+              customer.id === updated.id ? updated : customer,
+            )
+          : [updated, ...current];
+      });
+      return updated;
+    } catch (error) {
+      if (isAuthError(error)) {
+        handleUnauthorized();
+      }
+      throw error;
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadAll = async () => {
       try {
-        const [loadedOrders, loadedProducts, loadedCustomers, loadedStats, loadedSales] =
+        const [
+          loadedOrders,
+          loadedProducts,
+          loadedCustomers,
+          loadedUsers,
+          loadedStats,
+          loadedSales,
+        ] =
           await Promise.all([
             fetchOrders(),
             fetchProducts(),
             fetchCustomers(),
+            fetchUsers(),
             fetchDashboardStats(),
             fetchSalesData(),
           ]);
@@ -219,6 +288,7 @@ export default function AdminDashboard() {
           setOrders(loadedOrders);
           setProducts(loadedProducts);
           setCustomers(loadedCustomers);
+          setUsers(loadedUsers);
           setStats(loadedStats);
           setSales(loadedSales);
         }
@@ -431,11 +501,21 @@ export default function AdminDashboard() {
     },
     { key: "orders", label: "Pedidos", icon: <ShoppingCart size={18} /> },
     { key: "clients", label: "Clientes", icon: <Users size={18} /> },
+    {
+      key: "roles",
+      label: "Roles y accesos",
+      icon: <AdminIcon name="fa-user-shield" size={18} />,
+    },
     { key: "metrics", label: "Métricas", icon: <BarChart2 size={18} /> },
     {
       key: "discounts",
       label: "Descuentos",
       icon: <AdminIcon name="fa-tag" size={18} />,
+    },
+    {
+      key: "returns",
+      label: "Devoluciones",
+      icon: <AdminIcon name="fa-rotate-left" size={18} />,
     },
     { key: "notifications", label: "Notificaciones", icon: <Bell size={18} /> },
     { key: "config", label: "Configuración", icon: <Settings size={18} /> },
@@ -553,18 +633,18 @@ export default function AdminDashboard() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 flex-shrink-0">
+        <header className="bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-6 py-4 flex items-center gap-4 flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-gray-500"
+            className="lg:hidden text-gray-500 dark:text-gray-300"
           >
             <Menu size={20} />
           </button>
           <div className="flex-1">
-            <h2 className="font-bold text-gray-900 capitalize">
+            <h2 className="font-bold text-gray-900 dark:text-white capitalize">
               {navItems.find((n) => n.key === section)?.label}
             </h2>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-400">
               Panel de administración · FITLOOK
             </p>
           </div>
@@ -573,7 +653,7 @@ export default function AdminDashboard() {
               onClick={() => setSection("notifications")}
               className="relative"
             >
-              <Bell size={20} className="text-gray-500" />
+              <Bell size={20} className="text-gray-500 dark:text-gray-300" />
               {unread > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#00E87A] text-[#0A0A0A] text-[9px] font-bold rounded-full flex items-center justify-center">
                   {unread}
@@ -609,7 +689,19 @@ export default function AdminDashboard() {
             />
           )}
 
-          {section === "clients" && <AdminCustomersView clients={clients} />}
+          {section === "clients" && (
+            <AdminCustomersView
+              clients={clients}
+              onToggleBlock={handleCustomerStatus}
+            />
+          )}
+
+          {section === "roles" && (
+            <AdminRolesAccessView
+              users={users}
+              onRoleChange={handleRoleChange}
+            />
+          )}
 
           {section === "metrics" && <VirtualTryOnMetrics />}
 
@@ -625,22 +717,25 @@ export default function AdminDashboard() {
           )}
           {section === "discounts" && <AdminDiscountRequestsView />}
 
+          {section === "returns" && <AdminReturnsView />}
+
           {section === "config" && <AdminSettingsView />}
         </main>
       </div>
 
       {productModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setProductModalOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="product-modal-title"
-            className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col"
-          >
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:py-6">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setProductModalOpen(false)}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="product-modal-title"
+              className="relative z-10 bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col"
+            >
             <div className="flex items-center justify-between p-6 mb-0 flex-shrink-0">
               <div>
                 <h2
@@ -921,8 +1016,9 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {selectedOrder && (

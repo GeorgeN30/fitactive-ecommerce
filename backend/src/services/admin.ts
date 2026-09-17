@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import {
@@ -7,6 +8,7 @@ import {
   ROLES,
 } from "../constants";
 import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
+import { deleteProductImages, prepareProductImages } from "./productImages";
 
 export interface ProductTallaInput {
   talla: string;
@@ -20,6 +22,7 @@ export interface ProductInput {
   marca?: string;
   precio: number;
   imagenUrl?: string;
+  imageUrls?: string[];
   genero?: string;
   tallas?: ProductTallaInput[];
 }
@@ -32,6 +35,7 @@ export interface ProductResult {
   marca: string | null;
   precio: number;
   imagenUrl: string | null;
+  imageUrls: string[];
   genero: string | null;
   fechaCreacion: Date | null;
   tallas: {
@@ -68,6 +72,8 @@ export interface CustomerResult {
   email: string;
   name: string | null;
   picture: string | null;
+  role: string;
+  blocked: boolean;
   points: number;
   fechaCreacion: Date | null;
   medidaPecho: number | null;
@@ -108,6 +114,7 @@ function mapProduct(prod: {
   marca: string | null;
   precio: { toNumber: () => number };
   imagen_url: string | null;
+  producto_imagenes?: { url: string; orden: number }[];
   genero: string | null;
   fecha_creacion: Date | null;
   producto_tallas: {
@@ -129,6 +136,10 @@ function mapProduct(prod: {
     rangoCmMin: t.rango_cm_min?.toNumber() ?? null,
     rangoCmMax: t.rango_cm_max?.toNumber() ?? null,
   }));
+  const imageUrls = (prod.producto_imagenes || [])
+    .slice()
+    .sort((a, b) => a.orden - b.orden)
+    .map((image) => image.url);
   return {
     id: prod.id,
     nombre: prod.nombre,
@@ -137,6 +148,11 @@ function mapProduct(prod: {
     marca: prod.marca,
     precio: prod.precio.toNumber(),
     imagenUrl: prod.imagen_url,
+    imageUrls: imageUrls.length > 0
+      ? imageUrls
+      : prod.imagen_url
+        ? [prod.imagen_url]
+        : [],
     genero: prod.genero,
     fechaCreacion: prod.fecha_creacion,
     tallas,
@@ -186,12 +202,29 @@ function validateProductInput(data: ProductInput | Partial<ProductInput>): void 
     }
     validateProductTallas(data.tallas);
   }
+  if (data.imageUrls !== undefined) {
+    if (!Array.isArray(data.imageUrls)) {
+      throw new Error("INVALID_IMAGE");
+    }
+    if (data.imageUrls.length > 5) {
+      throw new Error("TOO_MANY_IMAGES");
+    }
+  }
+}
+
+function requestedImageUrls(data: ProductInput | Partial<ProductInput>): string[] | undefined {
+  if (data.imageUrls !== undefined) return data.imageUrls;
+  if (data.imagenUrl !== undefined) return data.imagenUrl ? [data.imagenUrl] : [];
+  return undefined;
 }
 
 export const adminService = {
   async listProducts(): Promise<ProductResult[]> {
     const products = await prisma.productos.findMany({
-      include: { producto_tallas: { orderBy: { talla: "asc" } } },
+      include: {
+        producto_tallas: { orderBy: { talla: "asc" } },
+        producto_imagenes: { orderBy: { orden: "asc" } },
+      },
       orderBy: { fecha_creacion: "desc" },
     });
     return products.map(mapProduct);
@@ -203,86 +236,143 @@ export const adminService = {
       throw new Error("NAME_REQUIRED");
     }
 
-    const created = await prisma.productos.create({
-      data: {
-        nombre: data.nombre.trim(),
-        descripcion: data.descripcion || null,
-        categoria: data.categoria || null,
-        marca: data.marca || null,
-        precio: data.precio,
-        imagen_url: data.imagenUrl || null,
-        genero: data.genero || null,
-        producto_tallas: {
-          create: (data.tallas || []).map((t) => ({
-            talla: t.talla.trim(),
-            stock: t.stock ?? 0,
-          })),
-        },
-      },
-      include: { producto_tallas: { orderBy: { talla: "asc" } } },
-    });
+    const productId = randomUUID();
+    const imageUrls = requestedImageUrls(data) || [];
+    const storedImageUrls = await prepareProductImages(productId, imageUrls);
 
-    return mapProduct(created);
+    try {
+      const created = await prisma.productos.create({
+        data: {
+          id: productId,
+          nombre: data.nombre.trim(),
+          descripcion: data.descripcion || null,
+          categoria: data.categoria || null,
+          marca: data.marca || null,
+          precio: data.precio,
+          imagen_url: storedImageUrls[0] || null,
+          genero: data.genero || null,
+          producto_tallas: {
+            create: (data.tallas || []).map((t) => ({
+              talla: t.talla.trim(),
+              stock: t.stock ?? 0,
+            })),
+          },
+          producto_imagenes: {
+            create: storedImageUrls.map((url, orden) => ({ url, orden })),
+          },
+        },
+        include: {
+          producto_tallas: { orderBy: { talla: "asc" } },
+          producto_imagenes: { orderBy: { orden: "asc" } },
+        },
+      });
+
+      return mapProduct(created);
+    } catch (error) {
+      await deleteProductImages(storedImageUrls);
+      throw error;
+    }
   },
 
   async updateProduct(id: string, data: Partial<ProductInput>): Promise<ProductResult> {
     validateProductInput(data);
     const existing = await prisma.productos.findUnique({
       where: { id },
-      include: { producto_tallas: true },
+      include: { producto_tallas: true, producto_imagenes: true },
     });
     if (!existing) {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.productos.update({
-        where: { id },
-        data: {
-          nombre: data.nombre !== undefined ? data.nombre.trim() : existing.nombre,
-          descripcion: data.descripcion !== undefined ? data.descripcion : existing.descripcion,
-          categoria: data.categoria !== undefined ? data.categoria : existing.categoria,
-          marca: data.marca !== undefined ? data.marca : existing.marca,
-          precio: data.precio !== undefined ? data.precio : existing.precio,
-          imagen_url: data.imagenUrl !== undefined ? data.imagenUrl : existing.imagen_url,
-          genero: data.genero !== undefined ? data.genero : existing.genero,
-        },
-      });
+    const requestedImages = requestedImageUrls(data);
+    const storedImageUrls = requestedImages !== undefined
+      ? await prepareProductImages(id, requestedImages)
+      : undefined;
 
-      if (data.tallas !== undefined) {
-        for (const tallaInput of data.tallas) {
-          const normalizedSize = tallaInput.talla.trim();
-          const match = existing.producto_tallas.find(
-            (t) => t.talla === normalizedSize,
-          );
-          if (match) {
-            const updatedStock = await tx.producto_tallas.updateMany({
-              where: { id: match.id, stock: match.stock },
-              data: { stock: tallaInput.stock ?? match.stock },
-            });
-            if (updatedStock.count !== 1) {
-              throw new Error("STOCK_CONFLICT");
-            }
-          } else {
-            await tx.producto_tallas.create({
-              data: { producto_id: id, talla: normalizedSize, stock: tallaInput.stock ?? 0 },
+    try {
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.productos.update({
+          where: { id },
+          data: {
+            nombre: data.nombre !== undefined ? data.nombre.trim() : existing.nombre,
+            descripcion: data.descripcion !== undefined ? data.descripcion : existing.descripcion,
+            categoria: data.categoria !== undefined ? data.categoria : existing.categoria,
+            marca: data.marca !== undefined ? data.marca : existing.marca,
+            precio: data.precio !== undefined ? data.precio : existing.precio,
+            imagen_url: storedImageUrls !== undefined
+              ? storedImageUrls[0] || null
+              : existing.imagen_url,
+            genero: data.genero !== undefined ? data.genero : existing.genero,
+          },
+        });
+
+        if (storedImageUrls !== undefined) {
+          await tx.producto_imagenes.deleteMany({ where: { producto_id: id } });
+          if (storedImageUrls.length > 0) {
+            await tx.producto_imagenes.createMany({
+              data: storedImageUrls.map((url, orden) => ({ producto_id: id, url, orden })),
             });
           }
         }
-      }
 
-      return tx.productos.findUniqueOrThrow({
-        where: { id },
-        include: { producto_tallas: { orderBy: { talla: "asc" } } },
+        if (data.tallas !== undefined) {
+          for (const tallaInput of data.tallas) {
+            const normalizedSize = tallaInput.talla.trim();
+            const match = existing.producto_tallas.find(
+              (t) => t.talla === normalizedSize,
+            );
+            if (match) {
+              const updatedStock = await tx.producto_tallas.updateMany({
+                where: { id: match.id, stock: match.stock },
+                data: { stock: tallaInput.stock ?? match.stock },
+              });
+              if (updatedStock.count !== 1) {
+                throw new Error("STOCK_CONFLICT");
+              }
+            } else {
+              await tx.producto_tallas.create({
+                data: { producto_id: id, talla: normalizedSize, stock: tallaInput.stock ?? 0 },
+              });
+            }
+          }
+        }
+
+        return tx.productos.findUniqueOrThrow({
+          where: { id },
+          include: {
+            producto_tallas: { orderBy: { talla: "asc" } },
+            producto_imagenes: { orderBy: { orden: "asc" } },
+          },
+        });
       });
-    });
 
-    return mapProduct(updated);
+      if (storedImageUrls !== undefined) {
+        await deleteProductImages(
+          existing.producto_imagenes
+            .filter((image) => !storedImageUrls.includes(image.url))
+            .map((image) => image.url),
+        );
+      }
+      return mapProduct(updated);
+    } catch (error) {
+      if (storedImageUrls !== undefined) await deleteProductImages(storedImageUrls);
+      throw error;
+    }
   },
 
   async deleteProduct(id: string): Promise<{ success: boolean }> {
+    const existing = await prisma.productos.findUnique({
+      where: { id },
+      select: { producto_imagenes: { select: { url: true } } },
+    });
+    if (!existing) {
+      throw new Error("PRODUCT_NOT_FOUND");
+    }
     try {
       await prisma.productos.delete({ where: { id } });
+      await deleteProductImages(existing.producto_imagenes.map((image) => image.url)).catch(
+        (error: unknown) => console.error("Product image cleanup failed:", error),
+      );
       return { success: true };
     } catch (err: unknown) {
       if (isPrismaP2003(err)) {
@@ -373,6 +463,8 @@ export const adminService = {
       email: c.email,
       name: c.name,
       picture: c.picture,
+      role: c.role || ROLES.CUSTOMER,
+      blocked: c.blocked,
       points: c.points,
       fechaCreacion: c.fecha_creacion,
       medidaPecho: c.medida_pecho ? c.medida_pecho.toNumber() : null,
@@ -385,13 +477,41 @@ export const adminService = {
     }));
   },
 
+  async listUsers(): Promise<CustomerResult[]> {
+    const users = await prisma.usuarios.findMany({
+      orderBy: { fecha_creacion: "desc" },
+      include: { ordenes: { select: { total: true } } },
+    });
+
+    return users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      role: user.role || ROLES.CUSTOMER,
+      blocked: user.blocked,
+      points: user.points,
+      fechaCreacion: user.fecha_creacion,
+      medidaPecho: user.medida_pecho ? user.medida_pecho.toNumber() : null,
+      medidaCintura: user.medida_cintura ? user.medida_cintura.toNumber() : null,
+      medidaCadera: user.medida_cadera ? user.medida_cadera.toNumber() : null,
+      orders: user.ordenes.length,
+      spent: roundToCents(
+        user.ordenes.reduce((sum, order) => sum + order.total.toNumber(), 0),
+      ),
+    }));
+  },
+
   async updateCustomerRole(id: string, role: string): Promise<CustomerResult> {
     const allowed = new Set<string>(Object.values(ROLES));
     if (!role || !allowed.has(role)) {
       throw new Error("INVALID_ROLE");
     }
 
-    const user = await prisma.usuarios.findUnique({ where: { id } });
+    const user = await prisma.usuarios.findUnique({
+      where: { id },
+      include: { ordenes: { select: { total: true } } },
+    });
     if (!user) {
       throw new Error("CUSTOMER_NOT_FOUND");
     }
@@ -406,13 +526,54 @@ export const adminService = {
       email: updated.email,
       name: updated.name,
       picture: updated.picture,
+      role: updated.role || ROLES.CUSTOMER,
+      blocked: updated.blocked,
       points: updated.points,
       fechaCreacion: updated.fecha_creacion,
       medidaPecho: updated.medida_pecho ? updated.medida_pecho.toNumber() : null,
       medidaCintura: updated.medida_cintura ? updated.medida_cintura.toNumber() : null,
       medidaCadera: updated.medida_cadera ? updated.medida_cadera.toNumber() : null,
-      orders: 0,
-      spent: 0,
+      orders: user.ordenes.length,
+      spent: roundToCents(
+        user.ordenes.reduce((sum, order) => sum + order.total.toNumber(), 0),
+      ),
+    };
+  },
+
+  async updateCustomerBlocked(id: string, blocked: boolean): Promise<CustomerResult> {
+    if (typeof blocked !== "boolean") {
+      throw new Error("INVALID_CUSTOMER_STATUS");
+    }
+
+    const customer = await prisma.usuarios.findUnique({
+      where: { id },
+      include: { ordenes: { select: { total: true } } },
+    });
+    if (!customer || customer.role !== ROLES.CUSTOMER) {
+      throw new Error("CUSTOMER_NOT_FOUND");
+    }
+
+    const updated = await prisma.usuarios.update({
+      where: { id },
+      data: { blocked },
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      picture: updated.picture,
+      role: updated.role || ROLES.CUSTOMER,
+      blocked: updated.blocked,
+      points: updated.points,
+      fechaCreacion: updated.fecha_creacion,
+      medidaPecho: updated.medida_pecho ? updated.medida_pecho.toNumber() : null,
+      medidaCintura: updated.medida_cintura ? updated.medida_cintura.toNumber() : null,
+      medidaCadera: updated.medida_cadera ? updated.medida_cadera.toNumber() : null,
+      orders: customer.ordenes.length,
+      spent: roundToCents(
+        customer.ordenes.reduce((sum, order) => sum + order.total.toNumber(), 0),
+      ),
     };
   },
 
