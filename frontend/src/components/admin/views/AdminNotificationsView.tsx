@@ -5,10 +5,14 @@ export default function AdminNotificationsView({
   notifications,
   setNotifications,
   onNotificationAction,
+  onMarkRead,
+  onMarkAllRead,
 }: {
   notifications?: AdminNotification[];
   setNotifications?: (updater: (prev: AdminNotification[]) => AdminNotification[]) => void;
   onNotificationAction?: (notification: AdminNotification) => void;
+  onMarkRead?: (notification: AdminNotification) => void | Promise<void>;
+  onMarkAllRead?: () => void | Promise<void>;
 } = {}) {
   const [internalNotifications, setInternalNotifications] = useState<AdminNotification[]>([]);
 
@@ -21,6 +25,7 @@ export default function AdminNotificationsView({
 
   const markAllRead = () => {
     apply((prev) => prev.map((n) => ({ ...n, read: true })));
+    void onMarkAllRead?.();
   };
 
   const takeAction = (notification: AdminNotification) => {
@@ -29,8 +34,28 @@ export default function AdminNotificationsView({
         item.id === notification.id ? { ...item, read: true } : item,
       ),
     );
+    void onMarkRead?.(notification);
     onNotificationAction?.(notification);
   };
+
+  const markRead = (notification: AdminNotification) => {
+    apply((prev) =>
+      prev.map((item) =>
+        item.id === notification.id ? { ...item, read: true } : item,
+      ),
+    );
+    void onMarkRead?.(notification);
+  };
+
+  const getActionLabel = (type: string): string => {
+    if (type === "discount") return "Ver descuentos";
+    if (type === "order") return "Ver pedidos";
+    if (type === "return") return "Ver devoluciones";
+    return "Ver detalle";
+  };
+
+  const canNavigate = (type: string): boolean =>
+    ["discount", "order", "return"].includes(type);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -64,7 +89,7 @@ export default function AdminNotificationsView({
           onClick={markAllRead}
           className="text-sm font-bold text-[#00FF66] hover:underline"
         >
-          Marcar todías como leídías
+          Marcar todas como leídas
         </button>
       </div>
 
@@ -72,7 +97,7 @@ export default function AdminNotificationsView({
         {display.map((n) => (
           <div
             key={n.id}
-            className={`bg-white dark:bg-zinc-900 rounded-2xl p-5 border transition-all shadow-sm ${!n.read ? (n.priority === "high" ? "border-l-4 border-l-red-500 border-gray-100 dark:border-zinc-800" : "border-l-4 border-l-[#00FF66] border-gray-100 dark:border-zinc-800") : "border-gray-100 dark:border-zinc-800 opacity-70 hover:opacity-100"}`}
+            className={`bg-white dark:bg-zinc-900 rounded-2xl p-5 border transition-all duration-200 shadow-sm hover:-translate-y-0.5 hover:shadow-md ${!n.read ? (n.priority === "high" ? "border-l-4 border-l-red-500 border-gray-100 dark:border-zinc-800" : "border-l-4 border-l-[#00FF66] border-gray-100 dark:border-zinc-800") : "border-gray-100 dark:border-zinc-800 opacity-70 hover:opacity-100"}`}
           >
             <div className="flex items-start gap-5">
               <div
@@ -97,23 +122,17 @@ export default function AdminNotificationsView({
 
                 {!n.read && (
                   <div className="mt-3">
-                    {(n.priority === "high" && (n.type === "discount" || n.type === "order")) ? (
+                    {canNavigate(n.type) ? (
                       <button
                         onClick={() => takeAction(n)}
                         className="text-xs font-bold border px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-900/50 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
                       >
                         <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                        {n.type === "discount" ? "Ver descuentos" : "Ir al módulo"}
+                        {getActionLabel(n.type)}
                       </button>
                     ) : (
                       <button
-                        onClick={() =>
-                          apply((prev) =>
-                            prev.map((item) =>
-                              item.id === n.id ? { ...item, read: true } : item,
-                            ),
-                          )
-                        }
+                        onClick={() => markRead(n)}
                         className="text-xs font-bold border px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-700"
                       >
                         <i className="fa-solid fa-check"></i> Marcar como leída

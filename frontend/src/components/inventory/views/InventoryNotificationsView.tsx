@@ -12,11 +12,15 @@ export interface InventoryNotification {
 interface InventoryNotificationsViewProps {
   notifications: InventoryNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<InventoryNotification[]>>;
+  onMarkRead?: (notification: InventoryNotification) => void | Promise<void>;
+  onMarkAllRead?: () => void | Promise<void>;
 }
 
 export default function InventoryNotificationsView({
   notifications,
   setNotifications,
+  onMarkRead,
+  onMarkAllRead,
 }: InventoryNotificationsViewProps) {
   const [toastMessage, setToastMessage] = useState("");
   const unreadCount = notifications.filter((notification) => !notification.read).length;
@@ -28,7 +32,17 @@ export default function InventoryNotificationsView({
 
   const markAllRead = () => {
     setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+    void onMarkAllRead?.();
     showToast("Todas las notificaciones fueron marcadas como leídas.");
+  };
+
+  const markRead = (notification: InventoryNotification) => {
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notification.id ? { ...item, read: true } : item,
+      ),
+    );
+    void onMarkRead?.(notification);
   };
 
   const deleteNotification = (id: string) => {
@@ -80,6 +94,15 @@ export default function InventoryNotificationsView({
                 <span className="text-xs text-gray-400 font-medium">{notification.time}</span>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{notification.message}</p>
+              {!notification.read && (
+                <button
+                  type="button"
+                  onClick={() => markRead(notification)}
+                  className="mt-2 text-xs font-bold text-[#F59E0B] transition-colors hover:text-[#d97706]"
+                >
+                  Marcar como leída
+                </button>
+              )}
             </div>
             <button
               onClick={() => deleteNotification(notification.id)}

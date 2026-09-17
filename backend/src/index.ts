@@ -8,6 +8,7 @@ import ordersRoutes from "./routes/orders";
 import adminRoutes from "./routes/admin";
 import inventoryRoutes from "./routes/inventory";
 import productsRoutes from "./routes/products";
+import notificationsRoutes from "./routes/notifications";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/orders", ordersRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/products", productsRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 app.listen(config.port, () => {
   console.log(`Server running on http://localhost:${config.port}`);

@@ -15,7 +15,9 @@ import VirtualTryOnMetrics from "../../components/admin/views/VirtualTryOnMetric
 import AdminDiscountRequestsView from "../../components/admin/views/AdminDiscountRequestsView";
 import AdminRolesAccessView from "../../components/admin/views/AdminRolesAccessView";
 import AdminReturnsView from "../../components/admin/views/AdminReturnsView";
+import AdminFinanceView from "../../components/admin/views/AdminFinanceView";
 import ModalPortal from "../../components/ModalPortal";
+import NotificationToast from "../../components/NotificationToast";
 
 import {
   fetchOrders,
@@ -34,6 +36,9 @@ import {
 import type { ProductInput } from "../../services/admin";
 import {
   connectAdminSocket,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   mapLiveEventToAdminNotification,
 } from "../../services/notifications";
 import type { AdminNotification } from "../../services/notifications";
@@ -68,6 +73,7 @@ const BarChart2 = (props: IconProps) => (
 );
 const Bell = (props: IconProps) => <AdminIcon name="fa-bell" {...props} />;
 const Settings = (props: IconProps) => <AdminIcon name="fa-gear" {...props} />;
+const Wallet = (props: IconProps) => <AdminIcon name="fa-wallet" {...props} />;
 const TrendingUp = (props: IconProps) => (
   <AdminIcon name="fa-arrow-trend-up" {...props} />
 );
@@ -93,6 +99,7 @@ type Section =
   | "clients"
   | "roles"
   | "metrics"
+  | "finance"
   | "notifications"
   | "config"
   | "discounts"
@@ -186,6 +193,11 @@ export default function AdminDashboard() {
     window.location.href = "/";
   };
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [toast, setToast] = useState<{
+    title: string;
+    message: string;
+    kind: "info" | "critical" | "success";
+  } | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
@@ -303,9 +315,37 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    void fetchNotifications()
+      .then((loadedNotifications) => {
+        if (!cancelled) {
+          setNotifications((current) => {
+            const loadedIds = new Set(loadedNotifications.map((item) => item.id));
+            return [
+              ...loadedNotifications,
+              ...current.filter((item) => !loadedIds.has(item.id)),
+            ];
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (isAuthError(error)) handleUnauthorized();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const disconnect = connectAdminSocket((event) => {
       const notification = mapLiveEventToAdminNotification(event);
       setNotifications((prev) => [notification, ...prev]);
+      setToast({
+        title: notification.title,
+        message: notification.message,
+        kind: notification.priority === "high" ? "critical" : "info",
+      });
       if (event.type === "NEW_ORDER" || event.type === "ORDER_STATUS") {
         void refreshOrders();
       }
@@ -313,6 +353,28 @@ export default function AdminDashboard() {
     return disconnect;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  const handleMarkNotificationRead = async (notification: AdminNotification) => {
+    try {
+      await markNotificationRead(notification.id);
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await markAllNotificationsRead();
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+    }
+  };
 
   const updateOrderStatus = async (
     orderId: string,
@@ -507,6 +569,7 @@ export default function AdminDashboard() {
       icon: <AdminIcon name="fa-user-shield" size={18} />,
     },
     { key: "metrics", label: "Métricas", icon: <BarChart2 size={18} /> },
+    { key: "finance", label: "Finanzas", icon: <Wallet size={18} /> },
     {
       key: "discounts",
       label: "Descuentos",
@@ -616,6 +679,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-shell flex h-screen min-h-screen overflow-hidden bg-[#F5F5F5] dark:bg-zinc-950 dark:text-white">
+      <NotificationToast
+        notification={toast}
+        onClose={() => setToast(null)}
+        onOpen={() => {
+          setToast(null);
+          setSection("notifications");
+        }}
+      />
       <div className="hidden lg:block">
         <Sidebar />
       </div>
@@ -705,13 +776,18 @@ export default function AdminDashboard() {
 
           {section === "metrics" && <VirtualTryOnMetrics />}
 
+          {section === "finance" && <AdminFinanceView />}
+
           {section === "notifications" && (
             <AdminNotificationsView
               notifications={notifications}
               setNotifications={setNotifications}
+              onMarkRead={handleMarkNotificationRead}
+              onMarkAllRead={handleMarkAllNotificationsRead}
               onNotificationAction={(notification) => {
                 if (notification.type === "discount") setSection("discounts");
                 else if (notification.type === "order") setSection("orders");
+                else if (notification.type === "return") setSection("returns");
               }}
             />
           )}

@@ -12,6 +12,7 @@ import InventoryDiscountsView from "../../components/inventory/views/InventoryDi
 import InventoryNotificationsView, {
   type InventoryNotification,
 } from "../../components/inventory/views/InventoryNotificationsView";
+import NotificationToast from "../../components/NotificationToast";
 import {
   fetchInventory,
   fetchMovements,
@@ -25,8 +26,12 @@ import type { Product } from "../../data/adminPrototypeTypes";
 import type { InventoryMovement } from "../../data/types";
 import {
   connectAdminSocket,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   mapLiveEventToAdminNotification,
 } from "../../services/notifications";
+import type { AdminNotification } from "../../services/notifications";
 
 type Section =
   | "dashboard"
@@ -38,12 +43,33 @@ type Section =
   | "discounts"
   | "notifications";
 
+function toInventoryNotification(notification: AdminNotification): InventoryNotification {
+  return {
+    id: notification.id,
+    title: notification.title,
+    message: notification.message,
+    type:
+      notification.type === "discount" && notification.title.toLowerCase().includes("aprobado")
+        ? "success"
+        : notification.priority === "high"
+          ? "critical"
+          : "info",
+    time: notification.date,
+    read: notification.read,
+  };
+}
+
 export default function InventoryDashboard() {
   const [section, setSection] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [notifications, setNotifications] = useState<InventoryNotification[]>([]);
+  const [toast, setToast] = useState<{
+    title: string;
+    message: string;
+    kind: "info" | "critical" | "success";
+  } | null>(null);
 
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
@@ -91,6 +117,27 @@ export default function InventoryDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchNotifications()
+      .then((loadedNotifications) => {
+        if (!cancelled) {
+          const stored = loadedNotifications.map(toInventoryNotification);
+          setNotifications((current) => {
+            const storedIds = new Set(stored.map((item) => item.id));
+            return [...stored, ...current.filter((item) => !storedIds.has(item.id))];
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (isAuthError(error)) handleUnauthorized();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => connectAdminSocket((event) => {
     const live = mapLiveEventToAdminNotification(event);
     setNotifications((current) => [
@@ -104,16 +151,48 @@ export default function InventoryDashboard() {
       },
       ...current,
     ]);
+    setToast({
+      title: live.title,
+      message: live.message,
+      kind:
+        event.type === "STOCK_ALERT" || event.type === "DISCOUNT_REJECTED"
+          ? "critical"
+          : event.type === "DISCOUNT_APPROVED"
+            ? "success"
+            : "info",
+    });
     if (event.type === "DISCOUNT_APPROVED" || event.type === "DISCOUNT_REVERTED") {
       void fetchInventory().then(setProducts).catch(() => undefined);
     }
   }), []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   const addNotification = (notification: Omit<InventoryNotification, "id">) => {
     setNotifications((current) => [
       { ...notification, id: String(Date.now()) },
       ...current,
     ]);
+  };
+
+  const handleMarkNotificationRead = async (notification: InventoryNotification) => {
+    try {
+      await markNotificationRead(notification.id);
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await markAllNotificationsRead();
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+    }
   };
 
   const handleCreateProduct = async (data: {
@@ -383,6 +462,14 @@ export default function InventoryDashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8F9FA] dark:bg-zinc-950 font-sans">
+      <NotificationToast
+        notification={toast}
+        onClose={() => setToast(null)}
+        onOpen={() => {
+          setToast(null);
+          setSection("notifications");
+        }}
+      />
       <div className="hidden lg:block">
         <Sidebar />
       </div>
@@ -475,6 +562,8 @@ export default function InventoryDashboard() {
             <InventoryNotificationsView
               notifications={notifications}
               setNotifications={setNotifications}
+              onMarkRead={handleMarkNotificationRead}
+              onMarkAllRead={handleMarkAllNotificationsRead}
             />
           )}
         </main>
