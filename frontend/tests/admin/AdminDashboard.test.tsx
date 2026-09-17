@@ -50,6 +50,9 @@ vi.mock("../../src/services/admin", () => ({
 
 vi.mock("../../src/services/notifications", () => ({
   connectAdminSocket: vi.fn(() => () => undefined),
+  fetchNotifications: vi.fn().mockResolvedValue([]),
+  markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
+  markNotificationRead: vi.fn().mockResolvedValue(undefined),
   mapLiveEventToAdminNotification: vi.fn(),
 }));
 
