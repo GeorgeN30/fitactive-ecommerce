@@ -62,11 +62,16 @@ function validateToken(
 
       const dbUser = await prisma.usuarios.findUnique({
         where: { id: userId },
-        select: { role: true },
+        select: { role: true, blocked: true },
       });
 
       if (!dbUser) {
         res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "USER_NOT_FOUND" });
+        return;
+      }
+
+      if (dbUser.blocked) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "ACCOUNT_BLOCKED" });
         return;
       }
 

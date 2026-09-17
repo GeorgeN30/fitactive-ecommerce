@@ -132,6 +132,10 @@ export const authController = {
         res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "INVALID_CREDENTIALS" });
         return;
       }
+      if (message === "ACCOUNT_BLOCKED") {
+        res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
+        return;
+      }
 
       console.error("Login error:", err);
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "LOGIN_FAILED" });
@@ -182,6 +186,10 @@ export const authController = {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_EMAIL" });
         return;
       }
+      if (message === "ACCOUNT_BLOCKED") {
+        res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
+        return;
+      }
 
       console.error("OTP request error:", err);
       res
@@ -215,6 +223,10 @@ export const authController = {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_OTP" });
         return;
       }
+      if (message === "ACCOUNT_BLOCKED") {
+        res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
+        return;
+      }
 
       console.error("OTP verify error:", err);
       res
@@ -237,6 +249,10 @@ export const authController = {
       const result = await authService.googleAuth(access_token);
       res.status(HTTP_STATUS.OK).json(result);
     } catch (err) {
+      if (err instanceof Error && err.message === "ACCOUNT_BLOCKED") {
+        res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
+        return;
+      }
       console.error("Google auth error:", err);
       res
         .status(HTTP_STATUS.INTERNAL_ERROR)

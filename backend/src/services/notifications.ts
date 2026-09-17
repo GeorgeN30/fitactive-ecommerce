@@ -34,12 +34,36 @@ export interface StockNotificationData {
   stock: number;
 }
 
+export interface NotificationRecord {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+interface PersistNotificationInput {
+  type: string;
+  title: string;
+  message: string;
+  referenceId?: string;
+}
+
 async function adminUserIds(): Promise<string[]> {
   const admins = await prisma.usuarios.findMany({
     where: { role: ROLES.ADMIN },
     select: { id: true },
   });
   return admins.map((admin) => admin.id);
+}
+
+async function operationalUserIds(): Promise<string[]> {
+  const users = await prisma.usuarios.findMany({
+    where: { role: { in: [ROLES.ADMIN, ROLES.INVENTORY, ROLES.RECEPTIONIST] } },
+    select: { id: true },
+  });
+  return users.map((user) => user.id);
 }
 
 async function sendToUser(
@@ -52,6 +76,34 @@ async function sendToUser(
   } catch (error) {
     console.error("[notifications] error enviando evento:", error);
   }
+}
+
+async function persistNotifications(
+  userIds: string[],
+  notification: PersistNotificationInput,
+): Promise<void> {
+  if (userIds.length === 0) return;
+
+  try {
+    await prisma.notifications.createMany({
+      data: userIds.map((userId) => ({
+        userId,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        referenceId: notification.referenceId,
+      })),
+    });
+  } catch (error) {
+    console.error("[notifications] error guardando historial:", error);
+  }
+}
+
+async function persistNotification(
+  userId: string,
+  notification: PersistNotificationInput,
+): Promise<void> {
+  await persistNotifications([userId], notification);
 }
 
 async function sendOrderEmail(
@@ -84,10 +136,45 @@ function escapeHtml(value: string): string {
 }
 
 export const notifications = {
+  async listForUser(userId: string): Promise<NotificationRecord[]> {
+    const rows = await prisma.notifications.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      message: row.message,
+      read: row.read,
+      createdAt: row.createdAt,
+    }));
+  },
+
+  async markAsRead(userId: string, notificationId: string): Promise<void> {
+    const updated = await prisma.notifications.updateMany({
+      where: { id: notificationId, userId },
+      data: { read: true },
+    });
+
+    if (updated.count !== 1) {
+      throw new Error("NOTIFICATION_NOT_FOUND");
+    }
+  },
+
+  async markAllAsRead(userId: string): Promise<void> {
+    await prisma.notifications.updateMany({
+      where: { userId, read: false },
+      data: { read: true },
+    });
+  },
+
   async notifyNewOrder(order: OrderNotificationData): Promise<void> {
     try {
-      const [admins, customer] = await Promise.all([
-        adminUserIds(),
+      const [operationalUsers, customer] = await Promise.all([
+        operationalUserIds(),
         prisma.usuarios.findUnique({
           where: { id: order.customerId },
           select: { name: true, email: true },
@@ -96,7 +183,20 @@ export const notifications = {
 
       const customerName = customer?.name || customer?.email || "Cliente";
 
-      for (const userId of admins) {
+      await persistNotifications(operationalUsers, {
+        type: "order",
+        title: "Nuevo pedido",
+        message: `Se registró el pedido ${order.orderNumber} de ${customerName} por S/ ${order.total.toFixed(2)}.`,
+        referenceId: order.orderId,
+      });
+      await persistNotification(order.customerId, {
+        type: "order",
+        title: "Pedido registrado",
+        message: `Tu pedido ${order.orderNumber} fue registrado y está pendiente de pago.`,
+        referenceId: order.orderId,
+      });
+
+      for (const userId of operationalUsers) {
         await sendToUser(userId, EVENT_TYPES.NEW_ORDER, {
           orderId: order.orderId,
           orderNumber: order.orderNumber,
@@ -104,6 +204,11 @@ export const notifications = {
           customerName,
         });
       }
+      await sendToUser(order.customerId, EVENT_TYPES.NEW_ORDER, {
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        total: order.total,
+      });
       await sendOrderEmail(customer?.email, `Pedido ${order.orderNumber} registrado`, {
         pedido: order.orderNumber,
         total: `S/ ${order.total.toFixed(2)}`,
@@ -123,6 +228,12 @@ export const notifications = {
       orderNumber: order.orderNumber,
       status: order.status,
     });
+    await persistNotification(userId, {
+      type: "order",
+      title: "Estado de pedido actualizado",
+      message: `Tu pedido ${order.orderNumber} cambió a estado ${order.status}.`,
+      referenceId: order.orderId,
+    });
     const customer = await prisma.usuarios.findUnique({
       where: { id: userId },
       select: { email: true },
@@ -138,7 +249,13 @@ export const notifications = {
       return;
     }
     try {
-      const userIds = await adminUserIds();
+      const userIds = await operationalUserIds();
+      await persistNotifications(userIds, {
+        type: "stock",
+        title: "Alerta de stock bajo",
+        message: `${stock.productName} · talla ${stock.size} tiene ${stock.stock} unidades.`,
+        referenceId: stock.productId,
+      });
       for (const userId of userIds) {
         await sendToUser(userId, EVENT_TYPES.STOCK_ALERT, {
           productId: stock.productId,
@@ -158,6 +275,11 @@ export const notifications = {
     if (requests.length === 0) return;
     try {
       const admins = await adminUserIds();
+      await persistNotifications(admins, {
+        type: "discount",
+        title: "Solicitud de descuento pendiente",
+        message: `${requests.length} solicitud(es) de descuento requieren revisión.`,
+      });
       for (const request of requests) {
         for (const userId of admins) {
           await sendToUser(userId, EVENT_TYPES.DISCOUNT_REQUESTED, {
@@ -190,6 +312,12 @@ export const notifications = {
       reason: request.reason,
       comment: request.reviewComment || "",
     });
+    await persistNotification(request.requester.id, {
+      type: "discount",
+      title: approved ? "Descuento aprobado" : "Descuento rechazado",
+      message: `Tu solicitud para ${request.product.name} · talla ${request.product.size} fue ${approved ? "aprobada" : "rechazada"}.`,
+      referenceId: request.id,
+    });
 
     await sendOrderEmail(
       request.requester.email,
@@ -212,6 +340,12 @@ export const notifications = {
       size: request.product.size,
       percent: request.percent,
       reason: request.reason,
+    });
+    await persistNotification(request.requester.id, {
+      type: "discount",
+      title: "Descuento revertido",
+      message: `El descuento de ${request.product.name} · talla ${request.product.size} fue revertido.`,
+      referenceId: request.id,
     });
 
     await sendOrderEmail(

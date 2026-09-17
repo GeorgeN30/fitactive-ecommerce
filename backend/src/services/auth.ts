@@ -85,6 +85,13 @@ function resolveRole(email: string): string {
   return ROLES.CUSTOMER;
 }
 
+function resolveExistingUserRole(email: string, currentRole: string | null): string {
+  const configuredRole = resolveRole(email);
+  return configuredRole === ROLES.CUSTOMER
+    ? currentRole || ROLES.CUSTOMER
+    : configuredRole;
+}
+
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72;
 
@@ -229,12 +236,16 @@ export const authService = {
       throw new Error("INVALID_CREDENTIALS");
     }
 
+    if (user.blocked) {
+      throw new Error("ACCOUNT_BLOCKED");
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       throw new Error("INVALID_CREDENTIALS");
     }
 
-    const resolvedRole = resolveRole(email);
+    const resolvedRole = resolveExistingUserRole(email, user.role);
     if (user.role !== resolvedRole) {
       await prisma.usuarios.update({ where: { id: user.id }, data: { role: resolvedRole } });
       user.role = resolvedRole;
@@ -286,6 +297,13 @@ export const authService = {
     if (!isValidEmail(email)) {
       throw new Error("INVALID_EMAIL");
     }
+    const existing = await prisma.usuarios.findUnique({
+      where: { email },
+      select: { blocked: true },
+    });
+    if (existing?.blocked) {
+      throw new Error("ACCOUNT_BLOCKED");
+    }
     if (name) {
       setPendingName(email, name);
     }
@@ -315,7 +333,10 @@ export const authService = {
         },
       });
     } else {
-      const resolvedRole = resolveRole(email);
+      if (user.blocked) {
+        throw new Error("ACCOUNT_BLOCKED");
+      }
+      const resolvedRole = resolveExistingUserRole(email, user.role);
       if (user.role !== resolvedRole) {
         await prisma.usuarios.update({ where: { id: user.id }, data: { role: resolvedRole } });
         user.role = resolvedRole;
@@ -372,13 +393,17 @@ export const authService = {
         },
       });
     } else {
+      if (user.blocked) {
+        throw new Error("ACCOUNT_BLOCKED");
+      }
+      const existingRole = resolveExistingUserRole(googleProfile.email, user.role);
       const updates: { name: string; picture: string; providerId: string; role?: string } = {
         name: googleProfile.name,
         picture: googleProfile.picture,
         providerId: googleProfile.provider_id,
       };
-      if (user.role !== resolvedRole) {
-        updates.role = resolvedRole;
+      if (user.role !== existingRole) {
+        updates.role = existingRole;
       }
       user = await prisma.usuarios.update({
         where: { id: user.id },

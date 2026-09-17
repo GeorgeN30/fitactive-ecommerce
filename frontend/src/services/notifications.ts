@@ -1,3 +1,5 @@
+import api from "./api";
+
 const WS_BASE =
   import.meta.env.VITE_BAAS_WS_URL || "wss://core.geozns.com/v1/ws";
 const APP_ID = import.meta.env.VITE_JWT_APP_ID || "integrador2_web";
@@ -10,6 +12,58 @@ export interface AdminNotification {
   date: string;
   read: boolean;
   priority: "high" | "medium" | "low";
+}
+
+interface BackendNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+function formatNotificationDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function mapBackendNotification(notification: BackendNotification): AdminNotification {
+  const priority: AdminNotification["priority"] =
+    notification.type === "stock" || notification.type === "discount"
+      ? "high"
+      : "medium";
+
+  return {
+    id: notification.id,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type,
+    date: formatNotificationDate(notification.createdAt),
+    read: notification.read,
+    priority,
+  };
+}
+
+export async function fetchNotifications(): Promise<AdminNotification[]> {
+  const { data } = await api.get<{ notifications: BackendNotification[] }>(
+    "/notifications",
+  );
+  return data.notifications.map(mapBackendNotification);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await api.put(`/notifications/${notificationId}/read`);
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await api.put("/notifications/read-all");
 }
 
 export type LiveEvent =

@@ -55,6 +55,17 @@ model productos {
   fecha_creacion   DateTime?         @default(now()) @db.Timestamp(6)
   genero           String?
   producto_tallas  producto_tallas[]
+  producto_imagenes producto_imagenes[]
+}
+
+model producto_imagenes {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  producto_id String   @db.Uuid
+  url         String   @db.Text
+  orden       Int      @default(0)
+  productos   productos @relation(fields: [producto_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_producto_imagen")
+
+  @@index([producto_id, orden])
 }
 
 model usuarios {
@@ -76,6 +87,7 @@ model usuarios {
   // Nuevas columnas necesarias para el backend
   name             String?
   picture          String?
+  blocked          Boolean   @default(false) @map("bloqueado")
   twoFactorEnabled Boolean   @default(false)
   totpSecret       String?
   points           Int       @default(0)
@@ -85,6 +97,7 @@ model usuarios {
   inventory_movements inventory_movements[]
   discount_requests_created discount_requests[] @relation("discount_requester")
   discount_requests_reviewed discount_requests[] @relation("discount_reviewer")
+  notifications     notifications[]
 }
 
 model inventory_movements {
@@ -117,4 +130,19 @@ model discount_requests {
   @@index([estado])
   @@index([solicitado_por])
   @@index([producto_talla_id])
+}
+
+model notifications {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("usuario_id") @db.Uuid
+  type        String   @db.VarChar(40)
+  title       String   @db.VarChar(150)
+  message     String   @db.VarChar(500)
+  referenceId String?  @map("referencia_id") @db.VarChar(100)
+  read        Boolean  @default(false) @map("leida")
+  createdAt   DateTime @default(now()) @map("creada_en") @db.Timestamp(6)
+
+  user usuarios @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_user")
+
+  @@index([userId, read, createdAt])
 }

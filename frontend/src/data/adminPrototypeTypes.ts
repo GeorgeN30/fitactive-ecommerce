@@ -68,6 +68,12 @@ export interface User {
   avatar: string;
   role: "client" | "admin" | "inventory";
   measurements?: UserMeasurements;
+  customerMeasurements?: {
+    chest: number | null;
+    waist: number | null;
+    hips: number | null;
+    updatedAt: string;
+  };
   blocked?: boolean;
   registeredAt: string;
   lastAccess: string;

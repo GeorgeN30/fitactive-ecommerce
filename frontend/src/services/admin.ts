@@ -35,6 +35,7 @@ interface BackendProduct {
   marca: string | null;
   precio: number;
   imagenUrl: string | null;
+  imageUrls?: string[];
   genero: string | null;
   fechaCreacion: string | null;
   tallas: BackendTalla[];
@@ -63,6 +64,8 @@ interface BackendCustomer {
   email: string;
   name: string | null;
   picture: string | null;
+  role: string;
+  blocked: boolean;
   points: number;
   fechaCreacion: string | null;
   medidaPecho: number | null;
@@ -95,6 +98,7 @@ export interface ProductInput {
   marca?: string;
   precio: number;
   imagenUrl?: string;
+  imageUrls?: string[];
   genero?: string;
   tallas?: ProductTallaInput[];
 }
@@ -123,7 +127,12 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
       },
     ]),
   );
-  const image = p.imagenUrl || DEFAULT_PRODUCT_IMAGE;
+  const imageUrls = p.imageUrls?.length
+    ? p.imageUrls
+    : p.imagenUrl
+      ? [p.imagenUrl]
+      : [];
+  const image = imageUrls[0] || DEFAULT_PRODUCT_IMAGE;
   return {
     id: p.id,
     name: p.nombre,
@@ -131,7 +140,7 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
     sport: "Training",
     price: p.precio,
     image,
-    images: [image],
+    images: imageUrls,
     sizes,
     availableColors: [{ name: "Único", hex: "#1a1a1a" }],
     description: p.descripcion || "",
@@ -199,13 +208,29 @@ function toPrototypeUser(u: BackendCustomer): AdminPrototypeUser {
     u.picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00E87A&color=fff`;
   const registeredAt = toDisplayDate(u.fechaCreacion);
+  const role: AdminPrototypeUser["role"] =
+    u.role === "admin"
+      ? "admin"
+      : u.role === "inventory" || u.role === "receptionist"
+        ? "inventory"
+        : "client";
   return {
     id: u.id,
     name,
     email: u.email,
     phone: "",
     avatar,
-    role: "client",
+    role,
+    blocked: u.blocked,
+    customerMeasurements:
+      u.medidaPecho !== null || u.medidaCintura !== null || u.medidaCadera !== null
+        ? {
+            chest: u.medidaPecho,
+            waist: u.medidaCintura,
+            hips: u.medidaCadera,
+            updatedAt: registeredAt,
+          }
+        : undefined,
     registeredAt,
     lastAccess: registeredAt,
     orders: u.orders,
@@ -340,11 +365,25 @@ export async function fetchCustomers(): Promise<AdminPrototypeUser[]> {
   return (data.customers || []).map(toPrototypeUser);
 }
 
+export async function fetchUsers(): Promise<AdminPrototypeUser[]> {
+  const { data } = await api.get("/admin/users");
+  return (data.users || []).map(toPrototypeUser);
+}
+
 export async function updateCustomerRole(
   id: string,
   role: string,
-): Promise<void> {
-  await api.put(`/admin/customers/${id}/role`, { role });
+): Promise<AdminPrototypeUser> {
+  const { data } = await api.put(`/admin/users/${id}/role`, { role });
+  return toPrototypeUser(data.customer as BackendCustomer);
+}
+
+export async function updateCustomerStatus(
+  id: string,
+  blocked: boolean,
+): Promise<AdminPrototypeUser> {
+  const { data } = await api.put(`/admin/customers/${id}/status`, { blocked });
+  return toPrototypeUser(data.customer as BackendCustomer);
 }
 
 export async function fetchInventory(): Promise<AdminPrototypeProduct[]> {

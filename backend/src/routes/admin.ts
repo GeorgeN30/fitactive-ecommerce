@@ -17,7 +17,10 @@ router.get("/orders", adminController.listOrders);
 router.put("/orders/:id/status", adminController.updateOrderStatus);
 
 router.get("/customers", adminController.listCustomers);
+router.get("/users", adminController.listUsers);
 router.put("/customers/:id/role", adminController.updateCustomerRole);
+router.put("/users/:id/role", adminController.updateCustomerRole);
+router.put("/customers/:id/status", adminController.updateCustomerStatus);
 
 router.get("/inventory", adminController.getInventory);
 router.put("/inventory/:productId/stock", adminController.updateStock);

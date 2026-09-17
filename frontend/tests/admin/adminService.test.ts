@@ -13,7 +13,9 @@ import {
   fetchProducts,
   fetchSalesData,
   fetchTopProducts,
+  fetchUsers,
   updateProduct,
+  updateCustomerRole,
   updateStock,
 } from "../../src/services/admin";
 
@@ -224,5 +226,37 @@ describe("admin service", () => {
       "/inventory/products/p1/stock",
       { size: "M", quantity: 7, motivo: "Conteo físico" },
     );
+  });
+
+  it("loads all users and updates a user's role through the admin API", async () => {
+    const backendUser = {
+      id: "u1",
+      email: "ana@example.com",
+      name: "Ana",
+      picture: null,
+      role: "customer",
+      blocked: false,
+      points: 0,
+      fechaCreacion: "2026-09-01T00:00:00.000Z",
+      medidaPecho: null,
+      medidaCintura: null,
+      medidaCadera: null,
+      orders: 2,
+      spent: 120,
+    };
+    mockedApi.get.mockResolvedValueOnce({ data: { users: [backendUser] } });
+    mockedApi.put.mockResolvedValueOnce({
+      data: { customer: { ...backendUser, role: "inventory" } },
+    });
+
+    const users = await fetchUsers();
+    const updated = await updateCustomerRole("u1", "inventory");
+
+    expect(mockedApi.get).toHaveBeenCalledWith("/admin/users");
+    expect(mockedApi.put).toHaveBeenCalledWith("/admin/users/u1/role", {
+      role: "inventory",
+    });
+    expect(users[0]).toMatchObject({ id: "u1", role: "client" });
+    expect(updated).toMatchObject({ id: "u1", role: "inventory" });
   });
 });

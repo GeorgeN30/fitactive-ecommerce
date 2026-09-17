@@ -16,6 +16,7 @@ export interface CatalogProduct {
   marca: string | null;
   precio: number;
   imagenUrl: string | null;
+  imageUrls?: string[];
   genero: string | null;
   tallas: CatalogSize[];
   totalStock: number;

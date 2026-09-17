@@ -14,12 +14,16 @@ const VALIDATION_ERRORS = new Set([
   "STATUS_REQUIRED",
   "INVALID_STATUS",
   "INVALID_ROLE",
+  "INVALID_CUSTOMER_STATUS",
   "SIZE_REQUIRED",
   "INVALID_QUANTITY",
   "INVALID_MOVEMENT_TYPE",
   "MOTIVE_REQUIRED",
   "DUPLICATE_SIZE",
   "INVALID_ENTRY",
+  "INVALID_IMAGE",
+  "IMAGE_TOO_LARGE",
+  "TOO_MANY_IMAGES",
   "INVALID_DISCOUNT_PERCENTAGE",
   "DISCOUNT_REASON_REQUIRED",
   "INVALID_DISCOUNT_STATUS",
@@ -236,6 +240,29 @@ export const adminController = {
       res.status(HTTP_STATUS.OK).json({ customer });
     } catch (err) {
       respondWithError(res, err, "CUSTOMER_ROLE_UPDATE_FAILED");
+    }
+  },
+
+  // GET /api/admin/users
+  async listUsers(_req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const users = await adminService.listUsers();
+      res.status(HTTP_STATUS.OK).json({ users });
+    } catch (err) {
+      respondWithError(res, err, "USER_LIST_FAILED");
+    }
+  },
+
+  // PUT /api/admin/customers/:id/status
+  async updateCustomerStatus(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const customer = await adminService.updateCustomerBlocked(
+        req.params.id,
+        req.body.blocked,
+      );
+      res.status(HTTP_STATUS.OK).json({ customer });
+    } catch (err) {
+      respondWithError(res, err, "CUSTOMER_STATUS_UPDATE_FAILED");
     }
   },
 

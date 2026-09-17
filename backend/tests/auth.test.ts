@@ -209,6 +209,22 @@ describe("authService.loginWithPassword", () => {
     ).rejects.toThrow("INVALID_CREDENTIALS");
   });
 
+  it("should reject a blocked account before checking the password", async () => {
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
+      id: "blocked-user",
+      email: "blocked@example.com",
+      passwordHash: "stored-hash",
+      blocked: true,
+      role: "customer",
+      twoFactorEnabled: false,
+      totpSecret: null,
+    } as never);
+
+    await expect(
+      authService.loginWithPassword("blocked@example.com", "password123"),
+    ).rejects.toThrow("ACCOUNT_BLOCKED");
+  });
+
   it("should return requires2Fa when 2FA is enabled with valid totpSecret", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
