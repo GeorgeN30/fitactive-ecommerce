@@ -24,12 +24,16 @@ const ROLE_PERMISSIONS: Record<User["role"], string[]> = {
   inventory: ["Gestionar productos", "Actualizar stock", "Ver auditoría", "Solicitar descuentos"],
 };
 
+const USERS_PER_PAGE = 10;
+
 export default function AdminRolesAccessView({
   users: initialUsers,
   onRoleChange,
 }: AdminRolesAccessViewProps) {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setUsers(initialUsers);
@@ -53,8 +57,22 @@ export default function AdminRolesAccessView({
     }
   }
 
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredUsers = users.filter((user) =>
+    !normalizedSearch ||
+    user.name.toLowerCase().includes(normalizedSearch) ||
+    user.email.toLowerCase().includes(normalizedSearch) ||
+    ROLE_LABELS[user.role].toLowerCase().includes(normalizedSearch),
+  );
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const currentPage = Math.min(page, Math.max(totalPages, 1));
+  const visibleUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE,
+  );
+
   return (
-    <div className="flex h-full flex-col gap-6 text-gray-900 dark:text-white animate-fade-in">
+    <div className="flex h-full min-h-0 flex-col gap-6 text-gray-900 dark:text-white animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold">Roles y accesos</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -89,16 +107,50 @@ export default function AdminRolesAccessView({
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-gray-100 p-5 dark:border-zinc-800">
-          <h2 className="font-bold">Usuarios del sistema</h2>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            El cambio se guarda inmediatamente en la base de datos.
-          </p>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex-shrink-0 space-y-4 border-b border-gray-100 p-5 dark:border-zinc-800">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="font-bold">Usuarios del sistema</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                El cambio se guarda inmediatamente en la base de datos.
+              </p>
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {filteredUsers.length} {filteredUsers.length === 1 ? "resultado" : "resultados"}
+            </span>
+          </div>
+          <div className="relative max-w-xl">
+            <i
+              className="fa-solid fa-magnifying-glass pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              aria-label="Buscar usuarios del sistema"
+              placeholder="Buscar por nombre, correo o rol..."
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-10 text-sm text-gray-900 outline-none transition focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66] dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-white"
+            />
+            {search && (
+              <button
+                type="button"
+                aria-label="Limpiar búsqueda de usuarios"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-zinc-800 dark:hover:text-white"
+              >
+                <i className="fa-solid fa-xmark" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="border-b border-gray-100 bg-gray-50 text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-gray-400">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+          <table className="w-full min-w-[700px] text-left text-sm whitespace-nowrap">
+            <thead className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50 text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-gray-400">
               <tr>
                 <th className="px-5 py-4">Usuario</th>
                 <th className="px-5 py-4">Rol</th>
@@ -107,7 +159,7 @@ export default function AdminRolesAccessView({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
-              {users.map((user) => (
+              {visibleUsers.map((user) => (
                 <tr key={user.id}>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -158,12 +210,42 @@ export default function AdminRolesAccessView({
               ))}
             </tbody>
           </table>
-          {users.length === 0 && (
+          {filteredUsers.length === 0 && (
             <p className="p-8 text-center text-sm text-gray-500">
-              No hay usuarios registrados.
+              {users.length === 0
+                ? "No hay usuarios registrados."
+                : "No se encontraron usuarios con esa búsqueda."}
             </p>
           )}
         </div>
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 dark:border-zinc-800">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Mostrando {(currentPage - 1) * USERS_PER_PAGE + 1}–{Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length)} de {filteredUsers.length}
+            </p>
+            <nav className="flex items-center gap-2" aria-label="Paginación de usuarios">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+              >
+                Anterior
+              </button>
+              <span className="min-w-24 text-center text-xs font-semibold text-gray-600 dark:text-gray-300">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(current + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+              >
+                Siguiente
+              </button>
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );

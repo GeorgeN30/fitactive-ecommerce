@@ -8,6 +8,7 @@ import SuccessOverlay from "../components/SuccessOverlay";
 interface LocationState {
   email?: string;
   name?: string;
+  rememberMe?: boolean;
 }
 
 export default function OtpPage() {
@@ -27,6 +28,7 @@ export default function OtpPage() {
   const state = location.state as LocationState;
   const email = state?.email as string;
   const name = state?.name;
+  const rememberMe = state?.rememberMe ?? true;
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -92,7 +94,7 @@ export default function OtpPage() {
     setError("");
     setVerifying(true);
     try {
-      const requires2Fa = await loginWithOtp(email, fullCode, name);
+      const requires2Fa = await loginWithOtp(email, fullCode, name, rememberMe);
       if (requires2Fa) {
         setSuccess({
           message: "Sesion iniciada",

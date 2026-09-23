@@ -13,6 +13,7 @@ export default function Header() {
   const { cartCount } = useCart();
   const { favorites } = useFavorites();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,21 +57,35 @@ export default function Header() {
           >
             Probador Virtual
           </Link>
-          <Link
-            to="/favoritos"
-            className="hover:text-brand-green transition-colors flex items-center gap-1.5"
-          >
-            Favoritos
-            {favorites.length > 0 && (
-              <span className="bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
-                {favorites.length}
-              </span>
-            )}
-          </Link>
+          {user && (
+            <Link
+              to="/favoritos"
+              className="hover:text-brand-green transition-colors flex items-center gap-1.5"
+            >
+              Favoritos
+              {favorites.length > 0 && (
+                <span className="bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
+                  {favorites.length}
+                </span>
+              )}
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
+
+          <button
+            type="button"
+            aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 md:hidden"
+          >
+            <i
+              className={`fa-solid ${mobileMenuOpen ? "fa-xmark" : "fa-bars"} text-lg`}
+            />
+          </button>
 
           <div
             className={`relative hidden sm:block w-64 lg:w-80 transition-all ${
@@ -213,21 +228,158 @@ export default function Header() {
             </div>
           )}
 
-          <Link
-            to="/carrito"
-            className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            title="Carrito"
-          >
-            <i className="fa-solid fa-bag-shopping text-lg" />
+          {user && (
+            <Link
+              to="/carrito"
+              className="relative w-10 h-10 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              title="Carrito"
+            >
+              <i className="fa-solid fa-bag-shopping text-lg" />
 
-            {cartCount > 0 && (
-              <span className="absolute top-1 right-1 bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-brand-card-dark">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+              {cartCount > 0 && (
+                <span className="absolute top-1 right-1 bg-brand-green text-slate-900 text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-brand-card-dark">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="border-t border-slate-200 bg-white px-4 py-4 shadow-lg dark:border-slate-700/50 dark:bg-brand-card-dark md:hidden">
+          <div className="mb-4 relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50"
+            />
+          </div>
+
+          <nav className="grid gap-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <Link
+              to="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+            >
+              <i className="fa-solid fa-house mr-3 w-4 text-center text-xs" />
+              Inicio
+            </Link>
+            <Link
+              to="/catalogo"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+            >
+              <i className="fa-solid fa-shirt mr-3 w-4 text-center text-xs" />
+              Catálogo
+            </Link>
+            <Link
+              to="/producto/1"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles mr-3 w-4 text-center text-xs" />
+              Probador virtual
+            </Link>
+            {user && (
+              <>
+                <Link
+                  to="/favoritos"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+                >
+                  <span>
+                    <i className="fa-solid fa-heart mr-3 w-4 text-center text-xs" />
+                    Favoritos
+                  </span>
+                  {favorites.length > 0 && (
+                    <span className="rounded-full bg-brand-green px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                      {favorites.length}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  to="/carrito"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+                >
+                  <span>
+                    <i className="fa-solid fa-bag-shopping mr-3 w-4 text-center text-xs" />
+                    Carrito
+                  </span>
+                  {cartCount > 0 && (
+                    <span className="rounded-full bg-brand-green px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                      {cartCount}
+                    </span>
+                  )}
+                </Link>
+              </>
+            )}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-brand-green hover:bg-slate-50 dark:hover:bg-slate-700/50"
+              >
+                <i className="fa-solid fa-shield-halved mr-3 w-4 text-center text-xs" />
+                Admin
+              </Link>
+            )}
+            {isInventoryUser && (
+              <Link
+                to="/inventory"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-amber-600 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+              >
+                <i className="fa-solid fa-boxes-stacked mr-3 w-4 text-center text-xs" />
+                Inventario
+              </Link>
+            )}
+            {user ? (
+              <>
+                <Link
+                  to="/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+                >
+                  <i className="fa-solid fa-gear mr-3 w-4 text-center text-xs" />
+                  Configuración
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                    navigate("/");
+                  }}
+                  className="w-full rounded-lg px-3 py-3 text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <i className="fa-solid fa-right-from-bracket mr-3 w-4 text-center text-xs" />
+                  Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="mt-2 rounded-lg border border-brand-green/30 px-3 py-3 text-center text-brand-green hover:bg-brand-green/5"
+                >
+                  Iniciar sesión
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-lg bg-brand-green px-3 py-3 text-center font-bold text-slate-900 hover:bg-brand-green-hover"
+                >
+                  Crear cuenta
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

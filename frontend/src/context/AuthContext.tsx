@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../services/api";
+import {
+  clearStoredSession,
+  getStoredSessionValue,
+  persistPreAuthToken,
+  persistSession,
+  updateStoredUser,
+} from "../utils/session";
 
 export interface User {
   id: string;
@@ -19,9 +26,14 @@ interface AuthContextType {
     email: string,
     code: string,
     name?: string,
+    rememberMe?: boolean,
   ) => Promise<boolean>;
-  loginWithPassword: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (accessToken: string) => Promise<{
+  loginWithPassword: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => Promise<boolean>;
+  loginWithGoogle: (accessToken: string, rememberMe?: boolean) => Promise<{
     requires2Fa: boolean;
     isNewUser: boolean;
     hasPassword: boolean;
@@ -53,8 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [preAuthUserId, setPreAuthUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    const storedToken = getStoredSessionValue("token");
+    const storedUser = getStoredSessionValue("user");
     if (storedToken && storedUser) {
       try {
         const parsed: unknown = JSON.parse(storedUser);
@@ -67,19 +79,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedSessionUser = normalizeUser(parsed as User);
         setToken(storedToken);
         setUser(storedSessionUser);
-        localStorage.setItem("user", JSON.stringify(storedSessionUser));
+        updateStoredUser(storedSessionUser);
       } catch {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        clearStoredSession();
       }
     }
     setLoading(false);
   }, []);
 
-  function persistSession(newToken: string, newUser: User) {
+  function saveSession(
+    newToken: string,
+    newUser: User,
+    rememberMe = true,
+  ) {
     const normalizedUser = normalizeUser(newUser);
-    localStorage.setItem("token", newToken);
-    localStorage.setItem("user", JSON.stringify(normalizedUser));
+    persistSession(newToken, normalizedUser, rememberMe);
     setToken(newToken);
     setUser(normalizedUser);
     setPreAuthUserId(null);
@@ -89,35 +103,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     code: string,
     name?: string,
+    rememberMe = true,
   ): Promise<boolean> {
     const { data } = await api.post("/auth/otp-verify", { email, code, name });
     if (data.requires2Fa) {
-      localStorage.setItem("preAuth_token", data.token);
+      persistPreAuthToken(data.token, rememberMe);
       setPreAuthUserId(data.userId);
       return true;
     }
-    persistSession(data.token, data.user);
+    saveSession(data.token, data.user, rememberMe);
     return false;
   }
 
   async function loginWithPassword(
     email: string,
     password: string,
+    rememberMe = true,
   ): Promise<boolean> {
     const { data } = await api.post("/auth/login-password", {
       email,
       password,
     });
     if (data.requires2Fa) {
-      localStorage.setItem("preAuth_token", data.token);
+      persistPreAuthToken(data.token, rememberMe);
       setPreAuthUserId(data.userId);
       return true;
     }
-    persistSession(data.token, data.user);
+    saveSession(data.token, data.user, rememberMe);
     return false;
   }
 
-  async function loginWithGoogle(accessToken: string): Promise<{
+  async function loginWithGoogle(
+    accessToken: string,
+    rememberMe = true,
+  ): Promise<{
     requires2Fa: boolean;
     isNewUser: boolean;
     hasPassword: boolean;
@@ -125,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post("/auth/google", {
       access_token: accessToken,
     });
-    persistSession(data.token, data.user);
+    saveSession(data.token, data.user, rememberMe);
     return {
       requires2Fa: false,
       isNewUser: data.user.isNewUser ?? false,
@@ -134,7 +153,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function verify2Fa(code: string) {
-    const preAuthToken = localStorage.getItem("preAuth_token");
+    const preAuthToken = getStoredSessionValue("preAuth_token");
+    const rememberMe = Boolean(localStorage.getItem("preAuth_token"));
     if (!preAuthToken || !preAuthUserId) {
       throw new Error("NO_PREAUTH_SESSION");
     }
@@ -146,18 +166,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     localStorage.removeItem("preAuth_token");
-    persistSession(data.token, data.user);
+    sessionStorage.removeItem("preAuth_token");
+    saveSession(data.token, data.user, rememberMe);
   }
 
   function clearPreAuth() {
     localStorage.removeItem("preAuth_token");
+    sessionStorage.removeItem("preAuth_token");
     setPreAuthUserId(null);
   }
 
   function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("preAuth_token");
+    clearStoredSession();
     setToken(null);
     setUser(null);
     setPreAuthUserId(null);
@@ -167,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, ...partial };
-      localStorage.setItem("user", JSON.stringify(updated));
+      updateStoredUser(updated);
       return updated;
     });
   }
@@ -176,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await api.get("/auth/me");
       const freshUser = normalizeUser(data.user as User);
-      localStorage.setItem("user", JSON.stringify(freshUser));
+      updateStoredUser(freshUser);
       setUser(freshUser);
     } catch {}
   }

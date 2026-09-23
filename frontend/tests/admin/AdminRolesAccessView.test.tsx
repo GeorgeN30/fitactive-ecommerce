@@ -52,4 +52,29 @@ describe("AdminRolesAccessView", () => {
       "inventory",
     );
   });
+
+  it("permite buscar y paginar usuarios del sistema", () => {
+    const manyUsers = [
+      ...users,
+      ...Array.from({ length: 10 }, (_, index) => ({
+        ...users[0],
+        id: `u-${index + 3}`,
+        name: `Usuario ${index + 3}`,
+        email: `usuario${index + 3}@example.com`,
+      })),
+    ];
+
+    render(<AdminRolesAccessView users={manyUsers} onRoleChange={vi.fn()} />);
+
+    expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
+    expect(screen.getByText("Usuario 3")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar usuarios del sistema" }), {
+      target: { value: "Usuario 12" },
+    });
+
+    expect(screen.getByText("Usuario 12")).toBeInTheDocument();
+    expect(screen.queryByText("Usuario 3")).not.toBeInTheDocument();
+    expect(screen.queryByText("Página 1 de 2")).not.toBeInTheDocument();
+  });
 });

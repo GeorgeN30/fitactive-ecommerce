@@ -1,7 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import api from '../services/api';
+import {
+  getVirtualTryOnSessionId,
+  markVirtualTryOnProduct,
+  trackVirtualTryOnEvent,
+} from '../services/virtualTryOn';
 
 export const PRODUCTS_PER_PAGE = 5;
 
@@ -22,6 +27,17 @@ export default function ProbadorVirtual() {
   const [cargando, setCargando] = useState(true);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('Todas');
   const [productPage, setProductPage] = useState(1);
+  const tryOnSessionId = useRef(getVirtualTryOnSessionId());
+  const tryOnStartedAt = useRef(Date.now());
+  const reportedProducts = useRef(new Set<string>());
+
+  useEffect(() => {
+    void trackVirtualTryOnEvent({
+      sessionId: tryOnSessionId.current,
+      type: 'session_started',
+      gender: genero,
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -201,6 +217,33 @@ export default function ProbadorVirtual() {
       detalles: detallesFitMap
     };
   }, [medidas, selectedProduct, genero, esPrendaInferior]);
+
+  useEffect(() => {
+    if (!selectedProduct || !analisis || reportedProducts.current.has(String(selectedProduct.id))) {
+      return;
+    }
+
+    const productId = String(selectedProduct.id);
+    reportedProducts.current.add(productId);
+    markVirtualTryOnProduct(productId);
+    const durationSeconds = Math.max(
+      0,
+      Math.round((Date.now() - tryOnStartedAt.current) / 1000),
+    );
+    const event = {
+      sessionId: tryOnSessionId.current,
+      productId,
+      size: String(analisis.talla),
+      gender: genero,
+      compatibility: Number(analisis.matchScore),
+      durationSeconds,
+    };
+
+    void Promise.all([
+      trackVirtualTryOnEvent({ type: 'try_on', ...event }),
+      trackVirtualTryOnEvent({ type: 'fit_result', ...event }),
+    ]).catch(() => undefined);
+  }, [analisis, genero, selectedProduct]);
 
   const handleMedidaManual = (id: string, value: string) => {
     const numValue = value === '' ? 0 : Number(value);

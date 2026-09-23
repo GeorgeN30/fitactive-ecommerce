@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import PasswordRequirements from "../components/PasswordRequirements";
 import SuccessOverlay from "../components/SuccessOverlay";
+import {
+  getEmailValidationMessage,
+  isStrongPassword,
+} from "../utils/validation";
 
 type Step = "form" | "otp";
 
@@ -10,6 +15,8 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
@@ -21,6 +28,8 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const emailValidationMessage = getEmailValidationMessage(email);
+  const passwordIsStrong = isStrongPassword(password);
 
   useEffect(() => {
     if (step === "otp") {
@@ -75,7 +84,10 @@ export default function RegisterPage() {
 
   async function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setEmailTouched(true);
+    setPasswordTouched(true);
     setError("");
+    if (emailValidationMessage || !passwordIsStrong) return;
     setSending(true);
     try {
       await fetch("/api/auth/register-request", {
@@ -213,6 +225,7 @@ export default function RegisterPage() {
         {step === "form" && (
           <form
             onSubmit={handleFormSubmit}
+            noValidate
             className="space-y-5 animate-slide-up-fade"
           >
             <div>
@@ -234,11 +247,35 @@ export default function RegisterPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                onBlur={() => setEmailTouched(true)}
                 required
+                autoComplete="email"
+                aria-invalid={Boolean(emailTouched && emailValidationMessage)}
                 className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
                 placeholder="ejemplo@correo.com"
               />
+              {(emailTouched || email.length > 0) && (
+                <p
+                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${
+                    emailValidationMessage
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-brand-green"
+                  }`}
+                >
+                  <i
+                    className={`fa-solid ${
+                      emailValidationMessage
+                        ? "fa-circle-info"
+                        : "fa-circle-check"
+                    }`}
+                  />
+                  {emailValidationMessage || "Correo válido."}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -249,10 +286,13 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setPasswordTouched(true)}
                   required
                   minLength={8}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(passwordTouched && !passwordIsStrong)}
                   className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
-                  placeholder="Minimo 8 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                 />
                 <button
                   type="button"
@@ -266,6 +306,10 @@ export default function RegisterPage() {
                   />
                 </button>
               </div>
+              <PasswordRequirements
+                password={password}
+                visible={passwordTouched}
+              />
             </div>
 
             <div className="pt-1">
@@ -303,7 +347,12 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={sending || !agreed}
+              disabled={
+                sending ||
+                !agreed ||
+                Boolean(emailValidationMessage) ||
+                !passwordIsStrong
+              }
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sending ? "Enviando codigo..." : "Crear cuenta"}

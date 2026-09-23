@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
+import PasswordRequirements from "../components/PasswordRequirements";
+import { isStrongPassword } from "../utils/validation";
 
 export default function SetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -12,6 +14,7 @@ export default function SetPasswordPage() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -37,8 +40,8 @@ export default function SetPasswordPage() {
       setError("Las contraseñas no coinciden.");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
+    if (!isStrongPassword(newPassword)) {
+      setError("La contraseña no cumple todos los requisitos.");
       return;
     }
     setLoading(true);
@@ -142,7 +145,11 @@ export default function SetPasswordPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSetPassword} className="space-y-5">
+          <form
+            onSubmit={handleSetPassword}
+            noValidate
+            className="space-y-5"
+          >
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nueva contraseña
@@ -152,10 +159,12 @@ export default function SetPasswordPage() {
                   type={showPw ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  onFocus={() => setPasswordTouched(true)}
                   required
                   minLength={8}
+                  autoComplete="new-password"
                   className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                  placeholder="Minimo 8 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   autoFocus
                 />
                 <button
@@ -168,6 +177,10 @@ export default function SetPasswordPage() {
                   />
                 </button>
               </div>
+              <PasswordRequirements
+                password={newPassword}
+                visible={passwordTouched}
+              />
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -191,7 +204,7 @@ export default function SetPasswordPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isStrongPassword(newPassword)}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Guardando..." : "Establecer contraseña"}

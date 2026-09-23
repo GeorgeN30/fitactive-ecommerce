@@ -103,6 +103,80 @@ export interface MovementInput {
   motivo: string;
 }
 
+export type FinancePeriod = "week" | "month" | "quarter" | "year";
+
+export interface FinanceSummaryResult {
+  period: FinancePeriod;
+  periodLabel: string;
+  revenue: number;
+  ordersCount: number;
+  returnsCount: number;
+  monthlyRevenue: { label: string; value: number }[];
+  categories: { name: string; amount: number; units: number; percentage: number }[];
+  transactions: {
+    reference: string;
+    description: string;
+    date: string;
+    amount: number;
+    type: "Ingreso" | "Devolución";
+  }[];
+  expenses: null;
+  paymentMethods: never[];
+}
+
+const FINANCE_PERIOD_LABELS: Record<FinancePeriod, string> = {
+  week: "Últimos 7 días",
+  month: "Últimos 12 meses",
+  quarter: "Últimos 4 trimestres",
+  year: "Últimos 4 años",
+};
+
+function startOfPeriodBucket(date: Date, period: FinancePeriod): Date {
+  if (period === "week") {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+  if (period === "year") {
+    return new Date(date.getFullYear(), 0, 1);
+  }
+  if (period === "quarter") {
+    return new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3, 1);
+  }
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function financeBucketKey(date: Date, period: FinancePeriod): string {
+  const bucket = startOfPeriodBucket(date, period);
+  return `${bucket.getFullYear()}-${String(bucket.getMonth() + 1).padStart(2, "0")}-${String(bucket.getDate()).padStart(2, "0")}`;
+}
+
+function financeBuckets(now: Date, period: FinancePeriod): { key: string; label: string }[] {
+  const buckets: { key: string; label: string }[] = [];
+  const count = period === "week" ? 7 : period === "year" ? 4 : period === "quarter" ? 4 : 12;
+
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    let date: Date;
+    if (period === "week") {
+      date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    } else if (period === "year") {
+      date = new Date(now.getFullYear() - offset, 0, 1);
+    } else if (period === "quarter") {
+      date = new Date(now.getFullYear(), now.getMonth() - offset * 3, 1);
+    } else {
+      date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    }
+
+    const label = period === "week"
+      ? date.toLocaleDateString("es-PE", { weekday: "short" })
+      : period === "year"
+        ? String(date.getFullYear())
+        : period === "quarter"
+          ? `T${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`
+          : date.toLocaleDateString("es-PE", { month: "short" });
+    buckets.push({ key: financeBucketKey(date, period), label });
+  }
+  return buckets;
+}
+
 const isPrismaP2003 = (err: unknown): boolean =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003";
 
@@ -707,6 +781,96 @@ export const adminService = {
     }
 
     return Array.from(byMonth.entries()).map(([label, value]) => ({ label, value }));
+  },
+
+  async getFinanceSummary(period: FinancePeriod = "month"): Promise<FinanceSummaryResult> {
+    const now = new Date();
+    const buckets = financeBuckets(now, period);
+    const revenueByBucket = new Map(buckets.map((bucket) => [bucket.key, 0]));
+    const categories = new Map<string, { amount: number; units: number }>();
+    const orders = await prisma.ordenes.findMany({
+      orderBy: { fecha_orden: "desc" },
+      include: {
+        orden_detalles: {
+          include: {
+            producto_tallas: { include: { productos: true } },
+          },
+        },
+      },
+    });
+
+    let revenue = 0;
+    let ordersCount = 0;
+    let returnsCount = 0;
+    const transactions: FinanceSummaryResult["transactions"] = [];
+
+    for (const order of orders) {
+      if (!order.fecha_orden) continue;
+      const orderDate = order.fecha_orden;
+      const bucketKey = financeBucketKey(orderDate, period);
+      if (!revenueByBucket.has(bucketKey)) continue;
+
+      const status = (order.estado || "pending").toLowerCase();
+      const isReturn = status === "return" || status === "returned";
+      const isCancelled = status === "cancelled";
+      const total = roundToCents(order.total.toNumber());
+
+      if (isReturn) {
+        returnsCount += 1;
+      } else if (!isCancelled) {
+        revenue = roundToCents(revenue + total);
+        ordersCount += 1;
+        revenueByBucket.set(bucketKey, roundToCents((revenueByBucket.get(bucketKey) || 0) + total));
+
+        for (const detail of order.orden_detalles) {
+          const name = detail.producto_tallas.productos.categoria || "Sin categoría";
+          const current = categories.get(name) || { amount: 0, units: 0 };
+          categories.set(name, {
+            amount: roundToCents(current.amount + detail.precio_unitario.toNumber() * detail.cantidad),
+            units: current.units + detail.cantidad,
+          });
+        }
+      }
+
+      if (!isCancelled) {
+        transactions.push({
+          reference: order.numero || order.id,
+          description: isReturn ? "Devolución de pedido" : "Venta online",
+          date: orderDate.toLocaleDateString("es-PE"),
+          amount: isReturn ? -Math.abs(total) : total,
+          type: isReturn ? "Devolución" : "Ingreso",
+        });
+      }
+    }
+
+    const totalCategoryAmount = Array.from(categories.values())
+      .reduce((sum, category) => sum + category.amount, 0);
+    const categoryData = Array.from(categories.entries())
+      .map(([name, category]) => ({
+        name,
+        amount: category.amount,
+        units: category.units,
+        percentage: totalCategoryAmount > 0
+          ? Math.round((category.amount / totalCategoryAmount) * 100)
+          : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      period,
+      periodLabel: FINANCE_PERIOD_LABELS[period],
+      revenue,
+      ordersCount,
+      returnsCount,
+      monthlyRevenue: buckets.map((bucket) => ({
+        label: bucket.label,
+        value: revenueByBucket.get(bucket.key) || 0,
+      })),
+      categories: categoryData,
+      transactions: transactions.slice(0, 8),
+      expenses: null,
+      paymentMethods: [],
+    };
   },
 
   async getTopProducts(): Promise<{ id: string; name: string; units: number; revenue: number }[]> {

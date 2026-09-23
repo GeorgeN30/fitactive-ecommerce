@@ -29,6 +29,8 @@ router.get("/inventory/low-stock", adminController.listLowStockProducts);
 
 router.get("/dashboard/stats", adminController.getDashboardStats);
 router.get("/dashboard/sales-chart", adminController.getSalesChart);
+router.get("/finance/summary", adminController.getFinanceSummary);
+router.get("/virtual-tryon/summary", adminController.getVirtualTryOnSummary);
 router.get("/dashboard/top-products", adminController.getTopProducts);
 router.get("/dashboard/categories", adminController.getCategories);
 

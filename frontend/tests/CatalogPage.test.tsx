@@ -18,6 +18,7 @@ vi.mock("../src/services/catalog", async (importOriginal) => ({
 }));
 
 import CatalogPage from "../src/pages/CatalogPage";
+import { AuthProvider } from "../src/context/AuthContext";
 import { useFavorites } from "../src/context/FavoritesContext";
 import { fetchCatalogProducts } from "../src/services/catalog";
 import type { CatalogProduct } from "../src/services/catalog";
@@ -61,7 +62,9 @@ describe("CatalogPage", () => {
 
     render(
       <MemoryRouter>
-        <CatalogPage />
+        <AuthProvider>
+          <CatalogPage />
+        </AuthProvider>
       </MemoryRouter>,
     );
 

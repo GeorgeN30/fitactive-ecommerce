@@ -1,4 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import {
+  getSessionPersistence,
+  getSessionScopedValue,
+  getStoredSessionValue,
+  SESSION_CLEARED_EVENT,
+} from "../utils/session";
 
 interface FavoriteProduct {
   id: string;
@@ -22,7 +28,12 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<FavoriteProduct[]>(() => {
-    const saved = localStorage.getItem("favorites");
+    if (!getStoredSessionValue("token")) {
+      localStorage.removeItem("favorites");
+      return [];
+    }
+
+    const saved = getSessionScopedValue("favorites");
 
     try {
       return saved ? JSON.parse(saved) : [];
@@ -32,7 +43,23 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    localStorage.setItem("favorites", JSON.stringify(favorites));
+    const clearFavoritesOnSessionEnd = () => setFavorites([]);
+    window.addEventListener(SESSION_CLEARED_EVENT, clearFavoritesOnSessionEnd);
+    return () =>
+      window.removeEventListener(SESSION_CLEARED_EVENT, clearFavoritesOnSessionEnd);
+  }, []);
+
+  useEffect(() => {
+    if (favorites.length === 0) {
+      localStorage.removeItem("favorites");
+      sessionStorage.removeItem("favorites");
+      return;
+    }
+    const persistence = getSessionPersistence();
+    const storage = persistence === "session" ? sessionStorage : localStorage;
+    localStorage.removeItem("favorites");
+    sessionStorage.removeItem("favorites");
+    storage.setItem("favorites", JSON.stringify(favorites));
   }, [favorites]);
 
   const addFavorite = (product: FavoriteProduct) => {

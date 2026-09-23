@@ -18,6 +18,7 @@ import AdminReturnsView from "../../components/admin/views/AdminReturnsView";
 import AdminFinanceView from "../../components/admin/views/AdminFinanceView";
 import ModalPortal from "../../components/ModalPortal";
 import NotificationToast from "../../components/NotificationToast";
+import { clearStoredSession } from "../../utils/session";
 
 import {
   fetchOrders,
@@ -187,9 +188,7 @@ function BarChart({ data, color }: { data: number[]; color: string }) {
 export default function AdminDashboard() {
   const { theme, setTheme } = useTheme();
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("preAuth_token");
+    clearStoredSession();
     window.location.href = "/";
   };
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);

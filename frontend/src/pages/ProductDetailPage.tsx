@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type SyntheticEvent } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
+import FavoriteButton from '../components/FavoriteButton';
 import ModalPortal from '../components/ModalPortal';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
-import { useFavorites } from "../context/FavoritesContext";
+import {
+  getVirtualTryOnSessionId,
+  hasVirtualTryOnProduct,
+  trackVirtualTryOnEvent,
+} from '../services/virtualTryOn';
+
+const PRODUCT_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format";
 
 function getProductImages(product: any): string[] {
   const imageValues = [
@@ -19,11 +26,19 @@ function getProductImages(product: any): string[] {
   );
 }
 
+function getPrimaryProductImage(product: any): string {
+  return getProductImages(product)[0] || PRODUCT_IMAGE_FALLBACK;
+}
+
+function handleProductImageError(event: SyntheticEvent<HTMLImageElement>): void {
+  event.currentTarget.onerror = null;
+  event.currentTarget.src = PRODUCT_IMAGE_FALLBACK;
+}
+
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { toggleFavorite, isFavorite } = useFavorites();
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -233,20 +248,17 @@ export default function ProductDetailPage() {
                   <span className="w-8 text-center font-black text-gray-900 dark:text-white">{quantity}</span>
                   <button onClick={() => setQuantity(Math.min(stockActual, quantity + 1))} disabled={!selectedSize || quantity >= stockActual} className="flex-1 h-full flex items-center justify-center text-lg font-medium text-gray-500 hover:text-brand-green disabled:opacity-30 transition cursor-pointer">+</button>
                 </div>
-                <button
-                  onClick={() => {
-                    toggleFavorite({
-                      id: String(producto.id),
-                      cat: producto.categoria || 'General',
-                      name: producto.nombre || producto.name,
-                      price: precioActual,
-                      img: producto.imagenUrl || producto.imagen_url || producto.img || '',
-                    });
+                <FavoriteButton
+                  product={{
+                    id: String(producto.id),
+                    cat: producto.categoria || 'General',
+                    name: producto.nombre || producto.name,
+                    price: precioActual,
+                    img: producto.imagenUrl || producto.imagen_url || producto.img || '',
                   }}
-                  className={`w-14 h-14 flex items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${isFavorite(String(producto.id)) ? 'border-red-500 bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-gray-200 dark:border-white/10 text-gray-400 hover:border-red-500 hover:text-red-500'}`}
-                >
-                  <svg className="w-6 h-6" fill={isFavorite(String(producto.id)) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={isFavorite(String(producto.id)) ? 0 : 2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-                </button>
+                  className="w-14 h-14 flex items-center justify-center border-2 rounded-xl transition-all cursor-pointer border-gray-200 dark:border-white/10 text-gray-400 hover:border-red-500 hover:text-red-500"
+                  iconClassName="text-xl"
+                />
               </div>
 
               <button
@@ -267,6 +279,14 @@ export default function ProductDetailPage() {
                       (t: any) => t.talla === selectedSize,
                     )?.id,
                   });
+                  if (hasVirtualTryOnProduct(String(producto.id))) {
+                    void trackVirtualTryOnEvent({
+                      sessionId: getVirtualTryOnSessionId(),
+                      type: 'cart_added',
+                      productId: String(producto.id),
+                      size: selectedSize,
+                    }).catch(() => undefined);
+                  }
                   alert("¡Producto agregado al carrito con éxito!");
                 }}
                 className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-all mb-4 flex items-center justify-center gap-2 cursor-pointer shadow-md"
@@ -328,40 +348,27 @@ export default function ProductDetailPage() {
             <div className="mb-12">
               <h2 className="text-2xl font-extrabold mb-8 text-gray-900 dark:text-white">Productos Relacionados</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {relacionados.map((item, index) => (
-                  <div key={index} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-gray-800 flex flex-col">
+                {relacionados.map((item) => (
+                  <div key={String(item.id)} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-gray-800 flex flex-col">
                     <div className="relative bg-[#f4f5f7] dark:bg-gray-800 rounded-xl aspect-[4/5] mb-4 flex items-center justify-center overflow-hidden">
-                      <button
-                        onClick={() => {
-                          toggleFavorite({
-                            id: String(item.id),
-                            cat: item.categoria || 'General',
-                            name: item.nombre || item.name,
-                            price: Number(item.precio || item.price || 0),
-                            img: item.imagen_url || item.img || '',
-                          });
+                      <FavoriteButton
+                        product={{
+                          id: String(item.id),
+                          cat: item.categoria || 'General',
+                          name: item.nombre || item.name,
+                          price: Number(item.precio || item.price || 0),
+                          img: getPrimaryProductImage(item),
                         }}
                         className="absolute top-3 right-3 p-1.5 bg-white dark:bg-gray-700 rounded-full shadow-md hover:scale-110 transition-all z-10 cursor-pointer"
-                      >
-                        <svg
-                          className={`w-4 h-4 ${isFavorite(String(item.id))
-                            ? "text-red-500 fill-red-500"
-                            : "text-gray-400 dark:text-gray-300"
-                            }`}
-                          fill={isFavorite(String(item.id)) ? "currentColor" : "none"}
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                          />
-                        </svg>
-                      </button>
+                        iconClassName="text-sm"
+                      />
                       <Link to={`/producto/${item.id}`} className="w-full h-full">
-                        <img src={item.imagen_url || item.img} alt={item.nombre} className="object-contain p-3 w-full h-full mix-blend-multiply dark:mix-blend-normal" />
+                        <img
+                          src={getPrimaryProductImage(item)}
+                          onError={handleProductImageError}
+                          alt={item.nombre || item.name || "Producto relacionado"}
+                          className="object-contain p-3 w-full h-full mix-blend-multiply dark:mix-blend-normal"
+                        />
                       </Link>
                     </div>
                     <div className="mb-1 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">{item.categoria}</div>

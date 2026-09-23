@@ -18,13 +18,14 @@ export default function GoogleCallbackPage() {
       return;
     }
 
-    loginWithGoogle(accessToken)
-      .then((result) => {
-        if (!result.hasPassword) {
-          navigate("/set-password?firstTime=true", { replace: true });
-        } else {
-          navigate("/", { replace: true });
-        }
+    const rememberMe = sessionStorage.getItem("fitlook:remember-me") !== "false";
+    sessionStorage.removeItem("fitlook:remember-me");
+
+    loginWithGoogle(accessToken, rememberMe)
+      .then(() => {
+        // Google accounts can continue without a password. It remains an
+        // optional setup available from the user's security settings.
+        navigate("/", { replace: true });
       })
       .catch(() => setError("Error al autenticar con Google."));
   }, [loginWithGoogle, navigate]);

@@ -1,5 +1,6 @@
 import api from "./api";
 import type { CartItem } from "../context/CartContext";
+import { getVirtualTryOnSessionId } from "./virtualTryOn";
 
 export interface CreateOrderEntry {
   productoTallaId: string;
@@ -70,8 +71,14 @@ export async function resolveOrderEntries(
   });
 }
 
-export async function createOrder(entries: CreateOrderEntry[]): Promise<OrderView> {
-  const { data } = await api.post("/orders", { entries });
+export async function createOrder(
+  entries: CreateOrderEntry[],
+  tryOnSessionId?: string,
+): Promise<OrderView> {
+  const { data } = await api.post("/orders", {
+    entries,
+    tryOnSessionId: tryOnSessionId || getVirtualTryOnSessionId(),
+  });
   return data.order as OrderView;
 }
 

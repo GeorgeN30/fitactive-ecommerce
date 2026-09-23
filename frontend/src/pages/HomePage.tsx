@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import FavoriteButton from "../components/FavoriteButton";
 import { useAuth } from "../context/AuthContext";
-import { useFavorites } from "../context/FavoritesContext";
 import { fetchCatalogProducts, getCatalogPrice, type CatalogProduct } from "../services/catalog";
 import { formatSoles } from "../utils/money";
 
@@ -10,7 +10,6 @@ const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1542291026-7eec264c27f
 
 export default function HomePage() {
   const { user } = useAuth();
-  const { toggleFavorite, isFavorite } = useFavorites();
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -66,7 +65,10 @@ export default function HomePage() {
               return <article key={product.id} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col">
                 <div className="relative bg-gray-100 dark:bg-gray-800 rounded-xl aspect-square mb-4 overflow-hidden">
                   <Link to={`/producto/${product.id}`}><img src={image} alt={product.nombre} className="object-contain p-3 w-full h-full" /></Link>
-                  <button type="button" aria-label={isFavorite(product.id) ? "Quitar de favoritos" : "Agregar a favoritos"} onClick={() => toggleFavorite({ id: product.id, cat: product.categoria || "General", name: product.nombre, price: pricing.price, img: image })} className="absolute top-3 right-3 p-2 bg-white dark:bg-gray-700 rounded-full shadow-md"><i className={`fa-solid fa-heart ${isFavorite(product.id) ? "text-red-500" : "text-gray-400"}`} /></button>
+                  <FavoriteButton
+                    product={{ id: product.id, cat: product.categoria || "General", name: product.nombre, price: pricing.price, img: image }}
+                    className="absolute top-3 right-3 p-2 bg-white dark:bg-gray-700 rounded-full shadow-md"
+                  />
                 </div>
                 <p className="text-[10px] text-gray-500 font-bold uppercase">{product.categoria || "General"}</p>
                 <h3 className="font-extrabold mb-2 truncate"><Link to={`/producto/${product.id}`}>{product.nombre}</Link></h3>

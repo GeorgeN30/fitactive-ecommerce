@@ -1,4 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import {
+  getSessionPersistence,
+  getSessionScopedValue,
+  getStoredSessionValue,
+  SESSION_CLEARED_EVENT,
+} from "../utils/session";
 
 export interface CartItem {
   id: string;
@@ -43,7 +49,12 @@ function isCartItem(value: unknown): value is CartItem {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem("fitactive-cart");
+    if (!getStoredSessionValue("token")) {
+      localStorage.removeItem("fitactive-cart");
+      return [];
+    }
+
+    const savedCart = getSessionScopedValue("fitactive-cart");
     if (!savedCart) return [];
     try {
       const parsed: unknown = JSON.parse(savedCart);
@@ -54,7 +65,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    localStorage.setItem("fitactive-cart", JSON.stringify(cartItems));
+    const clearCartOnSessionEnd = () => setCartItems([]);
+    window.addEventListener(SESSION_CLEARED_EVENT, clearCartOnSessionEnd);
+    return () =>
+      window.removeEventListener(SESSION_CLEARED_EVENT, clearCartOnSessionEnd);
+  }, []);
+
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      localStorage.removeItem("fitactive-cart");
+      sessionStorage.removeItem("fitactive-cart");
+      return;
+    }
+    const persistence = getSessionPersistence();
+    const storage = persistence === "session" ? sessionStorage : localStorage;
+    localStorage.removeItem("fitactive-cart");
+    sessionStorage.removeItem("fitactive-cart");
+    storage.setItem("fitactive-cart", JSON.stringify(cartItems));
   }, [cartItems]);
 
   const addToCart = (item: CartItem) => {

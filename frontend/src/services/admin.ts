@@ -10,9 +10,12 @@ import type {
   TopProduct,
   CategoryData,
   SalesDataPoint,
-  ArMetrics,
 } from "../data/types";
-import { mockArMetrics } from "../data/mock";
+import {
+  fetchVirtualTryOnSummary,
+  type VirtualTryOnPeriod,
+  type VirtualTryOnSummary,
+} from "./virtualTryOn";
 
 const DEFAULT_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format";
@@ -415,6 +418,9 @@ export async function fetchLowStock(): Promise<AdminPrototypeProduct[]> {
   return (data.products || []).map(toPrototypeProduct);
 }
 
-export async function fetchArMetrics(): Promise<ArMetrics> {
-  return mockArMetrics;
+export async function fetchArMetrics(
+  period: VirtualTryOnPeriod = "month",
+  date?: string,
+): Promise<VirtualTryOnSummary> {
+  return fetchVirtualTryOnSummary(period, date);
 }

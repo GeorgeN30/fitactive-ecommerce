@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLayout from "../components/AppLayout";
+import PasswordRequirements from "../components/PasswordRequirements";
 import api from "../services/api";
+import { isStrongPassword } from "../utils/validation";
 
 export default function SettingsPage() {
   const { user, updateUser, logout } = useAuth();
@@ -20,6 +22,7 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
@@ -29,6 +32,7 @@ export default function SettingsPage() {
 
   const [setPwValue, setSetPwValue] = useState("");
   const [confirmSetPw, setConfirmSetPw] = useState("");
+  const [setPwTouched, setSetPwTouched] = useState(false);
   const [showSetPw, setShowSetPw] = useState(false);
   const [savingSetPw, setSavingSetPw] = useState(false);
   const [setPwMsgVal, setSetPwMsgVal] = useState("");
@@ -85,8 +89,8 @@ export default function SettingsPage() {
       setPwError("Las contrasenas no coinciden.");
       return;
     }
-    if (newPassword.length < 8) {
-      setPwError("La contrasena debe tener al menos 8 caracteres.");
+    if (!isStrongPassword(newPassword)) {
+      setPwError("La contrasena no cumple todos los requisitos.");
       return;
     }
     setSavingPw(true);
@@ -128,8 +132,8 @@ export default function SettingsPage() {
       setSetPwErrorVal("Las contrasenas no coinciden.");
       return;
     }
-    if (setPwValue.length < 8) {
-      setSetPwErrorVal("La contrasena debe tener al menos 8 caracteres.");
+    if (!isStrongPassword(setPwValue)) {
+      setSetPwErrorVal("La contrasena no cumple todos los requisitos.");
       return;
     }
     setSavingSetPw(true);
@@ -393,6 +397,7 @@ export default function SettingsPage() {
             {!hasPassword && (
               <form
                 onSubmit={handleSetPassword}
+                noValidate
                 className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
               >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -412,10 +417,12 @@ export default function SettingsPage() {
                       type={showSetPw ? "text" : "password"}
                       value={setPwValue}
                       onChange={(e) => setSetPwValue(e.target.value)}
+                      onFocus={() => setSetPwTouched(true)}
                       required
                       minLength={8}
+                      autoComplete="new-password"
                       className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                      placeholder="Minimo 8 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                     />
                     <button
                       type="button"
@@ -427,6 +434,10 @@ export default function SettingsPage() {
                       />
                     </button>
                   </div>
+                  <PasswordRequirements
+                    password={setPwValue}
+                    visible={setPwTouched}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -455,7 +466,7 @@ export default function SettingsPage() {
 
                 <button
                   type="submit"
-                  disabled={savingSetPw}
+                  disabled={savingSetPw || !isStrongPassword(setPwValue)}
                   className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
                 >
                   {savingSetPw ? "Guardando..." : "Establecer contrasena"}
@@ -466,6 +477,7 @@ export default function SettingsPage() {
             {hasPassword && (
               <form
                 onSubmit={handleChangePassword}
+                noValidate
                 className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
               >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -531,10 +543,12 @@ export default function SettingsPage() {
                       type={showNewPw ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
+                      onFocus={() => setNewPasswordTouched(true)}
                       required
                       minLength={8}
+                      autoComplete="new-password"
                       className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                      placeholder="Minimo 8 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                     />
                     <button
                       type="button"
@@ -546,6 +560,10 @@ export default function SettingsPage() {
                       />
                     </button>
                   </div>
+                  <PasswordRequirements
+                    password={newPassword}
+                    visible={newPasswordTouched}
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -574,7 +592,7 @@ export default function SettingsPage() {
 
                 <button
                   type="submit"
-                  disabled={savingPw}
+                  disabled={savingPw || !isStrongPassword(newPassword)}
                   className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
                 >
                   {savingPw ? "Guardando..." : "Cambiar contrasena"}

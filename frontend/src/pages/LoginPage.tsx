@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import api from "../services/api";
 import SuccessOverlay from "../components/SuccessOverlay";
-
-type Step = "email" | "password" | "otp";
+import { getEmailValidationMessage } from "../utils/validation";
 
 export default function LoginPage() {
-  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -19,15 +20,7 @@ export default function LoginPage() {
   const { loginWithPassword, user } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  useEffect(() => {
-    if (step === "email") {
-      setError("");
-      setPassword("");
-    }
-    if (step === "password") setError("");
-    if (step === "otp") setError("");
-  }, [step]);
+  const emailValidationMessage = getEmailValidationMessage(email);
 
   const navigateToHome = useCallback(() => {
     const role = user?.role;
@@ -40,41 +33,18 @@ export default function LoginPage() {
     window.location.href = path;
   }, [user]);
 
-  async function handleEmailSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSending(true);
-    try {
-      const { data } = await api.get(
-        `/auth/check-password?email=${encodeURIComponent(email.trim().toLowerCase())}`,
-      );
-      if (!data.exists) {
-        setError("Correo no registrado. Crea una cuenta para continuar.");
-        return;
-      }
-      if (data.hasPassword) {
-        setStep("password");
-      } else {
-        await api.post("/auth/otp-request", {
-          email: email.trim().toLowerCase(),
-        });
-        navigate("/otp", { state: { email: email.trim().toLowerCase() } });
-      }
-    } catch {
-      setError("No se pudo verificar el correo. Intenta de nuevo.");
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setEmailTouched(true);
+    setPasswordTouched(true);
     setError("");
+    if (emailValidationMessage || !password.trim()) return;
     setSending(true);
     try {
       const requires2Fa = await loginWithPassword(
         email.trim().toLowerCase(),
         password,
+        rememberMe,
       );
       if (requires2Fa) {
         navigate("/2fa-verify");
@@ -88,15 +58,21 @@ export default function LoginPage() {
     }
   }
 
-  async function handleOtpSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleOtpSubmit() {
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError("Ingresa tu correo para solicitar un código.");
+      return;
+    }
     setSending(true);
     try {
       await api.post("/auth/otp-request", {
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
       });
-      navigate("/otp", { state: { email: email.trim().toLowerCase() } });
+      navigate("/otp", {
+        state: { email: normalizedEmail, rememberMe },
+      });
     } catch {
       setError("No se pudo enviar el código. Intenta de nuevo.");
     } finally {
@@ -109,6 +85,7 @@ export default function LoginPage() {
       setError("Google no está configurado en este entorno.");
       return;
     }
+    sessionStorage.setItem("fitlook:remember-me", String(rememberMe));
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${window.location.origin}/google-callback&response_type=token&scope=openid email profile`;
   }
 
@@ -142,92 +119,50 @@ export default function LoginPage() {
           Iniciar sesion
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-8">
-          Ingresa tu correo para acceder a tu cuenta.
+          Ingresa tu correo y contraseña para acceder a tu cuenta.
         </p>
 
-        {step === "email" && (
-          <form
-            onSubmit={handleEmailSubmit}
-            className="space-y-5 animate-slide-up-fade"
-          >
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
-                placeholder="tu@email.com"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs px-4 py-2.5 rounded-lg">
-                {error}
-              </div>
+        <form
+          onSubmit={handlePasswordSubmit}
+          noValidate
+          className="space-y-5 animate-slide-up-fade"
+        >
+          <div>
+            <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              Correo Electronico
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              onBlur={() => setEmailTouched(true)}
+              required
+              autoFocus
+              autoComplete="email"
+              aria-invalid={Boolean(emailTouched && emailValidationMessage)}
+              className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
+              placeholder="tu@email.com"
+            />
+            {(emailTouched || email.length > 0) && (
+              <p
+                className={`mt-2 flex items-center gap-1.5 text-[11px] ${
+                  emailValidationMessage
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-brand-green"
+                }`}
+              >
+                <i
+                  className={`fa-solid ${
+                    emailValidationMessage ? "fa-circle-info" : "fa-circle-check"
+                  }`}
+                />
+                {emailValidationMessage || "Correo válido."}
+              </p>
             )}
-
-            <button
-              type="submit"
-              disabled={sending}
-              className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sending ? "Verificando..." : "Continuar"}
-            </button>
-
-            <div className="relative my-6 flex items-center justify-center">
-              <div className="border-t border-slate-200 dark:border-slate-700 w-full" />
-              <span className="bg-white dark:bg-brand-card-dark px-3 text-[11px] text-slate-400 font-medium absolute">
-                o continuar con
-              </span>
-            </div>
-
-            <button
-              onClick={handleGoogleLogin}
-              type="button"
-              disabled={!clientId}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${
-                clientId
-                  ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
-                  : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
-              }`}
-            >
-              <i className="fa-brands fa-google text-sm" />
-              Google
-            </button>
-          </form>
-        )}
-
-        {step === "password" && (
-          <form
-            onSubmit={handlePasswordSubmit}
-            className="space-y-5 animate-slide-up-fade"
-          >
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-800 dark:text-white truncate flex-1">
-                  {email}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("email");
-                    setPassword("");
-                    setError("");
-                  }}
-                  className="text-xs text-brand-green font-semibold hover:underline shrink-0"
-                >
-                  Cambiar
-                </button>
-              </div>
-            </div>
+          </div>
 
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
@@ -237,9 +172,14 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  onBlur={() => setPasswordTouched(true)}
                   required
-                  autoFocus
+                  autoComplete="current-password"
+                  aria-invalid={Boolean(passwordTouched && !password.trim())}
                   className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
                   placeholder="Tu contrasena"
                 />
@@ -255,12 +195,20 @@ export default function LoginPage() {
                   />
                 </button>
               </div>
+              {passwordTouched && !password.trim() && (
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  <i className="fa-solid fa-circle-info" />
+                  Ingresa tu contraseña.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-xs pt-1">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
                   className="w-4 h-4 rounded text-brand-green focus:ring-brand-green accent-brand-green"
                 />
                 <span className="text-slate-600 dark:text-slate-400 font-medium">
@@ -281,29 +229,43 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={sending}
-              className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sending ? "Ingresando..." : "Iniciar sesión"}
-            </button>
+          <button
+            type="submit"
+            disabled={sending}
+            className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {sending ? "Ingresando..." : "Iniciar sesión"}
+          </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setError("");
-                setPassword("");
-                handleOtpSubmit(
-                  new Event("submit") as unknown as React.FormEvent,
-                );
-              }}
-              className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium"
-            >
-              Usar código OTP en su lugar
-            </button>
-          </form>
-        )}
+          <button
+            type="button"
+            onClick={handleOtpSubmit}
+            className="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium"
+          >
+            Usar código OTP en su lugar
+          </button>
+
+          <div className="relative my-6 flex items-center justify-center">
+            <div className="border-t border-slate-200 dark:border-slate-700 w-full" />
+            <span className="bg-white dark:bg-brand-card-dark px-3 text-[11px] text-slate-400 font-medium absolute">
+              o continuar con
+            </span>
+          </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            type="button"
+            disabled={!clientId}
+            className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${
+              clientId
+                ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
+                : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            <i className="fa-brands fa-google text-sm" />
+            Google
+          </button>
+        </form>
 
         <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
           No tienes cuenta?{" "}

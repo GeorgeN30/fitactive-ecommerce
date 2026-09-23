@@ -21,10 +21,12 @@ describe("AuthContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   afterEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("starts with loading=false and no user (initial render completes useEffect)", async () => {
@@ -106,6 +108,49 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("token")).toBe("new-token");
   });
 
+  it("keeps a non-remembered login in sessionStorage only", async () => {
+    const fakeUser = {
+      id: "u1",
+      email: "test@example.com",
+      name: "Test",
+      role: "customer",
+      picture: null,
+    };
+    mockApi.post.mockResolvedValueOnce({
+      data: { token: "temporary-token", user: fakeUser },
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithPassword("test@example.com", "password123", false);
+    });
+
+    expect(sessionStorage.getItem("token")).toBe("temporary-token");
+    expect(sessionStorage.getItem("user")).toContain("test@example.com");
+    expect(localStorage.getItem("token")).toBeNull();
+    expect(localStorage.getItem("user")).toBeNull();
+  });
+
+  it("restores a temporary session from sessionStorage", async () => {
+    const fakeUser = {
+      id: "u1",
+      email: "temporary@example.com",
+      name: "Temporary",
+      role: "customer",
+      picture: null,
+    };
+    sessionStorage.setItem("token", "temporary-token");
+    sessionStorage.setItem("user", JSON.stringify(fakeUser));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.user).toEqual(fakeUser);
+    expect(result.current.token).toBe("temporary-token");
+  });
+
   it("loginWithPassword returns true when requires2Fa", async () => {
     mockApi.post.mockResolvedValueOnce({
       data: {
@@ -173,6 +218,8 @@ describe("AuthContext", () => {
     localStorage.setItem("token", "some-token");
     localStorage.setItem("user", JSON.stringify({ id: "u1" }));
     localStorage.setItem("preAuth_token", "preauth");
+    sessionStorage.setItem("token", "temporary-token");
+    sessionStorage.setItem("user", JSON.stringify({ id: "u2" }));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 

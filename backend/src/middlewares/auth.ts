@@ -19,6 +19,14 @@ export function validateJWT(
   validateToken(req, res, next, false);
 }
 
+export function optionalJWT(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void {
+  validateToken(req, res, next, false, true);
+}
+
 export function validateMfaPendingJWT(
   req: AuthRequest,
   res: Response,
@@ -31,10 +39,15 @@ function validateToken(
   req: AuthRequest,
   res: Response,
   next: NextFunction,
-  allowMfaPending: boolean
+  allowMfaPending: boolean,
+  optional = false,
 ): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (optional) {
+      next();
+      return;
+    }
     res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "NO_TOKEN" });
     return;
   }

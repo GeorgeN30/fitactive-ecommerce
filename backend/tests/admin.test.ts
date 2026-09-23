@@ -389,3 +389,53 @@ describe("adminService customer management", () => {
     expect(user.spent).toBe(80);
   });
 });
+
+describe("adminService finance summary", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("summarizes sales, returns and categories from real orders", async () => {
+    const now = new Date();
+    mockPrisma.ordenes.findMany.mockResolvedValue([
+      {
+        id: "order-return",
+        numero: "ORD-002",
+        total: decimal(40),
+        estado: "return",
+        fecha_orden: now,
+        orden_detalles: [],
+      },
+      {
+        id: "order-sale",
+        numero: "ORD-001",
+        total: decimal(120),
+        estado: "delivered",
+        fecha_orden: new Date(now.getTime() - 60 * 60 * 1000),
+        orden_detalles: [
+          {
+            cantidad: 2,
+            precio_unitario: decimal(60),
+            producto_tallas: {
+              productos: { categoria: "Running" },
+            },
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await adminService.getFinanceSummary("week");
+
+    expect(result.revenue).toBe(120);
+    expect(result.ordersCount).toBe(1);
+    expect(result.returnsCount).toBe(1);
+    expect(result.categories).toEqual([
+      { name: "Running", amount: 120, units: 2, percentage: 100 },
+    ]);
+    expect(result.transactions[0]).toMatchObject({
+      reference: "ORD-002",
+      type: "Devolución",
+      amount: -40,
+    });
+  });
+});

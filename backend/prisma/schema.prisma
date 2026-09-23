@@ -56,6 +56,7 @@ model productos {
   genero           String?
   producto_tallas  producto_tallas[]
   producto_imagenes producto_imagenes[]
+  virtual_tryon_events virtual_tryon_events[]
 }
 
 model producto_imagenes {
@@ -98,6 +99,7 @@ model usuarios {
   discount_requests_created discount_requests[] @relation("discount_requester")
   discount_requests_reviewed discount_requests[] @relation("discount_reviewer")
   notifications     notifications[]
+  virtual_tryon_events virtual_tryon_events[]
 }
 
 model inventory_movements {
@@ -145,4 +147,26 @@ model notifications {
   user usuarios @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_user")
 
   @@index([userId, read, createdAt])
+}
+
+model virtual_tryon_events {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuario_id         String?   @db.Uuid
+  producto_id        String?   @db.Uuid
+  orden_id           String?   @db.Uuid
+  sesion_id          String    @db.VarChar(100)
+  tipo               String    @db.VarChar(40)
+  talla              String?   @db.VarChar(20)
+  genero             String?   @db.VarChar(30)
+  compatibilidad     Int?
+  duracion_segundos  Int?
+  creado_en          DateTime  @default(now()) @db.Timestamp(6)
+  usuarios           usuarios? @relation(fields: [usuario_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_virtual_tryon_user")
+  productos          productos? @relation(fields: [producto_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_virtual_tryon_product")
+
+  @@index([creado_en])
+  @@index([tipo, creado_en])
+  @@index([producto_id, creado_en])
+  @@index([sesion_id, producto_id])
+  @@index([orden_id])
 }

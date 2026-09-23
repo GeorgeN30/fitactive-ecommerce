@@ -13,6 +13,7 @@ import InventoryNotificationsView, {
   type InventoryNotification,
 } from "../../components/inventory/views/InventoryNotificationsView";
 import NotificationToast from "../../components/NotificationToast";
+import { clearStoredSession } from "../../utils/session";
 import {
   fetchInventory,
   fetchMovements,
@@ -89,8 +90,7 @@ export default function InventoryDashboard() {
     (error as { response?: { status?: number } })?.response?.status === 401;
 
   const handleUnauthorized = () => {
-    localStorage.removeItem("preAuth_token");
-    localStorage.removeItem("token");
+    clearStoredSession();
     window.location.href = "/login";
   };
 
@@ -354,9 +354,7 @@ export default function InventoryDashboard() {
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem("preAuth_token");
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearStoredSession();
     window.location.href = "/";
   };
 

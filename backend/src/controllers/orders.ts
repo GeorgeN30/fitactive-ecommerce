@@ -15,8 +15,12 @@ export const orderController = {
         return;
       }
 
-      const { entries } = req.body;
-      const order = await orderService.createOrder(req.user.userId, entries);
+      const { entries, tryOnSessionId } = req.body;
+      const order = await orderService.createOrder(
+        req.user.userId,
+        entries,
+        typeof tryOnSessionId === "string" ? tryOnSessionId : undefined,
+      );
 
       void notifications.notifyNewOrder({
         orderId: order.id,

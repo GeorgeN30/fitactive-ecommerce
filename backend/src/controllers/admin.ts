@@ -6,6 +6,7 @@ import {
   type DiscountRequestInput,
 } from "../services/discounts";
 import { notifications } from "../services/notifications";
+import { virtualTryOnService, type VirtualTryOnPeriod } from "../services/virtualTryOn";
 import { HTTP_STATUS } from "../constants";
 
 const VALIDATION_ERRORS = new Set([
@@ -394,6 +395,48 @@ export const adminController = {
       res.status(HTTP_STATUS.OK).json({ sales });
     } catch (err) {
       respondWithError(res, err, "SALES_CHART_FAILED");
+    }
+  },
+
+  // GET /api/admin/finance/summary
+  async getFinanceSummary(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const requestedPeriod = typeof req.query.period === "string"
+        ? req.query.period
+        : "month";
+      const allowedPeriods = new Set(["week", "month", "quarter", "year"]);
+      if (!allowedPeriods.has(requestedPeriod)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_FINANCE_PERIOD" });
+        return;
+      }
+      const summary = await adminService.getFinanceSummary(
+        requestedPeriod as "week" | "month" | "quarter" | "year",
+      );
+      res.status(HTTP_STATUS.OK).json({ summary });
+    } catch (err) {
+      respondWithError(res, err, "FINANCE_SUMMARY_FAILED");
+    }
+  },
+
+  // GET /api/admin/virtual-tryon/summary
+  async getVirtualTryOnSummary(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const requestedPeriod = typeof req.query.period === "string"
+        ? req.query.period
+        : "month";
+      const allowedPeriods = new Set(["today", "week", "month", "year", "custom"]);
+      if (!allowedPeriods.has(requestedPeriod)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_VIRTUAL_TRYON_PERIOD" });
+        return;
+      }
+      const customDate = typeof req.query.date === "string" ? req.query.date : undefined;
+      const summary = await virtualTryOnService.getSummary(
+        requestedPeriod as VirtualTryOnPeriod,
+        customDate,
+      );
+      res.status(HTTP_STATUS.OK).json({ summary });
+    } catch (err) {
+      respondWithError(res, err, "VIRTUAL_TRYON_SUMMARY_FAILED");
     }
   },
 

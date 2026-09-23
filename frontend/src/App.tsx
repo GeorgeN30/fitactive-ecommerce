@@ -55,7 +55,14 @@ function AnimatedRoutes() {
         <Route path="/catalogo" element={<CatalogPage />} />
         <Route path="/producto/:id" element={<ProductDetailPage />} />
         <Route path="/probador-virtual" element={<ProbadorVirtual />} />
-        <Route path="/favoritos" element={<FavoritesPage />} />
+        <Route
+          path="/favoritos"
+          element={
+            <ProtectedRoute>
+              <FavoritesPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/carrito" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
 

@@ -144,6 +144,9 @@ describe("customer purchase flow", () => {
     expect(screen.getByText(/No se ha realizado ningún cobro/)).toBeInTheDocument();
     expect(screen.getAllByText("S/ 80.00").length).toBeGreaterThan(0);
     expect(screen.queryByText("Compra exitosa")).not.toBeInTheDocument();
-    expect(vi.mocked(createOrder)).toHaveBeenCalledWith([{ productoTallaId: "size-m", cantidad: 1 }]);
+    expect(vi.mocked(createOrder)).toHaveBeenCalledWith(
+      [{ productoTallaId: "size-m", cantidad: 1 }],
+      expect.any(String),
+    );
   });
 });

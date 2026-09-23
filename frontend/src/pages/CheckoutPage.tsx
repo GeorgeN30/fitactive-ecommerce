@@ -5,6 +5,7 @@ import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
 import { createOrder, resolveOrderEntries } from "../services/orders";
+import { getVirtualTryOnSessionId } from "../services/virtualTryOn";
 
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -84,7 +85,7 @@ export default function CheckoutPage() {
 
     try {
       const entries = await resolveOrderEntries(cartItems);
-      const order = await createOrder(entries);
+      const order = await createOrder(entries, getVirtualTryOnSessionId());
 
       setPurchasedItems(cartItems.map((item, index) => ({
         ...item,

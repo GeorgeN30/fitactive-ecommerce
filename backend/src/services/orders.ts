@@ -115,7 +115,8 @@ function mapDetail(detail: {
 export const orderService = {
   async createOrder(
     userId: string,
-    rawEntries: OrderEntryInput[]
+    rawEntries: OrderEntryInput[],
+    tryOnSessionId?: string,
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
     const entries = consolidateEntries(rawEntries);
@@ -193,6 +194,41 @@ export const orderService = {
         where: { orden_id: created.id },
         include: { producto_tallas: { include: { productos: true } } },
       });
+
+      if (tryOnSessionId) {
+        const productIds = details.map((detail) => detail.producto_tallas.producto_id);
+        const triedProducts = await tx.virtual_tryon_events.findMany({
+          where: {
+            sesion_id: tryOnSessionId,
+            tipo: "try_on",
+            producto_id: { in: productIds },
+          },
+          select: { producto_id: true, compatibilidad: true, genero: true },
+        });
+        const triedByProduct = new Map(
+          triedProducts
+            .filter((event) => event.producto_id)
+            .map((event) => [event.producto_id as string, event]),
+        );
+        const purchaseEvents = details
+          .filter((detail) => triedByProduct.has(detail.producto_tallas.producto_id))
+          .map((detail) => {
+            const tried = triedByProduct.get(detail.producto_tallas.producto_id);
+            return {
+              usuario_id: userId,
+              producto_id: detail.producto_tallas.producto_id,
+              orden_id: created.id,
+              sesion_id: tryOnSessionId,
+              tipo: "purchase",
+              talla: detail.producto_tallas.talla,
+              genero: tried?.genero || null,
+              compatibilidad: tried?.compatibilidad || null,
+            };
+          });
+        if (purchaseEvents.length > 0) {
+          await tx.virtual_tryon_events.createMany({ data: purchaseEvents });
+        }
+      }
 
       return { created, details };
     });
