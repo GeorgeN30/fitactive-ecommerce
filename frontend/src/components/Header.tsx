@@ -4,6 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "./ThemeToggle";
+import { fetchCatalogProducts, getCatalogPrice, type CatalogProduct } from "../services/catalog";
+
+const SEARCH_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop&auto=format";
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
@@ -15,17 +18,74 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allProducts, setAllProducts] = useState<CatalogProduct[]>([]);
+  const [suggestions, setSuggestions] = useState<CatalogProduct[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCatalogProducts()
+      .then((loadedProducts) => {
+        if (!cancelled) setAllProducts(loadedProducts);
+      })
+      .catch(() => {
+        if (!cancelled) setAllProducts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      const matches = allProducts
+        .filter((product) => [
+          product.nombre,
+          product.categoria || "",
+          product.marca || "",
+        ].some((value) => value.toLowerCase().includes(query)))
+        .slice(0, 6);
+      setSuggestions(matches);
+      setShowSuggestions(true);
+    }, 200);
+    return () => window.clearTimeout(timeoutId);
+  }, [allProducts, searchTerm]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const runSearch = (term: string) => {
+    const normalizedTerm = term.trim();
+    if (!normalizedTerm) return;
+    setShowSuggestions(false);
+    setMobileMenuOpen(false);
+    navigate(`/catalogo?search=${encodeURIComponent(normalizedTerm)}`);
+  };
+
+  const goToProduct = (product: CatalogProduct) => {
+    setShowSuggestions(false);
+    setSearchTerm("");
+    navigate(`/producto/${product.id}`);
+  };
 
   return (
     <header className="bg-white dark:bg-brand-card-dark border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-50">
@@ -88,6 +148,7 @@ export default function Header() {
           </button>
 
           <div
+            ref={searchRef}
             className={`relative hidden sm:block w-64 lg:w-80 transition-all ${
               searchFocused ? "w-80 lg:w-96" : ""
             }`}
@@ -96,10 +157,56 @@ export default function Header() {
             <input
               type="text"
               placeholder="Buscar productos..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") runSearch(searchTerm);
+                if (event.key === "Escape") setShowSuggestions(false);
+              }}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50 transition-all"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-brand-card-dark rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 max-h-96 overflow-y-auto">
+                {suggestions.map((product) => {
+                  const pricing = getCatalogPrice(product);
+                  return (
+                    <button
+                      type="button"
+                      key={product.id}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => goToProduct(product)}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <img
+                        src={product.imagenUrl || SEARCH_FALLBACK_IMAGE}
+                        alt={product.nombre}
+                        className="w-9 h-9 rounded-md object-cover flex-shrink-0 bg-slate-100 dark:bg-slate-700"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-semibold text-slate-800 dark:text-white truncate">{product.nombre}</span>
+                        <span className="block text-[10px] text-slate-400 truncate">{product.categoria || "General"}{product.marca ? ` - ${product.marca}` : ""}</span>
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">S/ {pricing.price.toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => runSearch(searchTerm)}
+                  className="w-full text-left px-4 py-2 mt-1 border-t border-slate-100 dark:border-slate-700 text-[11px] font-bold text-brand-green hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  Ver todos los resultados para "{searchTerm}"
+                </button>
+              </div>
+            )}
+            {showSuggestions && suggestions.length === 0 && searchTerm.trim() !== "" && (
+              <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-brand-card-dark rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-3 px-4 z-50">
+                <p className="text-xs text-slate-400">Sin coincidencias para "{searchTerm}"</p>
+              </div>
+            )}
           </div>
 
           {isAdmin && (
@@ -253,6 +360,11 @@ export default function Header() {
             <input
               type="text"
               placeholder="Buscar productos..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") runSearch(searchTerm);
+              }}
               className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50"
             />
           </div>
