@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import AuthLayout from "../components/AuthLayout";
+import AuthLayout, { LegalModal, type LegalDocType } from "../components/AuthLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
 import SuccessOverlay from "../components/SuccessOverlay";
 import {
   getEmailValidationMessage,
   isStrongPassword,
 } from "../utils/validation";
+import { useAuth, type User } from "../context/AuthContext";
 
 type Step = "form" | "otp";
 
@@ -24,8 +25,10 @@ export default function RegisterPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
+  const { establishSession } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const emailValidationMessage = getEmailValidationMessage(email);
@@ -150,8 +153,7 @@ export default function RegisterPage() {
         }
         return;
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      establishSession(data.token, data.user as User, true);
       setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");
@@ -322,19 +324,21 @@ export default function RegisterPage() {
                 />
                 <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
                   Acepto los{" "}
-                  <a
-                    href="#"
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("terms")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
                     Terminos de Servicio
-                  </a>{" "}
+                  </button>{" "}
                   y la{" "}
-                  <a
-                    href="#"
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("privacy")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
                     Politica de Privacidad
-                  </a>
+                  </button>
                 </span>
               </label>
             </div>
@@ -472,6 +476,13 @@ export default function RegisterPage() {
           )}
         </div>
       </div>
+      {legalDoc && (
+        <LegalModal
+          doc={legalDoc}
+          onClose={() => setLegalDoc(null)}
+          onSwitch={setLegalDoc}
+        />
+      )}
     </AuthLayout>
   );
 }

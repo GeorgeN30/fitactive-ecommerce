@@ -4,11 +4,17 @@ import axios from "axios";
 
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
-import { createOrder, resolveOrderEntries } from "../services/orders";
+import {
+  createMercadoPagoPreference,
+  createOrder,
+  redirectToMercadoPago,
+  resolveOrderEntries,
+  type CheckoutDetails,
+} from "../services/orders";
 import { getVirtualTryOnSessionId } from "../services/virtualTryOn";
 
 export default function CheckoutPage() {
-  const { cartItems, cartTotal, clearCart } = useCart();
+  const { cartItems, cartTotal, registerPendingCheckout } = useCart();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -16,6 +22,7 @@ export default function CheckoutPage() {
   const [orderTotal, setOrderTotal] = useState(0);
   const [processingOrder, setProcessingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [pendingOrderId, setPendingOrderId] = useState("");
 
   const [purchasedItems, setPurchasedItems] = useState(cartItems);
 
@@ -84,21 +91,36 @@ export default function CheckoutPage() {
     setOrderError("");
 
     try {
-      const entries = await resolveOrderEntries(cartItems);
-      const order = await createOrder(entries, getVirtualTryOnSessionId());
+      let orderId = pendingOrderId;
+      if (!orderId) {
+        const entries = await resolveOrderEntries(cartItems);
+        const checkoutDetails: CheckoutDetails = {
+          customerName: customerData.name,
+          customerEmail: customerData.email,
+          customerPhone: customerData.phone,
+          shippingAddress: addressData.address,
+          shippingDistrict: addressData.district,
+          shippingCity: addressData.city,
+          shippingReference: addressData.reference,
+        };
+        const order = await createOrder(
+          entries,
+          getVirtualTryOnSessionId(),
+          checkoutDetails,
+        );
+        orderId = order.id;
+        setPendingOrderId(order.id);
+        registerPendingCheckout(order.id);
+        setPurchasedItems(cartItems.map((item, index) => ({
+          ...item,
+          price: order.entries.find((entry) => entry.productoTallaId === entries[index].productoTallaId)?.precioUnitario ?? item.price,
+        })));
+        setOrderTotal(order.total);
+        setOrderNumber(order.numero);
+      }
 
-      setPurchasedItems(cartItems.map((item, index) => ({
-        ...item,
-        price: order.entries.find((entry) => entry.productoTallaId === entries[index].productoTallaId)?.precioUnitario ?? item.price,
-      })));
-
-      setOrderTotal(order.total);
-
-      setOrderNumber(order.numero);
-
-      clearCart();
-
-      setStep(5);
+      const preference = await createMercadoPagoPreference(orderId);
+      redirectToMercadoPago(preference.initPoint);
     } catch (error: unknown) {
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
       const code = axios.isAxiosError(error)
@@ -117,7 +139,7 @@ export default function CheckoutPage() {
         );
       } else {
         setOrderError(
-          "Ocurrió un error al registrar tu pedido. Inténtalo de nuevo.",
+          "No pudimos iniciar el pago. Puedes volver a intentarlo sin crear otro pedido.",
         );
       }
     } finally {
@@ -745,7 +767,7 @@ export default function CheckoutPage() {
                   <h2 className="text-2xl font-extrabold mt-2">Confirmar pedido</h2>
 
                   <p className="text-sm text-gray-500 mt-1">
-                    Se registrará un pedido pendiente. La pasarela de pago se integrará en la siguiente fase; no se solicitarán datos de tarjeta ni se realizará un cobro.
+                    Tu pedido se reservará y serás redirigido a Mercado Pago para completar el pago de forma segura.
                   </p>
                 </div>
 
@@ -778,12 +800,13 @@ export default function CheckoutPage() {
 
                   <button
                     type="submit"
+                    data-mp-checkout-cta="checkout-pro"
                     disabled={processingOrder}
                     className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition disabled:opacity-50"
                   >
                     {processingOrder
-                      ? "Registrando..."
-                      : `Registrar pedido por S/ ${cartTotal.toFixed(2)}`}
+                      ? "Preparando pago..."
+                      : `Pagar con Mercado Pago · S/ ${cartTotal.toFixed(2)}`}
                   </button>
                 </div>
               </div>

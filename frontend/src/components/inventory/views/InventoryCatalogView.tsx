@@ -17,6 +17,15 @@ interface ProductFormInput {
   price: number;
   stock: number;
   imageUrls: string[];
+  category: string;
+  sizes: ProductSizeForm[];
+}
+
+export interface ProductSizeForm {
+  size: string;
+  stock: number;
+  rangoCmMin: number | null;
+  rangoCmMax: number | null;
 }
 
 interface ProductFormData {
@@ -25,6 +34,8 @@ interface ProductFormData {
   price: string;
   stock: string;
   imageUrls: string[];
+  category: string;
+  sizes: { size: string; stock: string; rangoCmMin: string; rangoCmMax: string }[];
 }
 
 const EMPTY_FORM: ProductFormData = {
@@ -33,6 +44,8 @@ const EMPTY_FORM: ProductFormData = {
   price: "",
   stock: "0",
   imageUrls: [],
+  category: "Tops",
+  sizes: [{ size: "M", stock: "0", rangoCmMin: "", rangoCmMax: "" }],
 };
 
 const MAX_PRODUCT_IMAGES = 5;
@@ -173,8 +186,20 @@ export default function InventoryCatalogView({
     if (!formData.sku.trim()) newErrors.sku = "Requerido";
     if (!formData.price || isNaN(Number(formData.price)))
       newErrors.price = "Inválido";
-    if (!formData.stock || !Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0)
-      newErrors.stock = "Inválido";
+    const normalizedSizes = formData.sizes.map((size) => ({
+      size: size.size.trim().toUpperCase(),
+      stock: Number(size.stock),
+      rangoCmMin: size.rangoCmMin === "" ? null : Number(size.rangoCmMin),
+      rangoCmMax: size.rangoCmMax === "" ? null : Number(size.rangoCmMax),
+    }));
+    if (normalizedSizes.length === 0) newErrors.stock = "Agrega al menos una talla";
+    const sizeNames = normalizedSizes.map((size) => size.size);
+    if (new Set(sizeNames).size !== sizeNames.length || normalizedSizes.some((size) => !size.size || !Number.isInteger(size.stock) || size.stock < 0)) {
+      newErrors.stock = "Revisa las tallas y el stock";
+    }
+    if (normalizedSizes.some((size) => size.rangoCmMin !== null && size.rangoCmMax !== null && size.rangoCmMin > size.rangoCmMax)) {
+      newErrors.stock = "El rango de medidas no es válido";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -194,6 +219,8 @@ export default function InventoryCatalogView({
             price: Number(formData.price),
             stock: Number(formData.stock),
             imageUrls: formData.imageUrls,
+            category: formData.category,
+            sizes: normalizedSizes,
           });
           if (updated) {
             setProducts((currentProducts) =>
@@ -215,6 +242,8 @@ export default function InventoryCatalogView({
             price: Number(formData.price),
             stock: Number(formData.stock),
             imageUrls: formData.imageUrls,
+            category: formData.category,
+            sizes: normalizedSizes,
           });
           if (created) {
             setProducts((currentProducts) => [created, ...currentProducts]);
@@ -264,6 +293,13 @@ export default function InventoryCatalogView({
       price: p.price.toString(),
       stock: String(Object.values(p.stock).reduce((sum, stock) => sum + stock, 0)),
       imageUrls: p.images || [],
+      category: p.category || "Tops",
+      sizes: p.sizes.map((size) => ({
+        size,
+        stock: String(p.stock[size] ?? 0),
+        rangoCmMin: p.sizeMeasurements?.[size]?.[0] == null ? "" : String(p.sizeMeasurements[size][0]),
+        rangoCmMax: p.sizeMeasurements?.[size]?.[1] == null ? "" : String(p.sizeMeasurements[size][1]),
+      })),
     });
     setImageUrlInput("");
     setErrors({});
@@ -368,19 +404,18 @@ export default function InventoryCatalogView({
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="inventory-product-stock" className="text-xs font-bold text-gray-500 uppercase">
-                    Stock Actual
+                    Stock total calculado
                   </label>
                   <input
                     id="inventory-product-stock"
                     type="number"
                     min="0"
                     value={formData.stock}
-                    onChange={(e) =>
-                      setFormData({ ...formData, stock: e.target.value })
-                    }
-                    placeholder="0"
-                    className={`w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border ${errors.stock ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B]`}
+                    readOnly
+                    aria-describedby="inventory-product-stock-help"
+                    className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100 px-4 py-2.5 text-gray-500 dark:border-zinc-800 dark:bg-zinc-950/50"
                   />
+                  <p id="inventory-product-stock-help" className="text-[10px] text-gray-400">Se calcula sumando el stock de cada talla.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase">
@@ -396,8 +431,8 @@ export default function InventoryCatalogView({
                   <label className="text-xs font-bold text-gray-500 uppercase">
                     Categoría *
                   </label>
-                  <select className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B]">
-                    <option>Tops</option>
+                  <select value={formData.category} onChange={(event) => setFormData((current) => ({ ...current, category: event.target.value }))} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B]">
+                    {['Tops', 'Bottoms', 'Outerwear', 'Footwear', 'Accessories', 'Sportswear', 'Sets', 'Dresses'].map((category) => <option key={category}>{category}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -407,6 +442,73 @@ export default function InventoryCatalogView({
                   <select className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B]">
                     <option>Gym</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-zinc-800">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Tallas, stock y medidas</p>
+                    <p className="mt-1 text-[11px] text-gray-400">Configura cada talla que verá el cliente y el rango corporal recomendado.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((current) => ({ ...current, sizes: [...current.sizes, { size: "", stock: "0", rangoCmMin: "", rangoCmMax: "" }] }))}
+                    className="rounded-lg bg-[#00FF66] px-3 py-2 text-xs font-bold text-black"
+                  >
+                    <i className="fa-solid fa-plus mr-1" /> Talla
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {formData.sizes.map((size, index) => (
+                    <div key={`size-${index}`} className="grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3 dark:bg-zinc-950/50 sm:grid-cols-5">
+                      <input
+                        aria-label={`Talla ${index + 1}`}
+                        value={size.size}
+                        onChange={(event) => setFormData((current) => ({ ...current, sizes: current.sizes.map((item, itemIndex) => itemIndex === index ? { ...item, size: event.target.value } : item) }))}
+                        placeholder="S, M, L"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                      <input
+                        aria-label={`Stock talla ${index + 1}`}
+                        type="number"
+                        min="0"
+                        value={size.stock}
+                        onChange={(event) => setFormData((current) => {
+                          const sizes = current.sizes.map((item, itemIndex) => itemIndex === index ? { ...item, stock: event.target.value } : item);
+                          return { ...current, stock: String(sizes.reduce((total, item) => total + (Number(item.stock) || 0), 0)), sizes };
+                        })}
+                        placeholder="Stock"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                      <input
+                        aria-label={`Medida mínima talla ${index + 1}`}
+                        type="number"
+                        min="0"
+                        value={size.rangoCmMin}
+                        onChange={(event) => setFormData((current) => ({ ...current, sizes: current.sizes.map((item, itemIndex) => itemIndex === index ? { ...item, rangoCmMin: event.target.value } : item) }))}
+                        placeholder="Mín. cm"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                      <input
+                        aria-label={`Medida máxima talla ${index + 1}`}
+                        type="number"
+                        min="0"
+                        value={size.rangoCmMax}
+                        onChange={(event) => setFormData((current) => ({ ...current, sizes: current.sizes.map((item, itemIndex) => itemIndex === index ? { ...item, rangoCmMax: event.target.value } : item) }))}
+                        placeholder="Máx. cm"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+                      />
+                      <button
+                        type="button"
+                        disabled={formData.sizes.length === 1}
+                        onClick={() => setFormData((current) => ({ ...current, sizes: current.sizes.filter((_, itemIndex) => itemIndex !== index) }))}
+                        className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -551,9 +653,7 @@ export default function InventoryCatalogView({
           <div className="flex gap-4">
             <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
               <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todas las categorías</option>
-              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Tops</option>
-              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Bottoms</option>
-              <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Outerwear</option>
+              {['Tops', 'Bottoms', 'Outerwear', 'Footwear', 'Accessories', 'Sportswear', 'Sets', 'Dresses'].map((category) => <option key={category} className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">{category}</option>)}
             </select>
             <select className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-700 dark:text-gray-100 focus:outline-none">
               <option className="bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-100">Todos los deportes</option>

@@ -236,8 +236,13 @@ export default function ProductDetailPage() {
                   )}
                 </div>
                 {selectedSize && (
-                  <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest">
-                    Stock disponible: <span className="text-brand-green">{stockActual} unidades</span>
+                  <p className="mt-5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    Disponible para talla {selectedSize}: <span className="text-brand-green">{stockActual} unidades</span>
+                  </p>
+                )}
+                {!selectedSize && tallasDisponibles.length > 0 && (
+                  <p className="mt-5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    Selecciona una talla para ver su disponibilidad.
                   </p>
                 )}
               </div>
@@ -275,6 +280,7 @@ export default function ProductDetailPage() {
                     quantity: quantity,
                     size: selectedSize,
                     color: 'default',
+                    stock: stockActual,
                     tallaId: (producto.producto_tallas || []).find(
                       (t: any) => t.talla === selectedSize,
                     )?.id,

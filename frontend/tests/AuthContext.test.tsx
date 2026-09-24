@@ -108,6 +108,24 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("token")).toBe("new-token");
   });
 
+  it("establishes the session returned after registration", async () => {
+    const fakeUser = {
+      id: "u-register",
+      email: "new@example.com",
+      name: "New user",
+      role: "customer",
+      picture: null,
+    };
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.establishSession("register-token", fakeUser));
+
+    expect(result.current.token).toBe("register-token");
+    expect(result.current.user).toEqual(fakeUser);
+    expect(localStorage.getItem("token")).toBe("register-token");
+  });
+
   it("keeps a non-remembered login in sessionStorage only", async () => {
     const fakeUser = {
       id: "u1",

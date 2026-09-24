@@ -14,6 +14,7 @@ export interface OrderEntryView {
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
+  imagenUrl?: string | null;
 }
 
 export interface OrderView {
@@ -22,7 +23,24 @@ export interface OrderView {
   total: number;
   estado: string;
   fechaOrden: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  shippingAddress: string | null;
+  shippingDistrict: string | null;
+  shippingCity: string | null;
+  shippingReference: string | null;
   entries: OrderEntryView[];
+}
+
+export interface CheckoutDetails {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  shippingDistrict: string;
+  shippingCity: string;
+  shippingReference?: string;
 }
 
 export async function resolveOrderEntries(
@@ -74,15 +92,55 @@ export async function resolveOrderEntries(
 export async function createOrder(
   entries: CreateOrderEntry[],
   tryOnSessionId?: string,
+  checkoutDetails?: CheckoutDetails,
 ): Promise<OrderView> {
   const { data } = await api.post("/orders", {
     entries,
     tryOnSessionId: tryOnSessionId || getVirtualTryOnSessionId(),
+    checkoutDetails,
   });
   return data.order as OrderView;
+}
+
+export interface MercadoPagoPreferenceView {
+  orderId: string;
+  orderNumber: string;
+  preferenceId: string;
+  initPoint: string;
+}
+
+export interface MercadoPagoOrderStatusView {
+  orderId: string;
+  orderNumber: string;
+  orderStatus: string;
+  paymentStatus: string | null;
+  paymentStatusDetail: string | null;
+  paymentId: string | null;
+  preferenceId: string | null;
+}
+
+export async function createMercadoPagoPreference(
+  orderId: string,
+): Promise<MercadoPagoPreferenceView> {
+  const { data } = await api.post("/payments/mercadopago/preferences", { orderId });
+  return data.preference as MercadoPagoPreferenceView;
+}
+
+export async function fetchMercadoPagoOrderStatus(
+  orderId: string,
+  paymentId?: string,
+): Promise<MercadoPagoOrderStatusView> {
+  const { data } = await api.get(`/payments/mercadopago/orders/${orderId}`, {
+    params: paymentId ? { payment_id: paymentId } : undefined,
+  });
+  return data.status as MercadoPagoOrderStatusView;
 }
 
 export async function fetchMyOrders(): Promise<OrderView[]> {
   const { data } = await api.get("/orders");
   return data.orders as OrderView[];
+}
+
+export function redirectToMercadoPago(initPoint: string): void {
+  window.location.assign(initPoint);
 }

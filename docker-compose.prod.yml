@@ -10,6 +10,7 @@ services:
     volumes:
       - product-uploads:/app/uploads
     environment:
+      NODE_ENV: production
       PORT: 4000
       CLIENT_URL: ${CLIENT_URL:?CLIENT_URL is required}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
@@ -24,6 +25,12 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       INVENTORY_EMAIL: ${INVENTORY_EMAIL:?INVENTORY_EMAIL is required}
       INVENTORY_PASSWORD: ${INVENTORY_PASSWORD:?INVENTORY_PASSWORD is required}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:?MP_ACCESS_TOKEN is required}
+      MP_CURRENCY_ID: ${MP_CURRENCY_ID:-PEN}
+      MP_TEST_BUYER_EMAIL: ${MP_TEST_BUYER_EMAIL:-}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      MP_WEBHOOK_URL: ${MP_WEBHOOK_URL:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
     restart: unless-stopped
 
   frontend:
@@ -34,6 +41,7 @@ services:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID is required}
         VITE_BAAS_WS_URL: ${VITE_BAAS_WS_URL:-wss://core.geozns.com/v1/ws}
         VITE_JWT_APP_ID: ${VITE_JWT_APP_ID:-integrador2_web}
+        VITE_MP_PUBLIC_KEY: ${VITE_MP_PUBLIC_KEY:?VITE_MP_PUBLIC_KEY is required}
     ports:
       - "80:80"
     depends_on:

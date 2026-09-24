@@ -23,6 +23,8 @@ vi.mock("../src/services/catalog", async (importOriginal) => ({
 vi.mock("../src/services/orders", () => ({
   resolveOrderEntries: vi.fn(),
   createOrder: vi.fn(),
+  createMercadoPagoPreference: vi.fn(),
+  redirectToMercadoPago: vi.fn(),
 }));
 
 import HomePage from "../src/pages/HomePage";
@@ -32,7 +34,12 @@ import CheckoutPage from "../src/pages/CheckoutPage";
 import { useCart } from "../src/context/CartContext";
 import { useFavorites } from "../src/context/FavoritesContext";
 import { fetchCatalogProducts } from "../src/services/catalog";
-import { createOrder, resolveOrderEntries } from "../src/services/orders";
+import {
+  createMercadoPagoPreference,
+  createOrder,
+  redirectToMercadoPago,
+  resolveOrderEntries,
+} from "../src/services/orders";
 
 const catalogProduct = {
   id: "real-product-1",
@@ -83,6 +90,14 @@ describe("customer purchase flow", () => {
       removeFromCart: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
+      registerPendingCheckout: vi.fn(),
+      completePendingCheckout: vi.fn(),
+    });
+    vi.mocked(createMercadoPagoPreference).mockResolvedValue({
+      orderId: "order-1",
+      orderNumber: "ORD-2026-TEST",
+      preferenceId: "preference-1",
+      initPoint: "https://www.mercadopago.com.pe/checkout/v1/redirect?pref_id=preference-1",
     });
   });
 
@@ -112,7 +127,7 @@ describe("customer purchase flow", () => {
     expect(screen.getByText("S/ 80.00")).toBeInTheDocument();
   });
 
-  it("registers a pending order without card fields or a false payment confirmation", async () => {
+  it("registers the order and redirects to Checkout Pro without clearing the cart early", async () => {
     const user = userEvent.setup();
     vi.mocked(resolveOrderEntries).mockResolvedValue([{ productoTallaId: "size-m", cantidad: 1 }]);
     vi.mocked(createOrder).mockResolvedValue({
@@ -138,15 +153,24 @@ describe("customer purchase flow", () => {
     expect(screen.getByText("Confirmar pedido")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("0000 0000 0000 0000")).not.toBeInTheDocument();
     expect(screen.queryByText("CVV")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Registrar pedido por S/ 99.00" }));
+    await user.click(screen.getByRole("button", { name: "Pagar con Mercado Pago · S/ 99.00" }));
 
-    expect(await screen.findByText("Pedido registrado")).toBeInTheDocument();
-    expect(screen.getByText(/No se ha realizado ningún cobro/)).toBeInTheDocument();
-    expect(screen.getAllByText("S/ 80.00").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Compra exitosa")).not.toBeInTheDocument();
+    expect(vi.mocked(createMercadoPagoPreference)).toHaveBeenCalledWith("order-1");
+    expect(vi.mocked(useCart).mock.results[0].value.registerPendingCheckout).toHaveBeenCalledWith("order-1");
+    expect(vi.mocked(redirectToMercadoPago)).toHaveBeenCalledWith(expect.stringContaining("mercadopago.com.pe"));
+    expect(vi.mocked(useCart).mock.results[0].value.clearCart).not.toHaveBeenCalled();
     expect(vi.mocked(createOrder)).toHaveBeenCalledWith(
       [{ productoTallaId: "size-m", cantidad: 1 }],
       expect.any(String),
+      {
+        customerName: "Juan Pérez",
+        customerEmail: "juan@test.com",
+        customerPhone: "999999999",
+        shippingAddress: "Av. Central 123",
+        shippingDistrict: "Miraflores",
+        shippingCity: "Lima",
+        shippingReference: "",
+      },
     );
   });
 });
