@@ -5,6 +5,7 @@ import {
   ALLOWED_ORDER_STATUSES,
   LOW_STOCK_THRESHOLD,
   MOVEMENT_TYPE,
+  ORDER_STATUS,
   ROLES,
 } from "../constants";
 import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
@@ -13,6 +14,8 @@ import { deleteProductImages, prepareProductImages } from "./productImages";
 export interface ProductTallaInput {
   talla: string;
   stock?: number;
+  rangoCmMin?: number | null;
+  rangoCmMax?: number | null;
 }
 
 export interface ProductInput {
@@ -251,6 +254,15 @@ function validateProductTallas(tallas: ProductTallaInput[]): void {
     ) {
       throw new Error("INVALID_QUANTITY");
     }
+    if (talla.rangoCmMin !== undefined && talla.rangoCmMin !== null && (!Number.isFinite(talla.rangoCmMin) || talla.rangoCmMin < 0)) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
+    if (talla.rangoCmMax !== undefined && talla.rangoCmMax !== null && (!Number.isFinite(talla.rangoCmMax) || talla.rangoCmMax < 0)) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
+    if (talla.rangoCmMin != null && talla.rangoCmMax != null && talla.rangoCmMin > talla.rangoCmMax) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
   }
 }
 
@@ -272,6 +284,9 @@ function validateProductInput(data: ProductInput | Partial<ProductInput>): void 
   }
   if (data.tallas !== undefined) {
     if (!Array.isArray(data.tallas)) {
+      throw new Error("SIZE_REQUIRED");
+    }
+    if (data.tallas.length === 0) {
       throw new Error("SIZE_REQUIRED");
     }
     validateProductTallas(data.tallas);
@@ -329,6 +344,8 @@ export const adminService = {
             create: (data.tallas || []).map((t) => ({
               talla: t.talla.trim(),
               stock: t.stock ?? 0,
+              rango_cm_min: t.rangoCmMin ?? null,
+              rango_cm_max: t.rangoCmMax ?? null,
             })),
           },
           producto_imagenes: {
@@ -390,6 +407,9 @@ export const adminService = {
         }
 
         if (data.tallas !== undefined) {
+          const requestedSizeNames = new Set(
+            data.tallas.map((tallaInput) => tallaInput.talla.trim()),
+          );
           for (const tallaInput of data.tallas) {
             const normalizedSize = tallaInput.talla.trim();
             const match = existing.producto_tallas.find(
@@ -398,14 +418,58 @@ export const adminService = {
             if (match) {
               const updatedStock = await tx.producto_tallas.updateMany({
                 where: { id: match.id, stock: match.stock },
-                data: { stock: tallaInput.stock ?? match.stock },
+                data: {
+                  stock: tallaInput.stock ?? match.stock,
+                  rango_cm_min: tallaInput.rangoCmMin !== undefined ? tallaInput.rangoCmMin : match.rango_cm_min,
+                  rango_cm_max: tallaInput.rangoCmMax !== undefined ? tallaInput.rangoCmMax : match.rango_cm_max,
+                },
               });
               if (updatedStock.count !== 1) {
                 throw new Error("STOCK_CONFLICT");
               }
             } else {
               await tx.producto_tallas.create({
-                data: { producto_id: id, talla: normalizedSize, stock: tallaInput.stock ?? 0 },
+                data: {
+                  producto_id: id,
+                  talla: normalizedSize,
+                  stock: tallaInput.stock ?? 0,
+                  rango_cm_min: tallaInput.rangoCmMin ?? null,
+                  rango_cm_max: tallaInput.rangoCmMax ?? null,
+                },
+              });
+            }
+          }
+
+          const removedSizes = existing.producto_tallas.filter(
+            (talla) => !requestedSizeNames.has(talla.talla),
+          );
+          if (removedSizes.length > 0) {
+            const removedIds = removedSizes.map((talla) => talla.id);
+            const [ordersUsingSize, discountsUsingSize] = await Promise.all([
+              tx.orden_detalles.findMany({
+                where: { producto_talla_id: { in: removedIds } },
+                select: { producto_talla_id: true },
+              }),
+              tx.discount_requests.findMany({
+                where: { producto_talla_id: { in: removedIds } },
+                select: { producto_talla_id: true },
+              }),
+            ]);
+            const protectedIds = new Set([
+              ...ordersUsingSize.map((item) => item.producto_talla_id),
+              ...discountsUsingSize.map((item) => item.producto_talla_id),
+            ]);
+            const deletableIds = removedIds.filter((id) => !protectedIds.has(id));
+            if (deletableIds.length > 0) {
+              await tx.producto_tallas.deleteMany({ where: { id: { in: deletableIds } } });
+            }
+            const protectedRemovedIds = removedIds.filter((id) => protectedIds.has(id));
+            if (protectedRemovedIds.length > 0) {
+              // An order or discount keeps the variant for referential integrity;
+              // setting it to zero hides it from the customer without deleting history.
+              await tx.producto_tallas.updateMany({
+                where: { id: { in: protectedRemovedIds } },
+                data: { stock: 0 },
               });
             }
           }
@@ -510,6 +574,54 @@ export const adminService = {
     const existing = await prisma.ordenes.findUnique({ where: { id } });
     if (!existing) {
       throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const currentStatus = (existing.estado || ORDER_STATUS.PENDING).toLowerCase();
+    const allowedTransitions: Record<string, string[]> = {
+      [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.PREPARING]: [ORDER_STATUS.SHIPPED, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.SHIPPED]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED],
+      [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED],
+      [ORDER_STATUS.CANCELLED]: [],
+      [ORDER_STATUS.RETURNED]: [],
+    };
+
+    if (!allowedTransitions[currentStatus]?.includes(estado)) {
+      throw new Error("INVALID_STATUS_TRANSITION");
+    }
+
+    await prisma.ordenes.update({
+      where: { id },
+      data: { estado },
+    });
+
+    const orders = await this.listOrders();
+    const updated = orders.find((order) => order.id === id);
+    if (!updated) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+    return updated;
+  },
+
+  async updateInventoryOrderStatus(id: string, estado: string): Promise<OrderResult> {
+    const allowedTransitions: Record<string, string[]> = {
+      [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING],
+      [ORDER_STATUS.PREPARING]: [ORDER_STATUS.SHIPPED],
+    };
+
+    if (!estado || !Object.values(allowedTransitions).flat().includes(estado)) {
+      throw new Error("INVENTORY_STATUS_FORBIDDEN");
+    }
+
+    const existing = await prisma.ordenes.findUnique({ where: { id } });
+    if (!existing) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const currentStatus = (existing.estado || ORDER_STATUS.PENDING).toLowerCase();
+    if (!allowedTransitions[currentStatus]?.includes(estado)) {
+      throw new Error("INVALID_INVENTORY_STATUS_TRANSITION");
     }
 
     await prisma.ordenes.update({
@@ -735,16 +847,20 @@ export const adminService = {
   },
 
   async getDashboardStats(): Promise<Record<string, unknown>> {
-    const [totalOrders, revenueAgg, totalCustomers, totalProducts, lowStockCount, pendingOrders, soldAgg, totalReturns] =
+    const [totalOrders, revenueAgg, totalCustomers, totalProducts, pendingOrders, soldAgg, totalReturns, lowStockVariants] =
       await Promise.all([
         prisma.ordenes.count(),
         prisma.ordenes.aggregate({ _sum: { total: true } }),
         prisma.usuarios.count({ where: { role: ROLES.CUSTOMER } }),
         prisma.productos.count(),
-        prisma.producto_tallas.count({ where: { stock: { lte: LOW_STOCK_THRESHOLD } } }),
         prisma.ordenes.count({ where: { estado: "pending" } }),
         prisma.orden_detalles.aggregate({ _sum: { cantidad: true } }),
         prisma.ordenes.count({ where: { estado: "return" } }),
+        prisma.producto_tallas.findMany({
+          where: { stock: { lte: LOW_STOCK_THRESHOLD } },
+          select: { producto_id: true },
+          distinct: ["producto_id"],
+        }),
       ]);
 
     return {
@@ -752,7 +868,7 @@ export const adminService = {
       revenue: revenueAgg._sum.total ? revenueAgg._sum.total.toNumber() : 0,
       totalCustomers,
       totalProducts,
-      lowStockCount,
+      lowStockCount: lowStockVariants.length,
       pendingOrders,
       totalUnitsSold: soldAgg._sum.cantidad || 0,
       totalReturns,

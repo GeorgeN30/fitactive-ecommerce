@@ -28,7 +28,8 @@
     "dotenv": "16",
     "express": "4",
     "express-rate-limit": "7",
-    "helmet": "7"
+    "helmet": "7",
+    "mercadopago": "3.6.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "2",

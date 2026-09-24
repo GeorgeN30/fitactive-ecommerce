@@ -7,6 +7,7 @@ import {
   getEmailValidationMessage,
   isStrongPassword,
 } from "../utils/validation";
+import { useAuth, type User } from "../context/AuthContext";
 
 type Step = "form" | "otp";
 
@@ -27,6 +28,7 @@ export default function RegisterPage() {
   const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
+  const { establishSession } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const emailValidationMessage = getEmailValidationMessage(email);
@@ -151,8 +153,7 @@ export default function RegisterPage() {
         }
         return;
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      establishSession(data.token, data.user as User, true);
       setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");

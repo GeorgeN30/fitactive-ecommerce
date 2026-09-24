@@ -117,7 +117,7 @@ export default function CartPage() {
                                 item.color,
                               )
                             }
-                            className="w-9 h-9 hover:text-brand-green"
+                            className="w-9 h-9 hover:text-brand-green disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             −
                           </button>
@@ -135,11 +135,19 @@ export default function CartPage() {
                                 item.color,
                               )
                             }
-                            className="w-9 h-9 hover:text-brand-green"
+                            disabled={typeof item.stock === "number" && item.quantity >= item.stock}
+                            title={typeof item.stock === "number" ? `Stock disponible: ${item.stock}` : undefined}
+                            className="w-9 h-9 hover:text-brand-green disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             +
                           </button>
                         </div>
+
+                        {typeof item.stock === "number" && (
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                            Stock disponible: {item.stock}
+                          </p>
+                        )}
 
                         <div className="text-right">
                           <p className="text-xs text-gray-400">

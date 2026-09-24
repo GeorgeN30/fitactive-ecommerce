@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
+import ModalPortal from "./ModalPortal";
 
 export type LegalDocType = "terms" | "privacy";
 type LegalSection = { heading: string; paragraphs: string[] };
@@ -216,16 +217,15 @@ export function LegalModal({
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [onClose]);
 
   return (
+    <ModalPortal>
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 print:p-0 print:static"
+      className="fixed inset-0 z-[100] grid h-[100dvh] place-items-center overflow-hidden p-2 sm:p-6 print:static print:p-0"
       role="dialog"
       aria-modal="true"
       aria-labelledby="legal-modal-title"
@@ -250,9 +250,9 @@ export function LegalModal({
 
       <div
         id="legal-modal-print"
-        className="relative w-full max-w-2xl max-h-[85vh] bg-white dark:bg-brand-card-dark rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden"
+        className="relative flex h-[min(52rem,calc(100dvh-1rem))] min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-brand-card-dark sm:h-[min(52rem,calc(100dvh-3rem))]"
       >
-        <div className="flex items-start justify-between gap-4 px-6 sm:px-8 pt-6 sm:pt-8 pb-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-4 pb-3 pt-4 dark:border-slate-700 sm:gap-4 sm:px-8 sm:pb-4 sm:pt-8">
           <div>
             <p className="text-[10px] font-bold text-brand-green uppercase tracking-widest mb-1">
               FITLOOK
@@ -277,7 +277,7 @@ export function LegalModal({
           </button>
         </div>
 
-        <div id="legal-modal-actions" className="flex gap-2 px-6 sm:px-8 pt-4">
+        <div id="legal-modal-tabs" className="flex shrink-0 flex-wrap gap-2 px-4 pt-3 sm:px-8 sm:pt-4">
           <button
             type="button"
             onClick={() => onSwitch("terms")}
@@ -302,7 +302,7 @@ export function LegalModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 sm:px-8 py-6 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4 sm:px-8 sm:py-6">
           <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{content.intro}</p>
           {content.sections.map((section, index) => (
             <div key={section.heading}>
@@ -321,8 +321,8 @@ export function LegalModal({
         </div>
 
         <div
-          id="legal-modal-actions"
-          className="flex items-center justify-end gap-3 px-6 sm:px-8 py-4 border-t border-slate-100 dark:border-slate-700"
+          id="legal-modal-footer"
+          className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-4 py-3 dark:border-slate-700 sm:gap-3 sm:px-8 sm:py-4"
         >
           <button
             type="button"
@@ -342,6 +342,7 @@ export function LegalModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

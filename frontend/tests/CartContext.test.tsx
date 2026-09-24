@@ -63,4 +63,79 @@ describe("CartContext startup", () => {
     expect(result.current.cartItems).toEqual([]);
     expect(localStorage.getItem("fitactive-cart")).toBeNull();
   });
+
+  it("caps added and updated quantities at the known stock", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addToCart({
+        id: "stocked-1",
+        name: "Polo",
+        img: "/polo.png",
+        price: 80,
+        quantity: 7,
+        size: "M",
+        stock: 3,
+      });
+    });
+
+    expect(result.current.cartItems[0].quantity).toBe(3);
+
+    act(() => {
+      result.current.updateQuantity("stocked-1", 99, "M");
+    });
+
+    expect(result.current.cartItems[0].quantity).toBe(3);
+  });
+
+  it("removes only the purchased snapshot when a checkout is completed", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addToCart({
+        id: "stocked-1",
+        name: "Polo",
+        img: "/polo.png",
+        price: 80,
+        quantity: 2,
+        size: "M",
+        tallaId: "size-m",
+        stock: 5,
+      });
+    });
+    act(() => result.current.registerPendingCheckout("order-1"));
+    act(() => {
+      result.current.addToCart({
+        id: "stocked-1",
+        name: "Polo",
+        img: "/polo.png",
+        price: 80,
+        quantity: 1,
+        size: "M",
+        tallaId: "size-m",
+        stock: 5,
+      });
+    });
+    act(() => result.current.completePendingCheckout("order-1"));
+
+    expect(result.current.cartItems).toHaveLength(1);
+    expect(result.current.cartItems[0].quantity).toBe(1);
+    expect(localStorage.getItem("fitlook:pending-checkout")).toBeNull();
+  });
+
+  it("does not clear the cart for a different order", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    act(() => {
+      result.current.addToCart({
+        id: "stocked-1",
+        name: "Polo",
+        img: "/polo.png",
+        price: 80,
+        quantity: 1,
+      });
+    });
+    act(() => result.current.registerPendingCheckout("order-1"));
+    act(() => result.current.completePendingCheckout("order-2"));
+    expect(result.current.cartItems).toHaveLength(1);
+  });
 });

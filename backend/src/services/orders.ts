@@ -3,10 +3,21 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { ORDER_STATUS } from "../constants";
 import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
+import { notifications } from "./notifications";
 
 export interface OrderEntryInput {
   productoTallaId: string;
   cantidad: number;
+}
+
+export interface OrderCheckoutDetails {
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  shippingAddress?: string;
+  shippingDistrict?: string;
+  shippingCity?: string;
+  shippingReference?: string;
 }
 
 export interface OrderEntryResult {
@@ -16,6 +27,7 @@ export interface OrderEntryResult {
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
+  imagenUrl: string | null;
 }
 
 export interface OrderResult {
@@ -24,10 +36,18 @@ export interface OrderResult {
   total: number;
   estado: string;
   fechaOrden: Date | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  shippingAddress: string | null;
+  shippingDistrict: string | null;
+  shippingCity: string | null;
+  shippingReference: string | null;
   entries: OrderEntryResult[];
 }
 
 const ORDER_NUMBER_SUFFIX_LENGTH = 6;
+const ORDER_RESERVATION_MINUTES = 30;
 
 function buildOrderNumber(orderId: string): string {
   const year = new Date().getFullYear();
@@ -55,6 +75,12 @@ function validateEntries(entries: OrderEntryInput[]): void {
       throw new Error("INVALID_QUANTITY");
     }
   }
+}
+
+function normalizeCheckoutValue(value: unknown, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized ? normalized.slice(0, maxLength) : null;
 }
 
 function consolidateEntries(entries: OrderEntryInput[]): OrderEntryInput[] {
@@ -99,7 +125,7 @@ function mapDetail(detail: {
   producto_talla_id: string;
   cantidad: number;
   precio_unitario: { toNumber: () => number };
-  producto_tallas: { talla: string; productos: { nombre: string } };
+  producto_tallas: { talla: string; productos: { nombre: string; imagen_url?: string | null } };
 }): OrderEntryResult {
   const precioUnitario = detail.precio_unitario.toNumber();
   return {
@@ -109,6 +135,7 @@ function mapDetail(detail: {
     cantidad: detail.cantidad,
     precioUnitario,
     subtotal: roundToCents(precioUnitario * detail.cantidad),
+    imagenUrl: detail.producto_tallas.productos.imagen_url ?? null,
   };
 }
 
@@ -117,6 +144,7 @@ export const orderService = {
     userId: string,
     rawEntries: OrderEntryInput[],
     tryOnSessionId?: string,
+    checkoutDetails?: OrderCheckoutDetails,
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
     const entries = consolidateEntries(rawEntries);
@@ -124,7 +152,7 @@ export const orderService = {
     const orderId = randomUUID();
 
     const result = await runSerializableTransaction(async (tx) => {
-      const computed: Omit<OrderEntryResult, "nombre" | "talla">[] = [];
+      const computed: Omit<OrderEntryResult, "nombre" | "talla" | "imagenUrl">[] = [];
       let total = 0;
 
       for (const entry of entries) {
@@ -180,6 +208,14 @@ export const orderService = {
           numero: buildOrderNumber(orderId),
           total,
           estado: ORDER_STATUS.PENDING,
+          reservation_expires_at: new Date(Date.now() + ORDER_RESERVATION_MINUTES * 60 * 1000),
+          customer_name: normalizeCheckoutValue(checkoutDetails?.customerName, 150),
+          customer_email: normalizeCheckoutValue(checkoutDetails?.customerEmail, 255),
+          customer_phone: normalizeCheckoutValue(checkoutDetails?.customerPhone, 40),
+          shipping_address: normalizeCheckoutValue(checkoutDetails?.shippingAddress, 255),
+          shipping_district: normalizeCheckoutValue(checkoutDetails?.shippingDistrict, 120),
+          shipping_city: normalizeCheckoutValue(checkoutDetails?.shippingCity, 120),
+          shipping_reference: normalizeCheckoutValue(checkoutDetails?.shippingReference, 255),
           orden_detalles: {
             create: computed.map((detail) => ({
               producto_talla_id: detail.productoTallaId,
@@ -239,6 +275,13 @@ export const orderService = {
       total: result.created.total.toNumber(),
       estado: result.created.estado || ORDER_STATUS.PENDING,
       fechaOrden: result.created.fecha_orden,
+      customerName: result.created.customer_name,
+      customerEmail: result.created.customer_email,
+      customerPhone: result.created.customer_phone,
+      shippingAddress: result.created.shipping_address,
+      shippingDistrict: result.created.shipping_district,
+      shippingCity: result.created.shipping_city,
+      shippingReference: result.created.shipping_reference,
       entries: result.details.map(mapDetail),
     };
   },
@@ -260,7 +303,69 @@ export const orderService = {
       total: order.total.toNumber(),
       estado: order.estado || ORDER_STATUS.PENDING,
       fechaOrden: order.fecha_orden,
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
+      customerPhone: order.customer_phone,
+      shippingAddress: order.shipping_address,
+      shippingDistrict: order.shipping_district,
+      shippingCity: order.shipping_city,
+      shippingReference: order.shipping_reference,
       entries: order.orden_detalles.map(mapDetail),
     }));
+  },
+
+  async releaseExpiredPendingOrders(): Promise<number> {
+    const now = new Date();
+    const expired = await prisma.ordenes.findMany({
+      where: {
+        estado: ORDER_STATUS.PENDING,
+        reservation_expires_at: { lte: now },
+      },
+      select: {
+        id: true,
+        usuario_id: true,
+        numero: true,
+        orden_detalles: { select: { producto_talla_id: true, cantidad: true } },
+      },
+    });
+
+    let released = 0;
+    for (const candidate of expired) {
+      const didRelease = await prisma.$transaction(async (tx) => {
+        const updated = await tx.ordenes.updateMany({
+          where: {
+            id: candidate.id,
+            estado: ORDER_STATUS.PENDING,
+            reservation_expires_at: { lte: now },
+          },
+          data: {
+            estado: ORDER_STATUS.CANCELLED,
+            mp_status: "expired",
+            mp_status_detail: "reservation_expired",
+            reservation_expires_at: null,
+          },
+        });
+        if (updated.count !== 1) return false;
+        for (const detail of candidate.orden_detalles) {
+          await tx.producto_tallas.update({
+            where: { id: detail.producto_talla_id },
+            data: { stock: { increment: detail.cantidad } },
+          });
+        }
+        return true;
+      });
+
+      if (didRelease) {
+        released += 1;
+        void notifications.notifyPaymentStatus({
+          orderId: candidate.id,
+          orderNumber: candidate.numero || candidate.id,
+          customerId: candidate.usuario_id,
+          orderStatus: ORDER_STATUS.CANCELLED,
+          paymentStatus: "expired",
+        });
+      }
+    }
+    return released;
   },
 };

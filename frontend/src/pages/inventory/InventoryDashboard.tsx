@@ -1,6 +1,5 @@
 import InventoryHomeView from "../../components/inventory/views/InventoryHomeView";
 import InventoryStockView from "../../components/inventory/views/InventoryStockView";
-import InventoryRestockView from "../../components/inventory/views/InventoryRestockView";
 import InventoryAuditView from "../../components/inventory/views/InventoryAuditView";
 import InventoryAlertsView from "../../components/inventory/views/InventoryAlertsView";
 import InventoryCatalogView from "../../components/inventory/views/InventoryCatalogView";
@@ -12,18 +11,21 @@ import InventoryDiscountsView from "../../components/inventory/views/InventoryDi
 import InventoryNotificationsView, {
   type InventoryNotification,
 } from "../../components/inventory/views/InventoryNotificationsView";
+import AdminOrdersView from "../../components/admin/views/AdminOrdersView";
 import NotificationToast from "../../components/NotificationToast";
 import { clearStoredSession } from "../../utils/session";
 import {
   fetchInventory,
+  fetchInventoryOrders,
   fetchMovements,
   createProduct,
   updateProduct,
   deleteProduct,
   updateStock,
+  updateInventoryOrderStatus as updateInventoryOrderStatusApi,
 } from "../../services/admin";
 import type { ProductInput } from "../../services/admin";
-import type { Product } from "../../data/adminPrototypeTypes";
+import type { Order, Product } from "../../data/adminPrototypeTypes";
 import type { InventoryMovement } from "../../data/types";
 import {
   connectAdminSocket,
@@ -36,10 +38,10 @@ import type { AdminNotification } from "../../services/notifications";
 
 type Section =
   | "dashboard"
+  | "orders"
   | "catalog"
   | "stock"
   | "alerts"
-  | "restock"
   | "audit"
   | "discounts"
   | "notifications";
@@ -65,6 +67,7 @@ export default function InventoryDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<InventoryNotification[]>([]);
   const [toast, setToast] = useState<{
     title: string;
@@ -98,13 +101,15 @@ export default function InventoryDashboard() {
     let cancelled = false;
     const loadProducts = async () => {
       try {
-        const [loadedProducts, loadedMovements] = await Promise.all([
+        const [loadedProducts, loadedMovements, loadedOrders] = await Promise.all([
           fetchInventory(),
           fetchMovements(),
+          fetchInventoryOrders(),
         ]);
         if (!cancelled) {
           setProducts(loadedProducts);
           setMovements(loadedMovements);
+          setOrders(loadedOrders);
         }
       } catch (error) {
         if (isAuthError(error)) handleUnauthorized();
@@ -164,6 +169,9 @@ export default function InventoryDashboard() {
     if (event.type === "DISCOUNT_APPROVED" || event.type === "DISCOUNT_REVERTED") {
       void fetchInventory().then(setProducts).catch(() => undefined);
     }
+    if (event.type === "NEW_ORDER" || event.type === "PAYMENT_STATUS" || event.type === "ORDER_STATUS") {
+      void fetchInventoryOrders().then(setOrders).catch(() => undefined);
+    }
   }), []);
 
   useEffect(() => {
@@ -180,6 +188,10 @@ export default function InventoryDashboard() {
   };
 
   const handleMarkNotificationRead = async (notification: InventoryNotification) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notification.id)) {
+      return;
+    }
+
     try {
       await markNotificationRead(notification.id);
     } catch (error) {
@@ -201,14 +213,18 @@ export default function InventoryDashboard() {
     price: number;
     stock: number;
     imageUrls: string[];
+    category: string;
+    sizes: { size: string; stock: number; rangoCmMin: number | null; rangoCmMax: number | null }[];
   }) => {
     try {
       const input: ProductInput = {
         nombre: data.name,
         precio: data.price || 0,
-        categoria: "Clothing",
+        categoria: data.category,
         imageUrls: data.imageUrls,
-        tallas: [{ talla: "M", stock: data.stock }],
+        tallas: data.sizes.length > 0
+          ? data.sizes.map((size) => ({ talla: size.size, stock: size.stock, rangoCmMin: size.rangoCmMin, rangoCmMax: size.rangoCmMax }))
+          : [{ talla: "M", stock: data.stock }],
       };
       const created = await createProduct(input, "/inventory");
       return created;
@@ -220,16 +236,16 @@ export default function InventoryDashboard() {
 
   const handleUpdateProduct = async (
     product: Product,
-    data: { name: string; sku: string; price: number; stock: number; imageUrls: string[] },
+    data: { name: string; sku: string; price: number; stock: number; imageUrls: string[]; category: string; sizes: { size: string; stock: number; rangoCmMin: number | null; rangoCmMax: number | null }[] },
   ) => {
     try {
-      const sizes = Object.entries(product.stock || {}).map(([talla, stock], index) => ({
-        talla,
-        stock: talla === "M" || index === 0 ? data.stock : stock,
-      }));
+      const sizes = data.sizes.length > 0
+        ? data.sizes.map((size) => ({ talla: size.size, stock: size.stock, rangoCmMin: size.rangoCmMin, rangoCmMax: size.rangoCmMax }))
+        : Object.entries(product.stock || {}).map(([talla, stock]) => ({ talla, stock }));
       const updated = await updateProduct(String(product.id), {
         nombre: data.name,
         precio: data.price || 0,
+        categoria: data.category,
         imageUrls: data.imageUrls,
         tallas: sizes.length > 0 ? sizes : [{ talla: "M", stock: data.stock }],
       }, "/inventory");
@@ -300,6 +316,18 @@ export default function InventoryDashboard() {
     }
   };
 
+  const handleInventoryOrderStatus = async (orderId: string, status: Order["status"]) => {
+    try {
+      await updateInventoryOrderStatusApi(orderId, status);
+      setOrders((current) => current.map((order) =>
+        order.id === orderId ? { ...order, status } : order,
+      ));
+    } catch (error) {
+      if (isAuthError(error)) handleUnauthorized();
+      throw error;
+    }
+  };
+
   const navItems: {
     key: Section;
     label: string;
@@ -310,6 +338,11 @@ export default function InventoryDashboard() {
       key: "dashboard",
       label: "Dashboard Almacén",
       icon: <i className="fa-solid fa-table-columns text-[18px]"></i>,
+    },
+    {
+      key: "orders",
+      label: "Pedidos",
+      icon: <i className="fa-solid fa-cart-shopping text-[18px]"></i>,
     },
     {
       key: "catalog",
@@ -330,11 +363,6 @@ export default function InventoryDashboard() {
           (product) =>
             Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <= 5,
         ).length || undefined,
-    },
-    {
-      key: "restock",
-      label: "Reabastecimiento",
-      icon: <i className="fa-solid fa-rotate text-[18px]"></i>,
     },
     {
       key: "audit",
@@ -418,6 +446,13 @@ export default function InventoryDashboard() {
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-4">
+        <button
+          onClick={() => navigate("/")}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-bold text-white transition-colors hover:bg-white/15"
+        >
+          <i className="fa-solid fa-store" />
+          Vista tienda
+        </button>
         <div className="flex items-center justify-between px-2">
           <span className="text-xs font-semibold text-gray-400">
             Modo Oscuro
@@ -525,6 +560,13 @@ export default function InventoryDashboard() {
           {section === "dashboard" && (
             <InventoryHomeView setSection={setSection} products={products} />
           )}
+          {section === "orders" && (
+            <AdminOrdersView
+              orders={orders}
+              updateOrderStatus={handleInventoryOrderStatus}
+              allowedStatuses={["preparing", "shipped"]}
+            />
+          )}
           {section === "catalog" && (
             <InventoryCatalogView
               products={products}
@@ -541,15 +583,7 @@ export default function InventoryDashboard() {
               onUpdateStock={handleUpdateStock}
             />
           )}
-          {section === "alerts" && <InventoryAlertsView products={products} />}
-          {section === "restock" && (
-            <InventoryRestockView
-              products={products}
-              setProducts={setProducts}
-              addNotification={addNotification}
-              onRestock={handleRestock}
-            />
-          )}
+          {section === "alerts" && <InventoryAlertsView products={products} onRestock={handleRestock} />}
           {section === "audit" && (
             <InventoryAuditView products={products} movements={movements} />
           )}
@@ -562,6 +596,10 @@ export default function InventoryDashboard() {
               setNotifications={setNotifications}
               onMarkRead={handleMarkNotificationRead}
               onMarkAllRead={handleMarkAllNotificationsRead}
+              onOpen={(notification) => {
+                const title = notification.title.toLowerCase();
+                setSection(title.includes("pedido") || title.includes("pago") ? "orders" : "notifications");
+              }}
             />
           )}
         </main>
