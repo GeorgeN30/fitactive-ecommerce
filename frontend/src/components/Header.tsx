@@ -49,7 +49,7 @@ export default function Header() {
             to="/catalogo"
             className="hover:text-brand-green transition-colors"
           >
-            Catalogo
+            Catálogo
           </Link>
           <Link
             to="/producto/1"
@@ -194,7 +194,7 @@ export default function Header() {
                       className="w-full text-left px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center gap-2"
                     >
                       <i className="fa-solid fa-gear text-xs" />
-                      Configuracion
+                      Configuración
                     </Link>
                     <button
                       onClick={() => {
@@ -205,7 +205,7 @@ export default function Header() {
                       className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
                     >
                       <i className="fa-solid fa-right-from-bracket text-xs" />
-                      Cerrar sesion
+                      Cerrar sesión
                     </button>
                   </div>
                 </div>
@@ -217,7 +217,7 @@ export default function Header() {
                 to="/login"
                 className="hidden sm:inline-flex items-center px-4 py-2 text-xs font-semibold text-brand-green border border-brand-green/30 rounded-lg hover:bg-brand-green/5 transition-colors"
               >
-                Iniciar sesion
+                Iniciar sesión
               </Link>
               <Link
                 to="/register"

@@ -242,7 +242,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
+                Correo Electrónico
               </label>
               <input
                 type="email"
@@ -279,7 +279,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -326,14 +326,14 @@ export default function RegisterPage() {
                     href="#"
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Terminos de Servicio
+                    Términos de Servicio
                   </a>{" "}
                   y la{" "}
                   <a
                     href="#"
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Politica de Privacidad
+                    Política de Privacidad
                   </a>
                 </span>
               </label>
@@ -355,7 +355,7 @@ export default function RegisterPage() {
               }
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Enviando codigo..." : "Crear cuenta"}
+              {sending ? "Enviando código..." : "Crear cuenta"}
             </button>
           </form>
         )}
@@ -399,7 +399,7 @@ export default function RegisterPage() {
               disabled={sending || code.some((c) => c === "")}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Verificando..." : "Verificar codigo"}
+              {sending ? "Verificando..." : "Verificar código"}
             </button>
 
             <div className="text-center">
@@ -415,7 +415,7 @@ export default function RegisterPage() {
                     onClick={handleResend}
                     className="text-brand-green font-semibold hover:underline"
                   >
-                    Reenviar codigo
+                    Reenviar código
                   </button>
                 )}
               </p>
@@ -455,7 +455,7 @@ export default function RegisterPage() {
                 to="/login"
                 className="text-brand-green font-bold hover:underline ml-1"
               >
-                Inicia Sesion
+                Inicia Sesión
               </Link>
             </>
           ) : (

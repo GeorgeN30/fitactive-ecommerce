@@ -13,7 +13,7 @@ function DarkPanel() {
         </span>
       </Link>
       <h2 className="text-3xl 2xl:text-4xl font-extrabold text-white mb-4">
-        Bienvenido de vuelta
+        ¡Bienvenido de vuelta!
       </h2>
       <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
         Inicia sesión para acceder a tu armario virtual, sincroniza tus medidas

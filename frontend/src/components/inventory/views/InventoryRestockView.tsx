@@ -47,7 +47,6 @@ export default function InventoryRestockView({
 }: InventoryRestockProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
   const [priority, setPriority] = useState("Media");
@@ -60,6 +59,7 @@ export default function InventoryRestockView({
         (sum, stock) => sum + stock,
         0,
       );
+
       return total < p.minStock;
     })
     .map((p) => ({
@@ -78,15 +78,26 @@ export default function InventoryRestockView({
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(""), 3000);
+
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
   };
 
   const handleCreateRequest = () => {
     const newErrors: FormErrors = {};
-    if (!selectedProduct) newErrors.product = "Debe seleccionar un producto";
-    if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0)
+
+    if (!selectedProduct) {
+      newErrors.product = "Debe seleccionar un producto";
+    }
+
+    if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
       newErrors.quantity = "Cantidad inválida";
-    if (!note.trim()) newErrors.note = "La nota es obligatoria";
+    }
+
+    if (!note.trim()) {
+      newErrors.note = "La nota es obligatoria";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -99,19 +110,26 @@ export default function InventoryRestockView({
 
     setRequests([
       {
-        id: requests.reduce((max, request) => Math.max(max, request.id), 0) + 1,
+        id:
+          requests.reduce(
+            (max, request) => Math.max(max, request.id),
+            0,
+          ) + 1,
         name: prodName,
         priority,
-        status: "Pendiente",
+        status: "Enviado",
         qty: Number(quantity),
-        desc: "Solicitud recién creada",
+        desc: note.trim() || "Solicitud recién creada",
         date: new Date().toISOString().split("T")[0],
         icon: "fa-box",
       },
       ...requests,
     ]);
 
-    showToast("¡Solicitud creada exitosamente y notificada al administrador!");
+    showToast(
+      "¡Solicitud creada exitosamente y enviada al administrador!",
+    );
+
     setIsModalOpen(false);
     resetForm();
   };
@@ -126,6 +144,7 @@ export default function InventoryRestockView({
 
   const markAsReceived = async (req: RestockRequest) => {
     const product = products.find((p) => p.name === req.name);
+
     const sizeKey = product
       ? Object.keys(product.stock)[0] || "Única"
       : "Única";
@@ -148,17 +167,35 @@ export default function InventoryRestockView({
       products.map((p) => {
         if (p.name === req.name) {
           const key = Object.keys(p.stock)[0] || "Única";
+
           return {
             ...p,
-            stock: { ...p.stock, [key]: (p.stock[key] || 0) + req.qty },
+            stock: {
+              ...p.stock,
+              [key]: (p.stock[key] || 0) + req.qty,
+            },
           };
         }
+
         return p;
       }),
     );
 
-    showToast("¡Inventario actualizado! Solicitud marcada como recibida.");
-    setRequests(requests.filter((request) => request.id !== req.id));
+    setRequests(
+      requests.map((request) =>
+        request.id === req.id
+          ? {
+            ...request,
+            status: "Recibido",
+          }
+          : request,
+      ),
+    );
+
+    showToast(
+      "¡Inventario actualizado! Solicitud marcada como recibida.",
+    );
+
     addNotification({
       title: "Ingreso Completado",
       message: `Han ingresado ${req.qty} unidades de "${req.name}" al catálogo exitosamente.`,
@@ -169,9 +206,10 @@ export default function InventoryRestockView({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white dark:text-white pb-10 max-w-6xl mx-auto relative">
+    <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-6xl mx-auto relative">
+
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-[60] bg-[#00FF66] text-black dark:text-white px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
+        <div className="fixed top-5 right-5 z-[60] bg-[#16A34A] text-white px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
           <i className="fa-solid fa-circle-check"></i>
           {toastMessage}
         </div>
@@ -183,6 +221,7 @@ export default function InventoryRestockView({
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           ></div>
+
           <div className="relative bg-white dark:bg-zinc-900 rounded-[24px] w-full max-w-sm shadow-2xl overflow-hidden animate-scale-up p-6">
             <h2 className="text-[22px] font-black text-black dark:text-white mb-6">
               Nueva solicitud
@@ -193,12 +232,17 @@ export default function InventoryRestockView({
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
                   Producto
                 </label>
+
                 <select
                   value={selectedProduct}
                   onChange={(e) => setSelectedProduct(e.target.value)}
-                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.product ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white`}
+                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.product
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-zinc-800"
+                    } rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white`}
                 >
                   <option value="">Seleccione un producto...</option>
+
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} (stock:{" "}
@@ -210,6 +254,7 @@ export default function InventoryRestockView({
                     </option>
                   ))}
                 </select>
+
                 {errors.product && (
                   <p className="text-red-500 text-[10px] font-bold mt-1">
                     {errors.product}
@@ -221,13 +266,18 @@ export default function InventoryRestockView({
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
                   Cantidad
                 </label>
+
                 <input
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   placeholder="20"
-                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.quantity ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B] text-black dark:text-white font-medium`}
+                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.quantity
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-zinc-800"
+                    } rounded-xl focus:outline-none focus:border-[#F59E0B] text-black dark:text-white font-medium`}
                 />
+
                 {errors.quantity && (
                   <p className="text-red-500 text-[10px] font-bold mt-1">
                     {errors.quantity}
@@ -239,12 +289,21 @@ export default function InventoryRestockView({
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-2">
                   Prioridad
                 </label>
-                <div className="flex gap-2">
+
+                <div className="grid grid-cols-2 gap-2">
                   {["Alta", "Media", "Baja"].map((pri) => (
                     <button
                       key={pri}
+                      type="button"
                       onClick={() => setPriority(pri)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors ${priority === pri ? "border-2 border-[#F59E0B] text-[#F59E0B] bg-orange-50/50" : "bg-gray-100 dark:bg-zinc-800 text-gray-500 hover:bg-gray-200"}`}
+                      className={`py-2 rounded-xl text-sm font-bold transition-colors ${priority === pri
+                          ? pri === "Alta"
+                            ? "border-2 border-red-500 text-red-600 bg-red-50"
+                            : pri === "Media"
+                              ? "border-2 border-amber-500 text-amber-600 bg-amber-50"
+                              : "border-2 border-blue-500 text-blue-600 bg-blue-50"
+                          : "bg-gray-100 dark:bg-zinc-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-zinc-700"
+                        }`}
                     >
                       {pri}
                     </button>
@@ -256,13 +315,18 @@ export default function InventoryRestockView({
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
                   Nota
                 </label>
+
                 <textarea
                   rows={2}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Motivo o instrucciones..."
-                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.note ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white resize-none`}
+                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.note
+                      ? "border-red-500"
+                      : "border-gray-200 dark:border-zinc-800"
+                    } rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white resize-none`}
                 ></textarea>
+
                 {errors.note && (
                   <p className="text-red-500 text-[10px] font-bold mt-1">
                     {errors.note}
@@ -273,15 +337,18 @@ export default function InventoryRestockView({
 
             <div className="flex gap-3 mt-6">
               <button
+                type="button"
                 onClick={() => {
                   setIsModalOpen(false);
                   resetForm();
                 }}
-                className="flex-1 py-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-black dark:text-white font-bold rounded-xl hover:bg-gray-50 dark:bg-zinc-950/50 transition-colors"
+                className="flex-1 py-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-black dark:text-white font-bold rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 Cancelar
               </button>
+
               <button
+                type="button"
                 onClick={handleCreateRequest}
                 className="flex-1 py-3 bg-[#F59E0B] text-black font-bold rounded-xl hover:bg-yellow-400 transition-colors"
               >
@@ -297,11 +364,14 @@ export default function InventoryRestockView({
           <h1 className="text-[28px] font-black tracking-tight">
             Reabastecimiento
           </h1>
+
           <p className="text-sm text-gray-500 font-medium">
             Gestión de solicitudes de producción e ingreso interno
           </p>
         </div>
+
         <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
           className="px-5 py-2.5 bg-[#F59E0B] text-black text-sm font-bold rounded-xl hover:bg-yellow-400 transition-colors flex items-center gap-2"
         >
@@ -311,35 +381,44 @@ export default function InventoryRestockView({
 
       <div className="bg-[#FFFDF9] dark:bg-yellow-500/5 border border-[#FDE6B8] dark:border-[#F59E0B]/20 rounded-[24px] p-5">
         <h3 className="text-sm font-bold text-[#F59E0B] flex items-center gap-2 mb-4">
-          <i className="fa-solid fa-bolt"></i> Sugerencias automáticas de
-          reabastecimiento
+          <i className="fa-solid fa-bolt"></i>
+          Sugerencias automáticas de reabastecimiento
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {suggestions.slice(0, 4).map((suggestion) => (
             <div
               key={suggestion.id}
-              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-950/50/50 border border-gray-200 dark:border-zinc-800/50 rounded-xl"
+              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800/50 rounded-xl"
             >
               <div className="flex items-center gap-3">
-                  <img
+                <img
                   src={suggestion.image}
                   alt={suggestion.name}
                   className="w-10 h-10 rounded-lg object-cover bg-white dark:bg-zinc-900 p-0.5 border border-gray-100 dark:border-zinc-800"
                 />
+
                 <div>
                   <p className="text-xs font-bold text-gray-900 dark:text-white">
                     {suggestion.name}
                   </p>
+
                   <p className="text-[10px] text-gray-500">
-                    Stock actual: {suggestion.actual} · Recomendado: {suggestion.recommended} uds.
+                    Stock actual: {suggestion.actual} · Recomendado:{" "}
+                    {suggestion.recommended} uds.
                   </p>
                 </div>
               </div>
+
               <button
+                type="button"
                 onClick={() => {
                   setSelectedProduct(suggestion.id);
-                  setQuantity((suggestion.recommended - suggestion.actual).toString());
+                  setQuantity(
+                    (
+                      suggestion.recommended - suggestion.actual
+                    ).toString(),
+                  );
                   setIsModalOpen(true);
                 }}
                 className="px-4 py-1.5 bg-[#F59E0B] text-black text-[10px] font-bold rounded-lg hover:bg-yellow-400 transition-colors"
@@ -353,53 +432,82 @@ export default function InventoryRestockView({
 
       <div className="bg-white dark:bg-zinc-900 rounded-[24px] border border-gray-100 dark:border-zinc-800 overflow-hidden mt-6">
         <div className="p-5 border-b border-gray-100 dark:border-zinc-800">
-          <h3 className="font-bold text-lg">Solicitudes ({requests.length})</h3>
+          <h3 className="font-bold text-lg">
+            Solicitudes ({requests.length})
+          </h3>
         </div>
 
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100 dark:divide-zinc-800">
           {requests.map((req) => (
             <div
               key={req.id}
-              className="p-5 flex items-center justify-between hover:bg-gray-50 dark:bg-zinc-950/50/50 transition-colors"
+              className="p-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-950/50 transition-colors"
             >
               <div className="flex gap-4">
+                {/* ICONO */}
                 <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center text-[#F59E0B] text-xl">
                   <i className={`fa-solid ${req.icon}`}></i>
                 </div>
+
                 <div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h4 className="font-bold text-gray-900 dark:text-white">
                       {req.name}
                     </h4>
+
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${req.priority === "Alta" ? "text-red-500 bg-red-50" : req.priority === "Media" ? "text-[#F59E0B] bg-orange-50" : "text-gray-500 bg-gray-100 dark:bg-zinc-800"}`}
+                      className={`text-[10px] font-bold px-3 py-1 rounded-full border ${req.priority === "Alta"
+                          ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50"
+                          : req.priority === "Media"
+                            ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50"
+                            : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50"
+                        }`}
                     >
                       Prioridad {req.priority}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${req.status === "Enviado" ? "text-blue-500 bg-blue-50" : "text-[#F59E0B] bg-orange-50"}`}
+                      className={`text-[10px] font-bold px-3 py-1 rounded-full border ${req.status === "Enviado"
+                          ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50"
+                          : req.status === "Recibido"
+                            ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50"
+                            : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50"
+                        }`}
                     >
                       {req.status}
                     </span>
                   </div>
-                  <p className="text-sm font-black mt-1">{req.qty} unidades</p>
-                  <p className="text-xs text-gray-500 mt-1">{req.desc}</p>
+
+                  <p className="text-sm font-black mt-1">
+                    {req.qty} unidades
+                  </p>
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    {req.desc}
+                  </p>
+
                   <p className="text-[10px] text-gray-400 font-mono mt-0.5">
                     {req.date}
                   </p>
                 </div>
               </div>
-
               {req.status === "Enviado" && (
                 <button
+                  type="button"
                   onClick={() => markAsReceived(req)}
-                  className="px-4 py-2 bg-green-50 text-green-600 text-xs font-bold rounded-lg hover:bg-green-100 transition-colors"
+                  className="px-4 py-2 bg-amber-400 text-[#0A0A0A] text-xs font-bold rounded-lg hover:bg-amber-300 transition-colors"
                 >
                   Marcar recibido
                 </button>
               )}
+
+              {req.status === "Recibido" && (
+                <span className="px-4 py-2 bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50 text-xs font-bold rounded-lg">
+                  ✓ Recibido
+                </span>
+              )}
             </div>
           ))}
+
           {requests.length === 0 && (
             <div className="p-8 text-center text-gray-500 text-sm">
               No hay solicitudes activas.

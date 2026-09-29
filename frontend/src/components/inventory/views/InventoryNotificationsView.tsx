@@ -53,10 +53,10 @@ export default function InventoryNotificationsView({
   return (
     <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-4xl mx-auto relative">
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-[60] bg-[#00FF66] text-black px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
-          <i className="fa-solid fa-circle-check" />
-          {toastMessage}
-        </div>
+       <div className="fixed top-5 right-5 z-[60] bg-[#16A34A] text-white px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
+       <i className="fa-solid fa-circle-check" />
+      {toastMessage}
+      </div>
       )}
 
       <div className="flex justify-between items-end">

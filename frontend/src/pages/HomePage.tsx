@@ -13,6 +13,12 @@ export default function HomePage() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const sportSlides = [
+    "https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop",
+  ];
   const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
   const panelPath = user?.role === "admin" ? "/admin" : isInventoryUser ? "/inventory" : null;
   const panelLabel = user?.role === "admin" ? "Volver al panel admin" : "Volver al panel de inventario";
@@ -31,7 +37,15 @@ export default function HomePage() {
       });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveSlide((current) =>
+        current === sportSlides.length - 1 ? 0 : current + 1
+      );
+    }, 5000);
 
+    return () => clearInterval(interval);
+  }, []);
   const featured = products.slice(0, 4);
   const recommended = products.slice(4, 7);
 
@@ -39,7 +53,12 @@ export default function HomePage() {
     <AppLayout>
       <div className="w-full pb-10 bg-[#f8f9fa] dark:bg-brand-dark-bg text-gray-900 dark:text-white font-sans">
         <section className="relative w-full h-[500px] md:h-[600px] bg-gray-900 text-white flex items-center overflow-hidden">
-          <div className="absolute inset-0 opacity-40 bg-center bg-cover" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop')" }} />
+          <div
+            className="absolute inset-0 opacity-40 bg-center bg-cover transition-all duration-700"
+            style={{
+              backgroundImage: `url('${sportSlides[activeSlide]}')`,
+            }}
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
           <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 w-full">
             {panelPath && <Link to={panelPath} className="inline-flex items-center gap-2 px-4 py-2 bg-white/95 text-gray-900 text-xs font-bold rounded-xl mb-5 shadow-lg hover:bg-brand-green transition-colors"><i className="fa-solid fa-arrow-left" />{panelLabel}</Link>}
@@ -47,6 +66,20 @@ export default function HomePage() {
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-4 max-w-2xl leading-tight">Encuentra tu estilo. <br /><span className="text-brand-green">Pruébalo antes de comprar.</span></h1>
             <p className="text-gray-300 text-sm sm:text-base max-w-lg mb-8 leading-tight">Descubre prendas deportivas y consulta sus tallas, disponibilidad y precios actualizados.</p>
             <Link to="/catalogo" className="inline-block px-6 py-3 bg-brand-green text-black font-bold rounded-md hover:opacity-90 transition">Explorar productos</Link>
+          </div>
+          <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center gap-3">
+            {sportSlides.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setActiveSlide(index)}
+                aria-label={`Mostrar imagen ${index + 1}`}
+                className={`rounded-full transition-all duration-300 ${activeSlide === index
+                    ? "w-8 h-2 bg-brand-green"
+                    : "w-2 h-2 bg-white/60 hover:bg-white"
+                  }`}
+              />
+            ))}
           </div>
         </section>
 
