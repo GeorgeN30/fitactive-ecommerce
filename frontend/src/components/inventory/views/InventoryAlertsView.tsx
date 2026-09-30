@@ -1,14 +1,43 @@
 import { useState } from "react";
+import ModalPortal from "../../ModalPortal";
 import type { Product } from "../../../data/adminPrototypeTypes";
 
-export default function InventoryAlertsView({ products }: { products: Product[] }) {
+export default function InventoryAlertsView({
+  products,
+  onRestock,
+}: {
+  products: Product[];
+  onRestock?: (productId: string, size: string, quantity: number, reason: string) => Promise<void>;
+}) {
   const [filter, setFilter] = useState("Todos");
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [restockingProduct, setRestockingProduct] = useState<Product | null>(null);
+  const [restockingSize, setRestockingSize] = useState("");
+  const [restockQuantity, setRestockQuantity] = useState("10");
 
   const handleRestockClick = (product: Product) => {
     setRestockingProduct(product);
+    setRestockingSize(Object.keys(product.stock)[0] || "");
+    setRestockQuantity("10");
     setIsRestockModalOpen(true);
+  };
+
+  const closeRestock = () => {
+    setIsRestockModalOpen(false);
+    setRestockingProduct(null);
+  };
+
+  const confirmRestock = async () => {
+    if (!restockingProduct || !restockingSize) return;
+    const amount = Number(restockQuantity);
+    if (!Number.isInteger(amount) || amount <= 0 || !onRestock) return;
+    await onRestock(
+      String(restockingProduct.id),
+      restockingSize,
+      (restockingProduct.stock[restockingSize] || 0) + amount,
+      "Reabastecimiento desde alerta de stock",
+    );
+    closeRestock();
   };
 
   const alertProducts = products
@@ -33,10 +62,11 @@ export default function InventoryAlertsView({ products }: { products: Product[] 
   return (
     <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-7xl mx-auto relative">
       {isRestockModalOpen && restockingProduct && (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsRestockModalOpen(false)}
+            onClick={closeRestock}
           ></div>
           <div className="relative bg-white dark:bg-zinc-900 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-scale-up border border-gray-100 dark:border-zinc-800">
             <div className="p-6 border-b border-gray-100 dark:border-zinc-800">
@@ -49,18 +79,39 @@ export default function InventoryAlertsView({ products }: { products: Product[] 
             <div className="p-6 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase">
+                  Talla
+                </label>
+                <select
+                  value={restockingSize}
+                  onChange={(event) => setRestockingSize(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-950/50"
+                >
+                  {Object.keys(restockingProduct.stock).map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+                <label className="text-xs font-bold text-gray-500 uppercase">
                   Unidades a añadir
                 </label>
                 <div className="flex items-center border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-gray-50 dark:bg-zinc-950/50">
-                  <button className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold">
+                  <button
+                    type="button"
+                    aria-label="Reducir unidades a reponer"
+                    onClick={() => setRestockQuantity((current) => String(Math.max(1, Number(current || 1) - 1)))}
+                    className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold"
+                  >
                     -
                   </button>
                   <input
                     type="number"
-                    defaultValue="10"
+                    value={restockQuantity}
+                    onChange={(event) => setRestockQuantity(event.target.value)}
                     className="w-full text-center bg-transparent focus:outline-none font-bold"
                   />
-                  <button className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold">
+                  <button
+                    type="button"
+                    aria-label="Aumentar unidades a reponer"
+                    onClick={() => setRestockQuantity((current) => String(Math.max(1, Number(current || 0) + 1)))}
+                    className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold"
+                  >
                     +
                   </button>
                 </div>
@@ -69,13 +120,13 @@ export default function InventoryAlertsView({ products }: { products: Product[] 
 
             <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex gap-4">
               <button
-                onClick={() => setIsRestockModalOpen(false)}
+                onClick={closeRestock}
                 className="flex-1 px-4 py-3 bg-gray-100 dark:bg-zinc-800 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => setIsRestockModalOpen(false)}
+                onClick={() => void confirmRestock()}
                 className="flex-1 px-4 py-3 bg-[#F59E0B] text-black font-bold rounded-xl hover:bg-yellow-400 transition-colors shadow-lg shadow-[#F59E0B]/20"
               >
                 Confirmar
@@ -83,12 +134,13 @@ export default function InventoryAlertsView({ products }: { products: Product[] 
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       <div>
         <h1 className="text-2xl font-bold">Alertas de Stock</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Monitoreo de inventario crítico y bajo
+          Monitoreo y reposición directa por talla. Cada entrada queda registrada en Entradas / Salidas.
         </p>
       </div>
 

@@ -9,6 +9,8 @@ const router = Router();
 router.use(validateJWT, checkRole(ROLES.ADMIN, ROLES.INVENTORY));
 
 router.get("/products", adminController.getInventory);
+router.get("/orders", adminController.listOrders);
+router.put("/orders/:id/status", adminController.updateInventoryOrderStatus);
 router.post("/products", adminController.createProduct);
 router.put("/products/:id", adminController.updateProduct);
 router.delete("/products/:id", adminController.deleteProduct);

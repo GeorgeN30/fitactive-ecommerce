@@ -58,8 +58,8 @@ export default function TwoFaSetupPage() {
               2FA Activado
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-              La autenticacion de doble factor esta habilitada en tu cuenta.
-              Ahora se te pedira un codigo de 6 digitos al iniciar sesion.
+              La autenticación de doble factor está habilitada en tu cuenta.
+              Ahora se te pedirá un código de 6 dígitos al iniciar sesión.
             </p>
             <a
               href="/"
@@ -85,9 +85,9 @@ export default function TwoFaSetupPage() {
               Protege tu cuenta
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed max-w-sm mx-auto">
-              La autenticacion de doble factor (2FA) agrega una capa extra de
-              seguridad. Al activarla, al iniciar sesion se te pedira un codigo
-              desde tu aplicacion de autenticacion.
+              La autenticación de doble factor (2FA) agrega una capa extra de
+              seguridad. Al activarla, al iniciar sesión se te pedirá un código
+              desde tu aplicación de autenticación.
             </p>
 
             {error && (
@@ -152,7 +152,7 @@ export default function TwoFaSetupPage() {
               Configurar 2FA
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Protege tu cuenta con autenticacion de doble factor
+              Protege tu cuenta con autenticación de doble factor
             </p>
           </div>
 
@@ -160,8 +160,8 @@ export default function TwoFaSetupPage() {
             <div className="text-center">
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-6 border border-slate-100 dark:border-slate-600">
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Al activar 2FA, al iniciar sesion se te pedira un codigo de 6
-                  digitos desde tu aplicacion de autenticacion (Google
+                  Al activar 2FA, al iniciar sesión se te pedirá un código de 6
+                  dígitos desde tu aplicación de autenticación (Google
                   Authenticator, Authy, etc.)
                 </p>
               </div>
@@ -177,7 +177,7 @@ export default function TwoFaSetupPage() {
             <>
               <div className="text-center mb-8">
                 <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                  Escanea este codigo con tu aplicacion de autenticacion
+                  Escanea este código con tu aplicación de autenticación
                 </p>
                 <div className="inline-block border border-slate-200 dark:border-slate-600 p-4 rounded-xl bg-white dark:bg-brand-card-dark">
                   <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
@@ -197,7 +197,7 @@ export default function TwoFaSetupPage() {
               <form onSubmit={handleEnable} className="space-y-5">
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Codigo de verificacion
+                    Código de verificación
                   </label>
                   <input
                     type="text"

@@ -1,17 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Order } from "../../../data/adminPrototypeTypes";
 
 interface AdminOrdersViewProps {
   orders: Order[];
-  updateOrderStatus: (orderId: string, status: Order["status"]) => void;
+  updateOrderStatus: (orderId: string, status: Order["status"]) => void | Promise<void>;
+  allowedStatuses?: Array<Order["status"]>;
 }
 
 export default function AdminOrdersView({
   orders,
   updateOrderStatus,
+  allowedStatuses,
 }: AdminOrdersViewProps) {
   const [filter, setFilter] = useState<Order["status"] | "todos">("todos");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<Order["status"] | null>(null);
 
   const filteredOrders =
     filter === "todos" ? orders : orders.filter((o) => o.status === filter);
@@ -52,12 +55,50 @@ export default function AdminOrdersView({
     return statuses.find((s) => s.value === status)?.label || status;
   };
 
-  const handleStatusChange = (status: Order["status"]) => {
-    if (selectedOrder) {
-      updateOrderStatus(selectedOrder.id, status);
-      setSelectedOrder({ ...selectedOrder, status });
+  useEffect(() => {
+    if (!selectedOrder) return;
+    const latest = orders.find((order) => order.id === selectedOrder.id);
+    if (latest && latest !== selectedOrder) setSelectedOrder(latest);
+  }, [orders, selectedOrder]);
+
+  const handleStatusChange = async (status: Order["status"]) => {
+    if (!selectedOrder || updatingStatus) return;
+    setUpdatingStatus(status);
+    try {
+      await updateOrderStatus(selectedOrder.id, status);
+      setSelectedOrder((current) => current ? { ...current, status } : current);
+    } catch {
+      // El contenedor informa el error y conserva el estado anterior.
+    } finally {
+      setUpdatingStatus(null);
     }
   };
+
+  const adminTransitions: Record<Order["status"], Array<Order["status"]>> = {
+    pending: ["confirmed", "cancelled"],
+    confirmed: ["preparing", "cancelled"],
+    preparing: ["shipped", "cancelled"],
+    shipped: ["delivered", "return"],
+    delivered: ["return"],
+    cancelled: [],
+    return: [],
+  };
+
+  const editableStatuses = selectedOrder
+    ? allowedStatuses
+      ? allowedStatuses.filter((status) =>
+          (selectedOrder.status === "confirmed" && status === "preparing") ||
+          (selectedOrder.status === "preparing" && status === "shipped"),
+        )
+      : adminTransitions[selectedOrder.status] || []
+    : [];
+  const fulfillmentFlow: Array<Order["status"]> = [
+    "pending",
+    "confirmed",
+    "preparing",
+    "shipped",
+    "delivered",
+  ];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full text-gray-900 dark:text-white animate-fade-in">
@@ -178,6 +219,43 @@ export default function AdminOrdersView({
               </div>
             </div>
 
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/50">
+              <h3 className="mb-3 text-xs font-bold uppercase text-gray-500">
+                Progreso del pedido
+              </h3>
+              <div className="space-y-2">
+                {fulfillmentFlow.map((status, index) => {
+                  const currentIndex = fulfillmentFlow.indexOf(selectedOrder.status);
+                  const reached = currentIndex >= index;
+                  const isCurrent = selectedOrder.status === status;
+                  return (
+                    <div key={status} className="flex items-center gap-3 text-xs">
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border font-black ${
+                        reached
+                          ? "border-[#00FF66] bg-[#00FF66] text-black"
+                          : "border-gray-300 bg-white text-gray-400 dark:border-zinc-700 dark:bg-zinc-900"
+                      }`}>
+                        {reached ? <i className="fa-solid fa-check text-[10px]" /> : index + 1}
+                      </span>
+                      <span className={isCurrent ? "font-black text-gray-900 dark:text-white" : "font-medium text-gray-500"}>
+                        {getStatusLabel(status)}
+                      </span>
+                      {isCurrent && (
+                        <span className="ml-auto rounded-full bg-[#00FF66]/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-[#00FF66]">
+                          Actual
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {["cancelled", "return"].includes(selectedOrder.status) && (
+                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                    Flujo cerrado: {getStatusLabel(selectedOrder.status)}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div className="bg-gray-50 dark:bg-zinc-950/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
               <h3 className="text-xs font-bold uppercase text-gray-500 mb-3">
                 <i className="fa-solid fa-truck text-[#00FF66] mr-2"></i>Envío
@@ -218,28 +296,43 @@ export default function AdminOrdersView({
 
           <div className="p-5 border-t border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-950/30 rounded-b-xl">
             <h3 className="text-xs font-bold uppercase text-gray-500 mb-3">
-              Cambiar estado
+              Acciones disponibles
             </h3>
+            {!allowedStatuses && editableStatuses.length > 0 && (
+              <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                Para proteger el historial, cada acción habilita el siguiente paso. No se permiten saltos de estado.
+              </p>
+            )}
+            {allowedStatuses && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Inventario solo actualiza preparación y despacho. Cancelaciones, devoluciones y estados de pago son responsabilidad de Administración.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               {statuses
-                .filter((s) => s.value !== "todos")
+                .filter((s) => editableStatuses.includes(s.value as Order["status"]))
                 .map((s) => (
                   <button
                     key={s.value}
                     onClick={() =>
-                      handleStatusChange(s.value as Order["status"])
+                      void handleStatusChange(s.value as Order["status"])
                     }
-                    disabled={selectedOrder.status === s.value}
+                    disabled={updatingStatus !== null}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                       selectedOrder.status === s.value
                         ? "bg-[#00FF66] border-[#00FF66] text-black opacity-100 shadow-sm"
                         : "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-400 hover:border-[#00FF66] hover:text-black dark:hover:text-white"
                     }`}
                   >
-                    {s.label}
+                    {updatingStatus === s.value ? "Actualizando…" : s.label}
                   </button>
                 ))}
             </div>
+            {editableStatuses.length === 0 && (
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Este pedido no tiene más acciones disponibles para tu rol.
+              </p>
+            )}
           </div>
         </div>
       )}

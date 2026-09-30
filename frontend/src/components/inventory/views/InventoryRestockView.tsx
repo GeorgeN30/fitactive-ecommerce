@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import ModalPortal from "../../ModalPortal";
 import type { Product } from "../../../data/adminPrototypeTypes";
 
 interface RestockRequest {
@@ -11,6 +12,7 @@ interface RestockRequest {
   desc: string;
   date: string;
   icon: string;
+  size: string;
 }
 
 interface FormErrors {
@@ -48,6 +50,7 @@ export default function InventoryRestockView({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState("");
   const [priority, setPriority] = useState("Media");
   const [note, setNote] = useState("");
@@ -74,7 +77,18 @@ export default function InventoryRestockView({
       ),
     }));
 
-  const [requests, setRequests] = useState<RestockRequest[]>([]);
+  const [requests, setRequests] = useState<RestockRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem("fitlook-restock-requests");
+      return saved ? (JSON.parse(saved) as RestockRequest[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("fitlook-restock-requests", JSON.stringify(requests));
+  }, [requests]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -86,9 +100,12 @@ export default function InventoryRestockView({
 
   const handleCreateRequest = () => {
     const newErrors: FormErrors = {};
-
     if (!selectedProduct) {
       newErrors.product = "Debe seleccionar un producto";
+    }
+
+    if (!selectedSize) {
+      newErrors.product = "Debe seleccionar una talla";
     }
 
     if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
@@ -104,8 +121,8 @@ export default function InventoryRestockView({
       return;
     }
 
-    const prodName =
-      products.find((p) => p.id === selectedProduct)?.name ||
+    const product = products.find((p) => p.id === selectedProduct);
+    const prodName = product?.name ||
       "Producto Nuevo";
 
     setRequests([
@@ -116,10 +133,11 @@ export default function InventoryRestockView({
             0,
           ) + 1,
         name: prodName,
+        size: selectedSize,
         priority,
         status: "Enviado",
         qty: Number(quantity),
-        desc: note.trim() || "Solicitud recién creada",
+        desc: note.trim(),
         date: new Date().toISOString().split("T")[0],
         icon: "fa-box",
       },
@@ -136,6 +154,7 @@ export default function InventoryRestockView({
 
   const resetForm = () => {
     setSelectedProduct("");
+    setSelectedSize("");
     setQuantity("");
     setPriority("Media");
     setNote("");
@@ -144,10 +163,8 @@ export default function InventoryRestockView({
 
   const markAsReceived = async (req: RestockRequest) => {
     const product = products.find((p) => p.name === req.name);
+    const sizeKey = req.size || (product ? Object.keys(product.stock)[0] || "" : "");
 
-    const sizeKey = product
-      ? Object.keys(product.stock)[0] || "Única"
-      : "Única";
 
     if (onRestock && product) {
       try {
@@ -163,11 +180,10 @@ export default function InventoryRestockView({
       }
     }
 
-    setProducts(
+      setProducts(
       products.map((p) => {
         if (p.name === req.name) {
-          const key = Object.keys(p.stock)[0] || "Única";
-
+        const key = req.size || Object.keys(p.stock)[0] || "Única";
           return {
             ...p,
             stock: {
@@ -180,7 +196,6 @@ export default function InventoryRestockView({
         return p;
       }),
     );
-
     setRequests(
       requests.map((request) =>
         request.id === req.id
@@ -216,7 +231,8 @@ export default function InventoryRestockView({
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <ModalPortal>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
@@ -235,11 +251,13 @@ export default function InventoryRestockView({
 
                 <select
                   value={selectedProduct}
-                  onChange={(e) => setSelectedProduct(e.target.value)}
-                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.product
-                      ? "border-red-500"
-                      : "border-gray-200 dark:border-zinc-800"
-                    } rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white`}
+
+                  onChange={(e) => {
+                    const nextProduct = products.find((product) => product.id === e.target.value);
+                    setSelectedProduct(e.target.value);
+                    setSelectedSize(nextProduct ? Object.keys(nextProduct.stock)[0] || "" : "");
+                  }}
+                  className={`w-full px-4 py-3 bg-white dark:bg-zinc-900 border ${errors.product ? "border-red-500" : "border-gray-200 dark:border-zinc-800"} rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white`}
                 >
                   <option value="">Seleccione un producto...</option>
 
@@ -260,6 +278,23 @@ export default function InventoryRestockView({
                     {errors.product}
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                  Talla
+                </label>
+                <select
+                  value={selectedSize}
+                  onChange={(e) => setSelectedSize(e.target.value)}
+                  disabled={!selectedProduct}
+                  className="w-full px-4 py-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-[#F59E0B] text-sm text-black dark:text-white disabled:opacity-50"
+                >
+                  <option value="">Seleccione una talla...</option>
+                  {(products.find((product) => product.id === selectedProduct)?.sizes || []).map((size) => (
+                    <option key={size} value={size}>{size} · stock actual: {products.find((product) => product.id === selectedProduct)?.stock[size] ?? 0}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -357,6 +392,7 @@ export default function InventoryRestockView({
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       <div className="flex justify-between items-start">
@@ -478,7 +514,7 @@ export default function InventoryRestockView({
                   </div>
 
                   <p className="text-sm font-black mt-1">
-                    {req.qty} unidades
+                    {req.qty} unidades · talla {req.size}
                   </p>
 
                   <p className="text-xs text-gray-500 mt-1">
@@ -490,6 +526,7 @@ export default function InventoryRestockView({
                   </p>
                 </div>
               </div>
+
               {req.status === "Enviado" && (
                 <button
                   type="button"
@@ -507,7 +544,6 @@ export default function InventoryRestockView({
               )}
             </div>
           ))}
-
           {requests.length === 0 && (
             <div className="p-8 text-center text-gray-500 text-sm">
               No hay solicitudes activas.

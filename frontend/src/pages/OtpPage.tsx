@@ -97,13 +97,13 @@ export default function OtpPage() {
       const requires2Fa = await loginWithOtp(email, fullCode, name, rememberMe);
       if (requires2Fa) {
         setSuccess({
-          message: "Sesion iniciada",
-          subtitle: "Redirigiendo a verificacion de seguridad...",
+          message: "Sesión iniciada",
+          subtitle: "Redirigiendo a verificación de seguridad...",
           target: "/2fa-verify",
         });
       } else {
         setSuccess({
-          message: "Sesion iniciada",
+          message: "Sesión iniciada",
           subtitle: "Bienvenido de vuelta",
           target: "/",
         });

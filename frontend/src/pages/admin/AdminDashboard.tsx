@@ -345,7 +345,11 @@ export default function AdminDashboard() {
         message: notification.message,
         kind: notification.priority === "high" ? "critical" : "info",
       });
-      if (event.type === "NEW_ORDER" || event.type === "ORDER_STATUS") {
+      if (
+        event.type === "NEW_ORDER" ||
+        event.type === "ORDER_STATUS" ||
+        event.type === "PAYMENT_STATUS"
+      ) {
         void refreshOrders();
       }
     });
@@ -389,9 +393,10 @@ export default function AdminDashboard() {
     } catch (error) {
       if (isAuthError(error)) {
         handleUnauthorized();
-        return;
+        throw error;
       }
       window.alert("No se pudo actualizar el estado del pedido.");
+      throw error;
     }
   };
 

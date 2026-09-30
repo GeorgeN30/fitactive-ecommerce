@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
 dotenv.config({ path: path.resolve(__dirname, "../../../.env"), quiet: true });
 
 export const config = {
+  nodeEnv: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "4000", 10),
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
   databaseUrl: process.env.DATABASE_URL || "",
@@ -25,4 +26,12 @@ export const config = {
   inventoryPassword: process.env.INVENTORY_PASSWORD || process.env.RECEPTIONIST_PASSWORD || "",
   receptionistEmail: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_EMAIL || "",
   receptionistPassword: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_PASSWORD || "",
+  mercadoPago: {
+    accessToken: process.env.MP_ACCESS_TOKEN || "",
+    webhookSecret: process.env.MP_WEBHOOK_SECRET || "",
+    currencyId: process.env.MP_CURRENCY_ID || "PEN",
+    testBuyerEmail: process.env.MP_TEST_BUYER_EMAIL || "",
+    appUrl: process.env.APP_URL || process.env.CLIENT_URL || "http://localhost:5173",
+    webhookUrl: process.env.MP_WEBHOOK_URL || "",
+  },
 };

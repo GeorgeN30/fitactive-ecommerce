@@ -26,6 +26,9 @@ import ProbadorVirtual from "./pages/ProbadorVirtual";
 import { CartProvider } from "./context/CartContext";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import PaymentResultPage from "./pages/PaymentResultPage";
+import MyOrdersPage from "./pages/MyOrdersPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
 
@@ -65,6 +68,23 @@ function AnimatedRoutes() {
         />
         <Route path="/carrito" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout/result" element={<PaymentResultPage />} />
+        <Route
+          path="/mis-compras"
+          element={
+            <ProtectedRoute>
+              <MyOrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notificaciones"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin"

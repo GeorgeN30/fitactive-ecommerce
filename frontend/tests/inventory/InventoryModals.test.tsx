@@ -68,8 +68,8 @@ describe("inventory modal positioning", () => {
     await user.type(screen.getByLabelText(/Nombre del producto/i), " Nuevo");
     await user.type(screen.getByLabelText("SKU *"), "-NEW");
     await user.type(screen.getByLabelText(/Precio \(S\/\)/i), "10");
-    await user.clear(screen.getByLabelText("Stock Actual"));
-    await user.type(screen.getByLabelText("Stock Actual"), "7");
+    await user.clear(screen.getByLabelText("Stock talla 1"));
+    await user.type(screen.getByLabelText("Stock talla 1"), "7");
     await user.type(screen.getByLabelText("URL de imagen"), "https://cdn.example.com/front.jpg");
     await user.click(screen.getByRole("button", { name: "Agregar URL" }));
     await user.click(screen.getAllByRole("button", { name: "Añadir Producto" })[1]);
@@ -78,6 +78,41 @@ describe("inventory modal positioning", () => {
       expect.objectContaining({
         stock: 7,
         imageUrls: ["https://cdn.example.com/front.jpg"],
+      }),
+    ));
+  });
+
+  it("sends multiple sizes with stock and measurement ranges", async () => {
+    const user = userEvent.setup();
+    const onAddProduct = vi.fn().mockResolvedValue({ ...product, id: "product-3" });
+    render(
+      <InventoryCatalogView
+        products={[product]}
+        setProducts={vi.fn()}
+        onAddProduct={onAddProduct}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Añadir Producto/i }));
+    await user.type(screen.getByLabelText(/Nombre del producto/i), " Polo por tallas");
+    await user.type(screen.getByLabelText("SKU *"), "-SIZES");
+    await user.type(screen.getByLabelText(/Precio \(S\/\)/i), "10");
+    await user.clear(screen.getByLabelText("Stock talla 1"));
+    await user.type(screen.getByLabelText("Stock talla 1"), "5");
+    await user.click(screen.getByRole("button", { name: /Talla/i }));
+    await user.type(screen.getByLabelText("Talla 2"), "S");
+    await user.clear(screen.getByLabelText("Stock talla 2"));
+    await user.type(screen.getByLabelText("Stock talla 2"), "3");
+    await user.type(screen.getByLabelText("Medida mínima talla 2"), "80");
+    await user.type(screen.getByLabelText("Medida máxima talla 2"), "90");
+    await user.click(screen.getAllByRole("button", { name: "Añadir Producto" })[1]);
+
+    await waitFor(() => expect(onAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sizes: [
+          { size: "M", stock: 5, rangoCmMin: null, rangoCmMax: null },
+          { size: "S", stock: 3, rangoCmMin: 80, rangoCmMax: 90 },
+        ],
       }),
     ));
   });

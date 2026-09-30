@@ -4,30 +4,182 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import ThemeToggle from "./ThemeToggle";
+import NotificationToast from "./NotificationToast";
+import { fetchCatalogProducts, getCatalogPrice, type CatalogProduct } from "../services/catalog";
+import {
+  connectAdminSocket,
+  fetchNotifications,
+  mapLiveEventToCustomerNotification,
+  NOTIFICATIONS_UPDATED_EVENT,
+  type AdminNotification,
+  type LiveEvent,
+} from "../services/notifications";
+
+const SEARCH_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop&auto=format";
+
+function checkoutCompletedByEvent(event: LiveEvent): boolean {
+  if (event.type === "PAYMENT_STATUS") {
+    return String(event.data?.paymentStatus || "").toLowerCase() === "approved";
+  }
+  if (event.type !== "ORDER_STATUS") return false;
+  const status = String(event.data?.status || "").trim().toLowerCase();
+  return ["confirmado", "preparando", "enviado", "entregado"].includes(status);
+}
+
+function checkoutCompletedByNotification(notification: AdminNotification): boolean {
+  const value = `${notification.title} ${notification.message}`.toLowerCase();
+  return value.includes("pago aprobado") ||
+    ["confirmado", "preparando", "enviado", "entregado"].some((status) =>
+      value.includes(`estado: ${status}`),
+    );
+}
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth();
   const isInventoryUser =
     user?.role === "inventory" || user?.role === "receptionist";
   const navigate = useNavigate();
-  const { cartCount } = useCart();
+  const { cartCount, completePendingCheckout } = useCart();
   const { favorites } = useFavorites();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allProducts, setAllProducts] = useState<CatalogProduct[]>([]);
+  const [suggestions, setSuggestions] = useState<CatalogProduct[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [customerToast, setCustomerToast] = useState<{
+    title: string;
+    message: string;
+    kind?: "info" | "critical" | "success";
+  } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCatalogProducts()
+      .then((loadedProducts) => {
+        if (!cancelled) setAllProducts(loadedProducts);
+      })
+      .catch(() => {
+        if (!cancelled) setAllProducts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user?.role !== "customer") {
+      setUnreadNotifications(0);
+      setCustomerToast(null);
+      return;
+    }
+
+    let active = true;
+    let toastTimer: number | undefined;
+
+    const refreshNotifications = async () => {
+      try {
+        const notifications = await fetchNotifications();
+        if (!active) return;
+        setUnreadNotifications(notifications.filter((item) => !item.read).length);
+        for (const notification of notifications) {
+          if (!notification.read && notification.referenceId && checkoutCompletedByNotification(notification)) {
+            completePendingCheckout(notification.referenceId);
+          }
+        }
+      } catch {
+        // El socket seguirá intentando; el sondeo es solo respaldo.
+      }
+    };
+
+    void refreshNotifications();
+    const disconnect = connectAdminSocket((event) => {
+      if (!["NEW_ORDER", "ORDER_STATUS", "PAYMENT_STATUS"].includes(event.type)) return;
+      const notification = mapLiveEventToCustomerNotification(event);
+      setUnreadNotifications((current) => current + 1);
+      setCustomerToast({
+        title: notification.title,
+        message: notification.message,
+        kind: notification.priority === "high"
+          ? "critical"
+          : event.type === "PAYMENT_STATUS" && String(event.data?.paymentStatus || "").toLowerCase() === "approved"
+            ? "success"
+            : "info",
+      });
+      if (checkoutCompletedByEvent(event)) {
+        completePendingCheckout(String(event.data?.orderId || ""));
+      }
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => setCustomerToast(null), 6000);
+      window.setTimeout(() => void refreshNotifications(), 700);
+    });
+    const pollingTimer = window.setInterval(() => void refreshNotifications(), 15000);
+    const handleNotificationsUpdated = () => void refreshNotifications();
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handleNotificationsUpdated);
+
+    return () => {
+      active = false;
+      disconnect();
+      window.clearInterval(pollingTimer);
+      window.clearTimeout(toastTimer);
+      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handleNotificationsUpdated);
+    };
+  }, [completePendingCheckout, user?.id, user?.role]);
+
+  useEffect(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      const matches = allProducts
+        .filter((product) => [
+          product.nombre,
+          product.categoria || "",
+          product.marca || "",
+        ].some((value) => value.toLowerCase().includes(query)))
+        .slice(0, 6);
+      setSuggestions(matches);
+      setShowSuggestions(true);
+    }, 200);
+    return () => window.clearTimeout(timeoutId);
+  }, [allProducts, searchTerm]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const runSearch = (term: string) => {
+    const normalizedTerm = term.trim();
+    if (!normalizedTerm) return;
+    setShowSuggestions(false);
+    setMobileMenuOpen(false);
+    navigate(`/catalogo?search=${encodeURIComponent(normalizedTerm)}`);
+  };
+
+  const goToProduct = (product: CatalogProduct) => {
+    setShowSuggestions(false);
+    setSearchTerm("");
+    navigate(`/producto/${product.id}`);
+  };
+
   return (
+    <>
     <header className="bg-white dark:bg-brand-card-dark border-b border-slate-200 dark:border-slate-700/50 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -70,6 +222,11 @@ export default function Header() {
               )}
             </Link>
           )}
+          {user && (
+            <Link to="/mis-compras" className="hover:text-brand-green transition-colors">
+              Mis compras
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -88,6 +245,7 @@ export default function Header() {
           </button>
 
           <div
+            ref={searchRef}
             className={`relative hidden sm:block w-64 lg:w-80 transition-all ${
               searchFocused ? "w-80 lg:w-96" : ""
             }`}
@@ -96,10 +254,56 @@ export default function Header() {
             <input
               type="text"
               placeholder="Buscar productos..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") runSearch(searchTerm);
+                if (event.key === "Escape") setShowSuggestions(false);
+              }}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50 transition-all"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-brand-card-dark rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 max-h-96 overflow-y-auto">
+                {suggestions.map((product) => {
+                  const pricing = getCatalogPrice(product);
+                  return (
+                    <button
+                      type="button"
+                      key={product.id}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => goToProduct(product)}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                    >
+                      <img
+                        src={product.imagenUrl || SEARCH_FALLBACK_IMAGE}
+                        alt={product.nombre}
+                        className="w-9 h-9 rounded-md object-cover flex-shrink-0 bg-slate-100 dark:bg-slate-700"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-semibold text-slate-800 dark:text-white truncate">{product.nombre}</span>
+                        <span className="block text-[10px] text-slate-400 truncate">{product.categoria || "General"}{product.marca ? ` - ${product.marca}` : ""}</span>
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">S/ {pricing.price.toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => runSearch(searchTerm)}
+                  className="w-full text-left px-4 py-2 mt-1 border-t border-slate-100 dark:border-slate-700 text-[11px] font-bold text-brand-green hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  Ver todos los resultados para "{searchTerm}"
+                </button>
+              </div>
+            )}
+            {showSuggestions && suggestions.length === 0 && searchTerm.trim() !== "" && (
+              <div className="absolute left-0 right-0 mt-2 bg-white dark:bg-brand-card-dark rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-3 px-4 z-50">
+                <p className="text-xs text-slate-400">Sin coincidencias para "{searchTerm}"</p>
+              </div>
+            )}
           </div>
 
           {isAdmin && (
@@ -189,6 +393,14 @@ export default function Header() {
 
                   <div className="border-t border-slate-100 dark:border-slate-700 py-1">
                     <Link
+                      to="/mis-compras"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center gap-2"
+                    >
+                      <i className="fa-solid fa-receipt text-xs" />
+                      Mis compras
+                    </Link>
+                    <Link
                       to="/settings"
                       onClick={() => setMenuOpen(false)}
                       className="w-full text-left px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center gap-2"
@@ -243,6 +455,22 @@ export default function Header() {
               )}
             </Link>
           )}
+
+          {user?.role === "customer" && (
+            <Link
+              to="/notificaciones"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+              title="Notificaciones"
+              aria-label="Notificaciones"
+            >
+              <i className="fa-solid fa-bell text-lg" />
+              {unreadNotifications > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[9px] font-black leading-none text-white dark:border-brand-card-dark">
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -253,6 +481,11 @@ export default function Header() {
             <input
               type="text"
               placeholder="Buscar productos..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") runSearch(searchTerm);
+              }}
               className="w-full bg-slate-100 dark:bg-slate-700 text-xs text-slate-800 dark:text-white placeholder-slate-400 rounded-full pl-9 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-green/50"
             />
           </div>
@@ -314,6 +547,31 @@ export default function Header() {
                     </span>
                   )}
                 </Link>
+                <Link
+                  to="/mis-compras"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+                >
+                  <i className="fa-solid fa-receipt mr-3 w-4 text-center text-xs" />
+                  Mis compras
+                </Link>
+                {user.role === "customer" && (
+                  <Link
+                    to="/notificaciones"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
+                  >
+                    <span>
+                      <i className="fa-solid fa-bell mr-3 w-4 text-center text-xs" />
+                      Notificaciones
+                    </span>
+                    {unreadNotifications > 0 && (
+                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      </span>
+                    )}
+                  </Link>
+                )}
               </>
             )}
             {isAdmin && (
@@ -381,5 +639,14 @@ export default function Header() {
         </div>
       )}
     </header>
+    <NotificationToast
+      notification={customerToast}
+      onClose={() => setCustomerToast(null)}
+      onOpen={() => {
+        setCustomerToast(null);
+        navigate("/notificaciones");
+      }}
+    />
+    </>
   );
 }

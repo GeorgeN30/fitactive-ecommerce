@@ -38,6 +38,7 @@ interface AuthContextType {
     isNewUser: boolean;
     hasPassword: boolean;
   }>;
+  establishSession: (newToken: string, newUser: User, rememberMe?: boolean) => void;
   verify2Fa: (code: string) => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -97,6 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(newToken);
     setUser(normalizedUser);
     setPreAuthUserId(null);
+  }
+
+  function establishSession(
+    newToken: string,
+    newUser: User,
+    rememberMe = true,
+  ) {
+    saveSession(newToken, newUser, rememberMe);
   }
 
   async function loginWithOtp(
@@ -212,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithOtp,
         loginWithPassword,
         loginWithGoogle,
+        establishSession,
         verify2Fa,
         updateUser,
         refreshUser,

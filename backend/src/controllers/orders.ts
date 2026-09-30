@@ -15,11 +15,12 @@ export const orderController = {
         return;
       }
 
-      const { entries, tryOnSessionId } = req.body;
+      const { entries, tryOnSessionId, checkoutDetails } = req.body;
       const order = await orderService.createOrder(
         req.user.userId,
         entries,
         typeof tryOnSessionId === "string" ? tryOnSessionId : undefined,
+        checkoutDetails && typeof checkoutDetails === "object" ? checkoutDetails : undefined,
       );
 
       void notifications.notifyNewOrder({

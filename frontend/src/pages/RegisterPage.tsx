@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import AuthLayout from "../components/AuthLayout";
+import AuthLayout, { LegalModal, type LegalDocType } from "../components/AuthLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
 import SuccessOverlay from "../components/SuccessOverlay";
 import {
   getEmailValidationMessage,
   isStrongPassword,
 } from "../utils/validation";
+import { useAuth, type User } from "../context/AuthContext";
 
 type Step = "form" | "otp";
 
@@ -24,8 +25,10 @@ export default function RegisterPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
+  const { establishSession } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const emailValidationMessage = getEmailValidationMessage(email);
@@ -150,8 +153,7 @@ export default function RegisterPage() {
         }
         return;
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      establishSession(data.token, data.user as User, true);
       setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");
@@ -260,18 +262,16 @@ export default function RegisterPage() {
               />
               {(emailTouched || email.length > 0) && (
                 <p
-                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${
-                    emailValidationMessage
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-brand-green"
-                  }`}
+                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${emailValidationMessage
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-brand-green"
+                    }`}
                 >
                   <i
-                    className={`fa-solid ${
-                      emailValidationMessage
-                        ? "fa-circle-info"
-                        : "fa-circle-check"
-                    }`}
+                    className={`fa-solid ${emailValidationMessage
+                      ? "fa-circle-info"
+                      : "fa-circle-check"
+                      }`}
                   />
                   {emailValidationMessage || "Correo válido."}
                 </p>
@@ -300,9 +300,8 @@ export default function RegisterPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 >
                   <i
-                    className={`fa-regular ${
-                      showPassword ? "fa-eye" : "fa-eye-slash"
-                    } text-sm`}
+                    className={`fa-regular ${showPassword ? "fa-eye" : "fa-eye-slash"
+                      } text-sm`}
                   />
                 </button>
               </div>
@@ -322,19 +321,24 @@ export default function RegisterPage() {
                 />
                 <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
                   Acepto los{" "}
-                  <a
-                    href="#"
+
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("terms")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
                     Términos de Servicio
-                  </a>{" "}
+                  </button>{" "}
+
                   y la{" "}
-                  <a
-                    href="#"
+
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("privacy")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
                     Política de Privacidad
-                  </a>
+                  </button>
                 </span>
               </label>
             </div>
@@ -435,11 +439,10 @@ export default function RegisterPage() {
             <button
               onClick={handleGoogleLogin}
               disabled={!clientId}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${
-                clientId
-                  ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
-                  : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
-              }`}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${clientId
+                ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
+                : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
+                }`}
             >
               <i className="fa-brands fa-google text-sm" />
               Google
@@ -472,6 +475,13 @@ export default function RegisterPage() {
           )}
         </div>
       </div>
+      {legalDoc && (
+        <LegalModal
+          doc={legalDoc}
+          onClose={() => setLegalDoc(null)}
+          onSwitch={setLegalDoc}
+        />
+      )}
     </AuthLayout>
   );
 }

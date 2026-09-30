@@ -59,5 +59,7 @@ export function clearStoredSession(): void {
   sessionStorage.removeItem("favorites");
   localStorage.removeItem("fitactive-cart");
   sessionStorage.removeItem("fitactive-cart");
+  localStorage.removeItem("fitlook:pending-checkout");
+  sessionStorage.removeItem("fitlook:pending-checkout");
   window.dispatchEvent(new Event(SESSION_CLEARED_EVENT));
 }
