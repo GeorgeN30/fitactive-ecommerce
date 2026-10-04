@@ -16,6 +16,10 @@ export interface User {
   picture: string | null;
   twoFactorEnabled?: boolean;
   points?: number;
+  altura?: number | null;
+  medida_pecho?: number | null;
+  medida_cintura?: number | null;
+  medida_cadera?: number | null;
 }
 
 interface AuthContextType {
@@ -41,6 +45,7 @@ interface AuthContextType {
   establishSession: (newToken: string, newUser: User, rememberMe?: boolean) => void;
   verify2Fa: (code: string) => Promise<void>;
   updateUser: (partial: Partial<User>) => void;
+  updateProfile: (partial: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
@@ -201,6 +206,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  async function updateProfile(partial: Partial<User>) {
+    await api.put("/auth/me", partial);
+    updateUser(partial);
+  }
+
   async function refreshUser() {
     try {
       const { data } = await api.get("/auth/me");
@@ -224,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         establishSession,
         verify2Fa,
         updateUser,
+        updateProfile,
         refreshUser,
         logout,
         isAdmin,

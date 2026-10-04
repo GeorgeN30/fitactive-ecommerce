@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import AppLayout from "../components/AppLayout";
+import ProfileLayout from "../components/ProfileLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
 import api from "../services/api";
 import { isStrongPassword } from "../utils/validation";
@@ -9,8 +9,8 @@ import { isStrongPassword } from "../utils/validation";
 export default function SettingsPage() {
   const { user, updateUser, logout } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "danger">(
-    "profile",
+  const [activeTab, setActiveTab] = useState<"security" | "danger">(
+    "security",
   );
 
   const [name, setName] = useState(user?.name || "");
@@ -255,7 +255,6 @@ export default function SettingsPage() {
   }
 
   const tabs = [
-    { key: "profile" as const, label: "Perfil", icon: "fa-user" },
     { key: "security" as const, label: "Seguridad", icon: "fa-shield-halved" },
     {
       key: "danger" as const,
@@ -265,7 +264,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <AppLayout>
+    <ProfileLayout>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
@@ -293,61 +292,7 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {activeTab === "profile" && (
-          <form
-            onSubmit={handleSaveProfile}
-            className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              Datos personales
-            </h3>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
-              </label>
-              <input
-                type="email"
-                value={user?.email || ""}
-                disabled
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">
-                El correo no se puede cambiar.
-              </p>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Nombre
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-700/50 transition-all"
-                placeholder="Tu nombre"
-              />
-            </div>
 
-            {profileMsg && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-xs px-4 py-2.5 rounded-lg dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-300">
-                {profileMsg}
-              </div>
-            )}
-            {profileError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-4 py-2.5 rounded-lg dark:bg-red-900/30 dark:border-red-800/50 dark:text-red-300">
-                {profileError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={savingProfile}
-              className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
-            >
-              {savingProfile ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </form>
-        )}
 
         {activeTab === "security" && (
           <div className="space-y-6">
@@ -783,6 +728,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </ProfileLayout>
   );
 }

@@ -736,6 +736,16 @@ export const authController = {
             provider: true,
             passwordHash: true,
             fecha_creacion: true,
+              genero: true,
+              altura: true,
+              medida_pecho: true,
+              medida_cintura: true,
+              medida_cadera: true,
+              medida_muslo: true,
+              preferencia_ropa: true,
+              preferencia_colores: true,
+              preferencia_deporte: true,
+              onboarding_completado: true,
           },
         })
       );
@@ -754,6 +764,60 @@ export const authController = {
       res
         .status(HTTP_STATUS.INTERNAL_ERROR)
         .json({ error: "GET_USER_FAILED" });
+    }
+  },
+
+  updateMe: async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.user || !req.user.userId) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "UNAUTHORIZED" });
+        return;
+      }
+
+      const { name, genero, altura, medida_pecho, medida_cintura, medida_cadera, medida_muslo, preferencia_ropa, preferencia_colores, preferencia_deporte, onboarding_completado } = req.body;
+
+      const dataToUpdate: any = {};
+      if (name !== undefined) dataToUpdate.name = name;
+      if (altura !== undefined) dataToUpdate.altura = altura;
+      if (medida_pecho !== undefined) dataToUpdate.medida_pecho = medida_pecho;
+      if (medida_cintura !== undefined) dataToUpdate.medida_cintura = medida_cintura;
+      if (medida_cadera !== undefined) dataToUpdate.medida_cadera = medida_cadera;
+      if (genero !== undefined) dataToUpdate.genero = genero;
+      if (medida_muslo !== undefined) dataToUpdate.medida_muslo = medida_muslo;
+      if (preferencia_ropa !== undefined) dataToUpdate.preferencia_ropa = preferencia_ropa;
+      if (preferencia_colores !== undefined) dataToUpdate.preferencia_colores = preferencia_colores;
+      if (preferencia_deporte !== undefined) dataToUpdate.preferencia_deporte = preferencia_deporte;
+      if (onboarding_completado !== undefined) dataToUpdate.onboarding_completado = onboarding_completado;
+
+      const db = await import("../config/prisma").then((m) => m.prisma);
+      const updatedUser = await db.usuarios.update({
+        where: { id: req.user.userId },
+        data: dataToUpdate,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          picture: true,
+          role: true,
+          twoFactorEnabled: true,
+            points: true,
+            genero: true,
+            altura: true,
+            medida_pecho: true,
+            medida_cintura: true,
+            medida_cadera: true,
+            medida_muslo: true,
+              preferencia_ropa: true,
+              preferencia_colores: true,
+              preferencia_deporte: true,
+              onboarding_completado: true,
+        }
+      });
+
+      res.status(HTTP_STATUS.OK).json({ user: updatedUser });
+    } catch (err) {
+      console.error("Update me error:", err);
+      res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "UPDATE_USER_FAILED" });
     }
   },
 };

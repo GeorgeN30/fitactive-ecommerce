@@ -401,7 +401,7 @@ export default function Header() {
                       Mis compras
                     </Link>
                     <Link
-                      to="/settings"
+                      to="/perfil"
                       onClick={() => setMenuOpen(false)}
                       className="w-full text-left px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center gap-2"
                     >
@@ -597,7 +597,7 @@ export default function Header() {
             {user ? (
               <>
                 <Link
-                  to="/settings"
+                  to="/perfil"
                   onClick={() => setMobileMenuOpen(false)}
                   className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
                 >

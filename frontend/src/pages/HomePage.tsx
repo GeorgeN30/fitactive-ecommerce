@@ -46,8 +46,36 @@ export default function HomePage() {
 
     return () => clearInterval(interval);
   }, []);
-  const featured = products.slice(0, 4);
-  const recommended = products.slice(4, 7);
+  // Sort products based on user preferences
+  const sortedProducts = [...products].sort((a, b) => {
+    let scoreA = 0;
+    let scoreB = 0;
+    const searchA = `${a.nombre} ${a.descripcion || ""} ${a.categoria || ""}`.toLowerCase();
+    const searchB = `${b.nombre} ${b.descripcion || ""} ${b.categoria || ""}`.toLowerCase();
+
+    if (user?.preferencia_ropa) {
+      const p = user.preferencia_ropa.toLowerCase();
+      if (searchA.includes(p)) scoreA++;
+      if (searchB.includes(p)) scoreB++;
+    }
+    if (user?.preferencia_colores) {
+      const c = user.preferencia_colores.toLowerCase().split(" ")[0]; // e.g. "Oscuros" -> "oscuros"
+      if (searchA.includes(c)) scoreA++;
+      if (searchB.includes(c)) scoreB++;
+    }
+    if (user?.preferencia_deporte) {
+      const d = user.preferencia_deporte.toLowerCase();
+      if (searchA.includes(d)) scoreA += 2; // sport matches are more important
+      if (searchB.includes(d)) scoreB += 2;
+    }
+
+    return scoreB - scoreA; // descending
+  });
+
+  const featured = sortedProducts.slice(0, 4);
+  const recommended = sortedProducts.slice(4, 7);
+
+  const hasPreferences = user?.preferencia_deporte || user?.preferencia_ropa;
 
   return (
     <AppLayout>
@@ -85,7 +113,14 @@ export default function HomePage() {
 
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 mb-8">
-            <div><p className="text-brand-green text-xs font-extrabold tracking-widest uppercase">Catálogo actualizado</p><h2 className="text-3xl font-extrabold">Productos destacados</h2></div>
+            <div>
+              <p className="text-brand-green text-xs font-extrabold tracking-widest uppercase">
+                {hasPreferences ? `Recomendados para ti (${user.preferencia_deporte || "Tus gustos"})` : 'Catálogo actualizado'}
+              </p>
+              <h2 className="text-3xl font-extrabold">
+                {hasPreferences ? 'Según tus preferencias' : 'Productos destacados'}
+              </h2>
+            </div>
             <Link to="/catalogo" className="text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-brand-green">Ver todo el catálogo <i className="fa-solid fa-arrow-right ml-1" /></Link>
           </div>
           {loading && <p className="py-10 text-gray-500">Cargando productos…</p>}

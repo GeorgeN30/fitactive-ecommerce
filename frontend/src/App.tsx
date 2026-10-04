@@ -28,9 +28,13 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentResultPage from "./pages/PaymentResultPage";
 import MyOrdersPage from "./pages/MyOrdersPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
+
+import ProfilePage from "./pages/ProfilePage";
+import MeasuresPage from "./pages/MeasuresPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -58,6 +62,23 @@ function AnimatedRoutes() {
         <Route path="/catalogo" element={<CatalogPage />} />
         <Route path="/producto/:id" element={<ProductDetailPage />} />
         <Route path="/probador-virtual" element={<ProbadorVirtual />} />
+        
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/medidas"
+          element={
+            <ProtectedRoute>
+              <MeasuresPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/favoritos"
           element={
@@ -74,6 +95,14 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <MyOrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mis-compras/:id"
+          element={
+            <ProtectedRoute>
+              <OrderTrackingPage />
             </ProtectedRoute>
           }
         />
@@ -114,7 +143,7 @@ function AnimatedRoutes() {
         />
 
         <Route
-          path="/settings"
+          path="/configuracion"
           element={
             <ProtectedRoute>
               <SettingsPage />
