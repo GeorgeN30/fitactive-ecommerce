@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 interface ProtectedRouteProps {
@@ -11,6 +11,7 @@ export default function ProtectedRoute({
   requiredRole,
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -26,6 +27,18 @@ export default function ProtectedRoute({
 
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/" replace />;
+  }
+
+  if (
+    user.onboarding_completado === false &&
+    location.pathname !== "/configurar-perfil"
+  ) {
+    return (
+      <Navigate
+        to="/configurar-perfil"
+        replace
+      />
+    );
   }
 
   return <>{children}</>;

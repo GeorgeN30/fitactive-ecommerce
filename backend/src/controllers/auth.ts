@@ -774,10 +774,11 @@ export const authController = {
         return;
       }
 
-      const { name, genero, altura, medida_pecho, medida_cintura, medida_cadera, medida_muslo, preferencia_ropa, preferencia_colores, preferencia_deporte, onboarding_completado } = req.body;
+      const { name, picture, genero, altura, medida_pecho, medida_cintura, medida_cadera, medida_muslo, preferencia_ropa, preferencia_colores, preferencia_deporte, onboarding_completado } = req.body;
 
       const dataToUpdate: any = {};
       if (name !== undefined) dataToUpdate.name = name;
+      if (picture !== undefined) dataToUpdate.picture = picture;
       if (altura !== undefined) dataToUpdate.altura = altura;
       if (medida_pecho !== undefined) dataToUpdate.medida_pecho = medida_pecho;
       if (medida_cintura !== undefined) dataToUpdate.medida_cintura = medida_cintura;

@@ -38,7 +38,14 @@ export const orderController = {
       if (
         message === "EMPTY_ORDER" ||
         message === "INVALID_ENTRY" ||
-        message === "INVALID_QUANTITY"
+        message === "INVALID_QUANTITY" ||
+        message === "INVALID_CUSTOMER_NAME" ||
+        message === "INVALID_CUSTOMER_EMAIL" ||
+        message === "INVALID_CUSTOMER_PHONE" ||
+        message === "INVALID_SHIPPING_ADDRESS" ||
+        message === "INVALID_SHIPPING_DISTRICT" ||
+        message === "INVALID_SHIPPING_CITY" ||
+        message === "INVALID_SHIPPING_REFERENCE"
       ) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: message });
         return;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { downloadReceipt } from "../services/receipt";
 import ProfileLayout from "../components/ProfileLayout";
 import { fetchMyOrders, type OrderView } from "../services/orders";
 
@@ -51,7 +52,7 @@ export default function MyOrdersPage() {
           {orders.map((order) => {
             const firstProduct = order.entries[0];
             const dateStr = order.fechaOrden ? new Date(order.fechaOrden).toISOString().split("T")[0] : "";
-            
+
             return (
               <div key={order.id} className="border border-slate-200 dark:border-slate-700 rounded-3xl p-6 relative">
                 <div className="absolute top-6 right-6">
@@ -68,9 +69,9 @@ export default function MyOrdersPage() {
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mt-6">
                   {firstProduct && (
                     <div className="flex items-center gap-4">
-                      <img 
-                        src={firstProduct.imagenUrl || "https://placehold.co/100x100"} 
-                        alt={firstProduct.nombre} 
+                      <img
+                        src={firstProduct.imagenUrl || "https://placehold.co/100x100"}
+                        alt={firstProduct.nombre}
                         className="w-16 h-16 rounded-xl object-cover bg-slate-50"
                       />
                       <div>
@@ -82,13 +83,16 @@ export default function MyOrdersPage() {
                   <div className="flex items-center gap-6 mt-4 sm:mt-0">
                     <div className="text-xl font-black text-slate-900 dark:text-white">S/ {Number(order.total).toFixed(2)}</div>
                     <div className="flex gap-2">
-                      <Link 
+                      <Link
                         to={`/mis-compras/${order.id}`}
                         className="px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 text-sm text-slate-900 dark:text-white transition-colors"
                       >
                         Ver seguimiento
                       </Link>
-                      <button className="px-5 py-2 rounded-full bg-black text-white dark:bg-white dark:text-black font-bold text-sm transition-colors">
+                      <button
+                        onClick={() => downloadReceipt(order)}
+                        className="px-5 py-2 rounded-full bg-black text-white dark:bg-white dark:text-black font-bold text-sm transition-colors"
+                      >
                         Comprobante
                       </button>
                     </div>

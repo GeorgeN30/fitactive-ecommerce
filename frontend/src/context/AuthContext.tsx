@@ -14,12 +14,19 @@ export interface User {
   name: string | null;
   role: string;
   picture: string | null;
+
   twoFactorEnabled?: boolean;
   points?: number;
+
+  genero?: string | null;
+
   altura?: number | null;
   medida_pecho?: number | null;
   medida_cintura?: number | null;
   medida_cadera?: number | null;
+  medida_muslo?: number | null;
+
+  onboarding_completado?: boolean;
 }
 
 interface AuthContextType {

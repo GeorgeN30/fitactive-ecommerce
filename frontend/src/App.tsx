@@ -34,6 +34,7 @@ import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
 
 import ProfilePage from "./pages/ProfilePage";
+import ProfileSetupPage from "./pages/ProfileSetupPage";
 import MeasuresPage from "./pages/MeasuresPage";
 
 function ScrollToTop() {
@@ -62,7 +63,15 @@ function AnimatedRoutes() {
         <Route path="/catalogo" element={<CatalogPage />} />
         <Route path="/producto/:id" element={<ProductDetailPage />} />
         <Route path="/probador-virtual" element={<ProbadorVirtual />} />
-        
+
+        <Route
+          path="/configurar-perfil"
+          element={
+            <ProtectedRoute>
+              <ProfileSetupPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/perfil"
           element={

@@ -82,6 +82,65 @@ function normalizeCheckoutValue(value: unknown, maxLength: number): string | nul
   const normalized = value.trim();
   return normalized ? normalized.slice(0, maxLength) : null;
 }
+function validateCheckoutDetails(
+  checkoutDetails?: OrderCheckoutDetails,
+): void {
+  if (!checkoutDetails) return;
+
+  const name = checkoutDetails.customerName?.trim() ?? "";
+  const email = checkoutDetails.customerEmail?.trim() ?? "";
+  const phone = checkoutDetails.customerPhone?.trim() ?? "";
+  const address = checkoutDetails.shippingAddress?.trim() ?? "";
+  const district = checkoutDetails.shippingDistrict?.trim() ?? "";
+  const city = checkoutDetails.shippingCity?.trim() ?? "";
+  const reference = checkoutDetails.shippingReference?.trim() ?? "";
+
+  if (!name) {
+    throw new Error("INVALID_CUSTOMER_NAME");
+  }
+
+  if (
+    name.length < 3 ||
+    name.length > 150 ||
+    !/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)
+  ) {
+    throw new Error("INVALID_CUSTOMER_NAME");
+  }
+
+  if (
+    !email ||
+    email.length > 255 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    throw new Error("INVALID_CUSTOMER_EMAIL");
+  }
+
+  if (!/^9\d{8}$/.test(phone)) {
+    throw new Error("INVALID_CUSTOMER_PHONE");
+  }
+
+  if (address.length < 5 || address.length > 255) {
+    throw new Error("INVALID_SHIPPING_ADDRESS");
+  }
+
+  if (
+    district.length < 2 ||
+    district.length > 120
+  ) {
+    throw new Error("INVALID_SHIPPING_DISTRICT");
+  }
+
+  if (
+    city.length < 2 ||
+    city.length > 120
+  ) {
+    throw new Error("INVALID_SHIPPING_CITY");
+  }
+
+  if (reference.length > 255) {
+    throw new Error("INVALID_SHIPPING_REFERENCE");
+  }
+}
 
 function consolidateEntries(entries: OrderEntryInput[]): OrderEntryInput[] {
   const quantities = new Map<string, number>();
@@ -147,6 +206,7 @@ export const orderService = {
     checkoutDetails?: OrderCheckoutDetails,
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
+    validateCheckoutDetails(checkoutDetails);
     const entries = consolidateEntries(rawEntries);
 
     const orderId = randomUUID();

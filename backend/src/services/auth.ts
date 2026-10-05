@@ -102,7 +102,6 @@ function validatePassword(password: string): void {
     throw new Error("PASSWORD_TOO_LONG");
   }
 }
-
 function sanitizeUser(user: {
   id: string;
   email: string;
@@ -112,6 +111,15 @@ function sanitizeUser(user: {
   twoFactorEnabled: boolean;
   points: number;
   provider: string | null;
+
+  genero: string | null;
+  altura: any;
+  medida_pecho: any;
+  medida_cintura: any;
+  medida_cadera: any;
+  medida_muslo: any;
+
+  onboarding_completado: boolean;
 }) {
   return {
     id: user.id,
@@ -121,6 +129,17 @@ function sanitizeUser(user: {
     picture: user.picture,
     twoFactorEnabled: user.twoFactorEnabled,
     points: user.points,
+
+    genero: user.genero,
+
+    altura: user.altura,
+    medida_pecho: user.medida_pecho,
+    medida_cintura: user.medida_cintura,
+    medida_cadera: user.medida_cadera,
+    medida_muslo: user.medida_muslo,
+
+    onboarding_completado: user.onboarding_completado,
+
     provider: user.provider || "LOCAL",
     hasPassword: false,
     isNewUser: false,

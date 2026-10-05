@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { downloadReceipt } from "../services/receipt";
 import ProfileLayout from "../components/ProfileLayout";
 import { fetchMyOrders, type OrderView } from "../services/orders";
 
@@ -72,10 +73,10 @@ export default function OrderTrackingPage() {
 
           <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
             <h2 className="text-2xl font-black uppercase mb-8 text-slate-900 dark:text-white">Seguimiento</h2>
-            
+
             {/* Vertical Timeline */}
             <div className="relative pl-6 space-y-10 before:absolute before:inset-0 before:left-[35px] before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[#E5FF00] before:to-slate-200 dark:before:to-slate-700">
-              
+
               {/* Step 1 */}
               <div className="relative flex items-start gap-6">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full border-4 border-white dark:border-brand-card-dark shrink-0 shadow-md relative z-10 mt-1 ${step >= 1 ? 'bg-[#E5FF00] text-black' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
@@ -152,7 +153,7 @@ export default function OrderTrackingPage() {
                 </div>
               ))}
             </div>
-            
+
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <span className="font-bold text-slate-500">TOTAL PAGADO</span>
               <span className="font-black text-2xl text-[#E5FF00] bg-black px-4 py-1 rounded-xl">S/ {Number(order.total).toFixed(2)}</span>
@@ -160,7 +161,10 @@ export default function OrderTrackingPage() {
           </div>
 
           <div className="flex gap-4">
-            <button className="flex-1 bg-black text-white dark:bg-white dark:text-black py-4 rounded-xl font-black text-lg transition-transform hover:scale-[1.02]">
+            <button
+              onClick={() => downloadReceipt(order)}
+              className="flex-1 bg-black text-white dark:bg-white dark:text-black py-4 rounded-xl font-black text-lg transition-transform hover:scale-[1.02]"
+            >
               Descargar comprobante
             </button>
             {step < 3 && (
