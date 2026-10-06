@@ -86,6 +86,6 @@ describe("LoginPage", () => {
     await user.type(screen.getByPlaceholderText("Tu contraseña"), "incorrect-password");
     await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
-    expect(await screen.findByText(/Si creaste la cuenta con Google o código de correo/)).toBeVisible();
+    expect(await screen.findByText(/Comprueba las credenciales y vuelve a intentarlo/)).toBeVisible();
   });
 });
