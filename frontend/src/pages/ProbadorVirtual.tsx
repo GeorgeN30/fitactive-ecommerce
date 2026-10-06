@@ -41,7 +41,7 @@ export default function ProbadorVirtual() {
   const [genero, setGenero] = useState<'Hombre' | 'Mujer'>(isUserFemale ? 'Mujer' : 'Hombre');
   const [altura, setAltura] = useState(defaultAltura);
   const [medidas, setMedidas] = useState({ pecho: defaultPecho, cintura: defaultCintura, cadera: defaultCadera, muslo: defaultMuslo });
-  
+
   const [productos, setProductos] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
@@ -257,16 +257,16 @@ export default function ProbadorVirtual() {
 
   const bodyMetrics = useMemo(() => {
     const isFemale = genero === 'Mujer';
-    
+
     const scalePecho = (medidas.pecho || 90) / (isFemale ? 90 : 100);
     const scaleCintura = (medidas.cintura || 70) / (isFemale ? 70 : 85);
     const scaleCadera = (medidas.cadera || 95) / (isFemale ? 95 : 95);
-    
+
     const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
     const baseTorsoScale = clamp((scalePecho * 0.4 + scaleCintura * 0.4 + scaleCadera * 0.2), 0.85, 1.25);
-    
+
     const torsoScaleX = baseTorsoScale;
-    const torsoScaleY = 1 + (torsoScaleX - 1) * 0.4; 
+    const torsoScaleY = 1 + (torsoScaleX - 1) * 0.4;
 
     return { spriteScales: { torsoScaleX, torsoScaleY } };
   }, [medidas, genero]);
@@ -325,7 +325,7 @@ export default function ProbadorVirtual() {
     <AppLayout>
       <div className="bg-[#f4f7f9] dark:bg-[#0f1115] min-h-screen py-10 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           {/* Header */}
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -344,12 +344,12 @@ export default function ProbadorVirtual() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-20">
-            
+
             <div className="lg:col-span-3 bg-white dark:bg-white/[0.02] p-4 lg:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 dark:border-white/5 flex flex-col min-h-[400px] lg:h-auto lg:min-h-[600px]">
               <div className="flex gap-2 mb-6 bg-gray-50 dark:bg-black/30 p-1.5 rounded-2xl">
                 {['Prenda', 'Medidas', 'Outfit'].map(tab => (
-                  <button 
-                    key={tab} 
+                  <button
+                    key={tab}
                     onClick={() => setActiveTab(tab as any)}
                     className={`flex-1 py-2 text-[11px] font-black uppercase rounded-xl transition-all ${activeTab === tab ? 'bg-brand-green text-black shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
                   >
@@ -359,7 +359,7 @@ export default function ProbadorVirtual() {
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {activeTab === 'Prenda' && (
-                  <ProductSelector 
+                  <ProductSelector
                     visibleProducts={visibleProducts} selectedProduct={selectedProduct} setSelectedProduct={setSelectedProduct}
                     genero={genero} handleCambioGenero={handleCambioGenero}
                     categoriaFiltro={categoriaFiltro} setCategoriaFiltro={handleCategoryFilterChange} categoriasUnicas={categoriasUnicas}
@@ -397,12 +397,12 @@ export default function ProbadorVirtual() {
         </div>
       </div>
 
-      <IncompatibleModal 
-        isOpen={isModalOpen} 
+      <IncompatibleModal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUpdateMeasures={() => { setIsModalOpen(false); setActiveTab('Medidas'); }}
         onTryOther={() => { setIsModalOpen(false); setActiveTab('Prenda'); }}
-        onAddAnyway={() => { 
+        onAddAnyway={() => {
           setIsModalOpen(false);
           if (selectedProduct) {
             const selectedSize = selectedProduct.talla_sugerida || analisis?.talla;

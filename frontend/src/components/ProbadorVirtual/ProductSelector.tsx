@@ -17,12 +17,12 @@ interface ProductSelectorProps {
   lastProductIndex: number;
 }
 
-export default function ProductSelector({ 
+export default function ProductSelector({
   visibleProducts, selectedProduct, setSelectedProduct,
   genero, handleCambioGenero, categoriaFiltro, setCategoriaFiltro, categoriasUnicas,
   currentPage, pageCount, onPageChange, totalProducts, firstProductIndex, lastProductIndex,
 }: ProductSelectorProps) {
-  
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       {/* Category Dropdown */}
@@ -105,7 +105,7 @@ export default function ProductSelector({
             const isSelected = size === (selectedProduct?.talla_sugerida || '');
             const outOfStock = Number(variant.stock || 0) <= 0;
             return (
-            <button 
+            <button
               type="button"
               key={String(variant.id || size)}
               disabled={outOfStock}

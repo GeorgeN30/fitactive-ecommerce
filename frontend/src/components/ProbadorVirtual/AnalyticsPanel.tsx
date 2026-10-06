@@ -29,7 +29,7 @@ export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasur
             {analisis.matchScore}%
           </span>
         </div>
-        
+
         {/* Progress Bar overall */}
         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full mb-4 overflow-hidden">
           <div className={`h-full rounded-full ${isLowScore ? 'bg-red-500' : 'bg-brand-green'} transition-all`} style={{ width: `${analisis.matchScore}%` }}></div>
@@ -79,7 +79,7 @@ export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasur
       {/* Bottom Block: Summary */}
       <div className="bg-white dark:bg-white/[0.02] p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 dark:border-white/5 flex flex-col mb-auto">
         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Tus Medidas</h4>
-        
+
         <div className="space-y-3 mb-4">
           <div className="flex justify-between text-xs font-bold text-gray-700 dark:text-gray-300">
             <span>Pecho</span> <span className="text-gray-900 dark:text-white font-black">{medidas.pecho} cm</span>
@@ -98,7 +98,7 @@ export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasur
           </div>
         </div>
 
-        <button 
+        <button
           onClick={onEditMeasures}
           className="w-full py-2.5 mt-2 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
         >
@@ -106,7 +106,7 @@ export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasur
         </button>
 
         <div className="mt-3 flex flex-col gap-2 pt-3 border-t border-gray-100 dark:border-white/5">
-          <button 
+          <button
             onClick={onAddToCart}
             className="w-full py-3.5 bg-brand-green text-black font-black uppercase tracking-widest text-xs rounded-xl hover:scale-[1.02] transition-transform shadow-[0_5px_15px_rgba(16,185,129,0.2)]"
           >

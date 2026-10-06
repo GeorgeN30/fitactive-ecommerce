@@ -9,7 +9,7 @@ export default function ProfilePage() {
   const [genero, setGenero] = useState(user?.genero || "");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  
+
   const [stats, setStats] = useState({
     pedidos: 0,
     favoritos: 0,
@@ -37,7 +37,7 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       if (updateProfile) {
-        await updateProfile({ 
+        await updateProfile({
           name: name.trim() || undefined,
           genero: genero || undefined
         });
@@ -56,8 +56,8 @@ export default function ProfilePage() {
       <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">Datos Personales</h2>
-          <button 
-            onClick={handleSave} 
+          <button
+            onClick={handleSave}
             disabled={saving}
             className="px-6 py-2 bg-black text-white dark:bg-[#E5FF00] dark:text-black rounded-full font-black text-sm hover:scale-[1.02] transition-transform shadow-lg disabled:opacity-50"
           >
@@ -75,25 +75,25 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <div>
             <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Nombre completo</label>
-            <input 
-              type="text" 
-              value={name} 
+            <input
+              type="text"
+              value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium" 
+              className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium"
             />
           </div>
           <div>
             <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Correo electrónico</label>
-            <input 
-              type="text" 
-              value={user?.email || ""} 
+            <input
+              type="text"
+              value={user?.email || ""}
               disabled
-              className="w-full bg-slate-100 dark:bg-slate-900 dark:border-slate-800 border border-slate-200 dark:text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed font-medium" 
+              className="w-full bg-slate-100 dark:bg-slate-900 dark:border-slate-800 border border-slate-200 dark:text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed font-medium"
             />
           </div>
           <div>
             <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Género</label>
-            <select 
+            <select
               value={genero}
               onChange={(e) => setGenero(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium appearance-none"

@@ -42,9 +42,9 @@ export default function MeasuresTab({ medidas, setMedidas, altura, setAltura, on
               <label className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">{input.label}</label>
               <div className="flex items-center gap-2 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-white/10 rounded-lg p-1">
                 <button onClick={() => input.set(Math.max(40, input.val - 1))} className="w-6 h-6 flex items-center justify-center font-bold text-gray-500 hover:text-black dark:hover:text-white">-</button>
-                <input 
-                  type="number" 
-                  value={input.val} 
+                <input
+                  type="number"
+                  value={input.val}
                   onChange={(e) => input.set(Number(e.target.value))}
                   className="w-10 text-center font-black text-sm bg-transparent border-none outline-none"
                 />
@@ -64,7 +64,7 @@ export default function MeasuresTab({ medidas, setMedidas, altura, setAltura, on
         ))}
       </div>
 
-      <button 
+      <button
         onClick={handleSave}
         disabled={saving}
         className="w-full py-4 mt-4 bg-brand-green text-black font-black uppercase tracking-widest text-xs rounded-xl hover:bg-[#0ea5e9] hover:text-white transition-all shadow-[0_4px_15px_rgba(16,185,129,0.3)] disabled:opacity-50"

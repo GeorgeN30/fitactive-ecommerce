@@ -14,10 +14,10 @@ function Model({ scaleX, scaleY, genero }: { scaleX: number, scaleY: number, gen
 
   useEffect(() => {
     if (groupRef.current) {
-      // Ajustamos el volumen global (X y Z). 
+      // Ajustamos el volumen global (X y Z).
       // Multiplicador 1.25 para hacer la escala un poco más pronunciada en el entorno 3D.
       groupRef.current.scale.set(scaleX * 1.25, scaleY * 1.25, scaleX * 1.25);
-      
+
       // Ajustamos la posición para que quede centrado
       groupRef.current.position.y = -1.2;
     }
@@ -29,7 +29,7 @@ function Model({ scaleX, scaleY, genero }: { scaleX: number, scaleY: number, gen
         const mesh = child as THREE.Mesh;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        
+
         // Mejoramos el material para que luzca más realista y no como plástico brillante
         if (mesh.material instanceof THREE.MeshStandardMaterial) {
           mesh.material.roughness = 0.6; // Piel menos brillante
@@ -59,26 +59,26 @@ export default function Avatar3D({ torsoScaleX, torsoScaleY, genero }: Avatar3DP
   return (
     <div className="w-full h-full min-h-[500px] relative cursor-grab active:cursor-grabbing z-20">
       <Canvas shadows camera={{ position: [0, 0, 4.2], fov: 45 }}>
-        
+
         <ambientLight intensity={0.4} />
-        <directionalLight 
-          position={[2, 5, 5]} 
-          intensity={1.5} 
-          castShadow 
-          shadow-mapSize-width={2048} 
-          shadow-mapSize-height={2048} 
+        <directionalLight
+          position={[2, 5, 5]}
+          intensity={1.5}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
           shadow-bias={-0.0001}
         />
         <pointLight position={[-2, 3, -3]} intensity={0.8} color="#f0f8ff" />
         <pointLight position={[0, -2, 2]} intensity={0.5} color="#ffebcd" />
-        
+
         <Environment preset="studio" />
-        
+
         <ContactShadows position={[0, -1.2, 0]} opacity={0.4} scale={10} blur={2} far={4} />
 
         <Model scaleX={torsoScaleX} scaleY={torsoScaleY} genero={genero} />
 
-        <OrbitControls 
+        <OrbitControls
           enablePan={false}
           enableZoom={true}
           minDistance={2}

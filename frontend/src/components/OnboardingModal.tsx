@@ -49,7 +49,7 @@ export default function OnboardingModal() {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white dark:bg-brand-card-dark w-full max-w-xl rounded-3xl p-8 shadow-2xl relative mt-10 md:mt-0">
-        
+
         {/* Progress Bar */}
         <div className="flex gap-2 mb-8">
           {[1, 2, 3].map((s) => (
@@ -61,17 +61,17 @@ export default function OnboardingModal() {
           <div className="space-y-6">
             <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 uppercase">¡Bienvenido a FitActive!</h2>
             <p className="text-slate-500 font-medium text-lg">Para recomendarte la mejor ropa y talla, necesitamos conocerte un poco. ¿Cuál es tu género y altura?</p>
-            
+
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide text-sm">Género</label>
               <div className="grid grid-cols-2 gap-4">
-                <button 
+                <button
                   onClick={() => setGenero("Mujer")}
                   className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Femenino" || genero === "Mujer" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
                 >
                   Femenino
                 </button>
-                <button 
+                <button
                   onClick={() => setGenero("Hombre")}
                   className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Masculino" || genero === "Hombre" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
                 >
@@ -85,14 +85,14 @@ export default function OnboardingModal() {
                 <span>Altura</span>
                 <span className="text-black dark:text-[#E5FF00]">{altura} cm</span>
               </label>
-              <input 
-                type="range" min="140" max="220" 
+              <input
+                type="range" min="140" max="220"
                 value={altura} onChange={e => setAltura(Number(e.target.value))}
                 className="w-full accent-black dark:accent-[#E5FF00]"
               />
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setStep(2)}
               disabled={!genero}
               className="w-full py-4 bg-black text-white dark:bg-[#E5FF00] dark:text-black font-black uppercase tracking-wide rounded-xl mt-8 disabled:opacity-50"
@@ -106,29 +106,29 @@ export default function OnboardingModal() {
           <div className="space-y-6">
             <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 uppercase">Tus Medidas</h2>
             <p className="text-slate-500 font-medium">Ajusta tus medidas base para el probador virtual (puedes editarlas luego).</p>
-            
+
             {[{l: "Pecho", v: pecho, s: setPecho}, {l: "Cintura", v: cintura, s: setCintura}, {l: "Cadera", v: cadera, s: setCadera}, {l: "Muslo", v: muslo, s: setMuslo}].map((m) => (
               <div key={m.l}>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide text-xs flex justify-between">
                   <span>{m.l}</span>
                   <span className="text-black dark:text-[#E5FF00]">{m.v} cm</span>
                 </label>
-                <input 
-                  type="range" min="50" max="150" 
+                <input
+                  type="range" min="50" max="150"
                   value={m.v} onChange={e => m.s(Number(e.target.value))}
                   className="w-full accent-black dark:accent-[#E5FF00]"
                 />
               </div>
             ))}
-            
+
             <div className="flex gap-4 mt-8">
-              <button 
+              <button
                 onClick={() => setStep(1)}
                 className="w-1/3 py-4 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wide rounded-xl"
               >
                 Atrás
               </button>
-              <button 
+              <button
                 onClick={() => setStep(3)}
                 className="w-2/3 py-4 bg-black text-white dark:bg-[#E5FF00] dark:text-black font-black uppercase tracking-wide rounded-xl"
               >
@@ -142,10 +142,10 @@ export default function OnboardingModal() {
           <div className="space-y-6">
             <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 uppercase">Tus Preferencias</h2>
             <p className="text-slate-500 font-medium">¿Qué tipo de ropa estás buscando en FitActive?</p>
-            
+
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide text-xs">Deporte / Actividad</label>
-              <select 
+              <select
                 value={deporte} onChange={e => setDeporte(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-[#E5FF00]"
               >
@@ -159,7 +159,7 @@ export default function OnboardingModal() {
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide text-xs">Tipo de Prendas</label>
-              <select 
+              <select
                 value={ropa} onChange={e => setRopa(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-[#E5FF00]"
               >
@@ -172,7 +172,7 @@ export default function OnboardingModal() {
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide text-xs">Colores Favoritos</label>
-              <select 
+              <select
                 value={colores} onChange={e => setColores(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white focus:outline-none focus:border-black dark:focus:border-[#E5FF00]"
               >
@@ -184,13 +184,13 @@ export default function OnboardingModal() {
             </div>
 
             <div className="flex gap-4 mt-8">
-              <button 
+              <button
                 onClick={() => setStep(2)}
                 className="w-1/3 py-4 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wide rounded-xl"
               >
                 Atrás
               </button>
-              <button 
+              <button
                 onClick={handleFinish}
                 disabled={saving || !deporte}
                 className="w-2/3 py-4 bg-black text-white dark:bg-[#E5FF00] dark:text-black font-black uppercase tracking-wide rounded-xl disabled:opacity-50 flex justify-center items-center gap-2"
