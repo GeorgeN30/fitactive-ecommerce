@@ -58,8 +58,12 @@ export default function LoginPage() {
         ?.response?.data?.error;
       setError(
         code === "TOTP_NOT_SETUP"
-          ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo. Inicia sesión con otro método o contacta al administrador."
-          : "Correo o contraseña incorrectos.",
+          ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo. Contacta al administrador."
+          : code === "ACCOUNT_BLOCKED"
+            ? "Esta cuenta está bloqueada. Contacta al administrador."
+            : code === "INVALID_CREDENTIALS"
+              ? "Correo o contraseña incorrectos. Si creaste la cuenta con Google o código de correo, usa ese método para iniciar sesión."
+              : "No se pudo iniciar sesión. Inténtalo nuevamente.",
       );
     } finally {
       setSending(false);

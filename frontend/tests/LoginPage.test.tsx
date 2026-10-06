@@ -74,4 +74,18 @@ describe("LoginPage", () => {
       expect(loginWithPassword).toHaveBeenCalledWith("user@example.com", "secret", false);
     });
   });
+
+  it("explains how to sign in when password credentials are rejected", async () => {
+    loginWithPassword.mockRejectedValue({
+      response: { status: 401, data: { error: "INVALID_CREDENTIALS" } },
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.type(screen.getByPlaceholderText("tu@email.com"), "user@example.com");
+    await user.type(screen.getByPlaceholderText("Tu contraseña"), "incorrect-password");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+
+    expect(await screen.findByText(/Si creaste la cuenta con Google o código de correo/)).toBeVisible();
+  });
 });

@@ -593,6 +593,40 @@ describe("authService.enable2Fa", () => {
   });
 });
 
+describe("authService.disable2Fa", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("removes the TOTP secret only after verifying the current code", async () => {
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
+      id: "user-1",
+      totpSecret: "some-secret",
+      twoFactorEnabled: true,
+    } as never);
+    mockBaas.verifyTotp.mockResolvedValue({ valid: true });
+
+    await expect(authService.disable2Fa("user-1", "123456"))
+      .resolves.toEqual({ success: true });
+    expect(mockBaas.verifyTotp).toHaveBeenCalledWith("some-secret", "123456");
+    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { twoFactorEnabled: false, totpSecret: null },
+    });
+  });
+
+  it("does not modify the account when the current code is incorrect", async () => {
+    mockPrisma.usuarios.findUnique.mockResolvedValue({
+      id: "user-1",
+      totpSecret: "some-secret",
+      twoFactorEnabled: true,
+    } as never);
+    mockBaas.verifyTotp.mockResolvedValue({ valid: false });
+
+    await expect(authService.disable2Fa("user-1", "000000"))
+      .rejects.toThrow("INVALID_TOTP");
+    expect(mockPrisma.usuarios.update).not.toHaveBeenCalled();
+  });
+});
+
 describe("authService.changePassword", () => {
   beforeEach(() => vi.clearAllMocks());
 

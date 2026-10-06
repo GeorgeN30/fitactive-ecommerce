@@ -24,15 +24,15 @@ export default function TwoFaVerifyPage() {
   }, [navigate, user]);
 
   useEffect(() => {
-    if (!preAuthUserId) {
+    if (!preAuthUserId && !user && !success) {
       navigate("/login", {
         replace: true,
-        state: { authError: "La sesión de verificación expiró. Inicia sesión nuevamente." },
+        state: { authError: "No hay una verificación 2FA pendiente. Inicia sesión nuevamente." },
       });
     }
-  }, [navigate, preAuthUserId]);
+  }, [navigate, preAuthUserId, success, user]);
 
-  if (!preAuthUserId) return null;
+  if (!preAuthUserId && !user && !success) return null;
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -46,11 +46,17 @@ export default function TwoFaVerifyPage() {
         ?.status;
       const apiError = (err as { response?: { data?: { error?: string } } })
         ?.response?.data?.error;
-      if (status === 401) {
+      if (status === 401 || (err instanceof Error && err.message === "NO_PREAUTH_SESSION")) {
         clearPreAuth();
         navigate("/login", {
           replace: true,
-          state: { authError: "La sesión de verificación expiró o no es válida. Inicia sesión nuevamente." },
+          state: {
+            authError: apiError === "ACCOUNT_BLOCKED"
+              ? "Esta cuenta está bloqueada. Contacta al administrador."
+              : apiError === "MFA_REQUIRED"
+                ? "El token enviado no corresponde a una verificación 2FA. Inicia sesión nuevamente."
+                : "El desafío de verificación expiró o no es válido. Inicia sesión nuevamente.",
+          },
         });
         return;
       }

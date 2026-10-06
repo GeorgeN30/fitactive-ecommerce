@@ -7,7 +7,7 @@ import api from "../services/api";
 import { isStrongPassword } from "../utils/validation";
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"security" | "danger">(
     "security",
@@ -24,6 +24,11 @@ export default function SettingsPage() {
   const [pwMsg, setPwMsg] = useState("");
   const [pwError, setPwError] = useState("");
   const [changeTotp, setChangeTotp] = useState("");
+  const [showDisable2Fa, setShowDisable2Fa] = useState(false);
+  const [disableTotpCode, setDisableTotpCode] = useState("");
+  const [disabling2Fa, setDisabling2Fa] = useState(false);
+  const [disable2FaError, setDisable2FaError] = useState("");
+  const [disable2FaSuccess, setDisable2FaSuccess] = useState("");
 
   const [setPwValue, setSetPwValue] = useState("");
   const [confirmSetPw, setConfirmSetPw] = useState("");
@@ -60,6 +65,37 @@ export default function SettingsPage() {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  async function handleDisable2Fa(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setDisable2FaError("");
+    if (!/^\d{6}$/.test(disableTotpCode)) {
+      setDisable2FaError("Ingresa el código de 6 dígitos de tu aplicación de autenticación.");
+      return;
+    }
+
+    setDisabling2Fa(true);
+    try {
+      const { data } = await api.post("/auth/2fa/disable", { code: disableTotpCode });
+      if (data?.success !== true) throw new Error("TWO_FA_DISABLE_FAILED");
+      updateUser({ twoFactorEnabled: false });
+      setDisableTotpCode("");
+      setShowDisable2Fa(false);
+      setDisable2FaSuccess("2FA desactivado. Ya no se solicitará este código al iniciar sesión.");
+    } catch (err: unknown) {
+      const error = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setDisable2FaError(
+        error === "INVALID_TOTP"
+          ? "El código TOTP es incorrecto o ha expirado. Revisa la hora de tu dispositivo."
+          : error === "TOTP_NOT_SETUP"
+            ? "No se encontró la configuración 2FA de esta cuenta."
+            : "No se pudo desactivar 2FA. Inténtalo nuevamente.",
+      );
+    } finally {
+      setDisabling2Fa(false);
+    }
+  }
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -281,22 +317,66 @@ export default function SettingsPage() {
                 <i className="fa-solid fa-shield-halved mr-2 text-brand-green" />
                 Autenticación de dos factores
               </h3>
+              {disable2FaSuccess && (
+                <p role="status" className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  {disable2FaSuccess}
+                </p>
+              )}
               {user?.twoFactorEnabled ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                      2FA activo
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Tu cuenta tiene una capa extra de seguridad.
-                    </p>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                        2FA activo
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Tu cuenta tiene una capa extra de seguridad.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDisable2Fa((current) => !current);
+                        setDisable2FaError("");
+                        setDisableTotpCode("");
+                      }}
+                      className="text-xs font-semibold text-red-600 hover:underline dark:text-red-400"
+                    >
+                      {showDisable2Fa ? "Cancelar" : "Desactivar 2FA"}
+                    </button>
                   </div>
-                  <Link
-                    to="/2fa-setup"
-                    className="text-xs font-semibold text-brand-green hover:underline"
-                  >
-                    Configurar
-                  </Link>
+                  {showDisable2Fa && (
+                    <form onSubmit={handleDisable2Fa} className="space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900 dark:bg-red-950/20">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        Confirma con el código actual de tu aplicación. Al desactivar 2FA se eliminará su clave de esta cuenta.
+                      </p>
+                      <label htmlFor="disable-2fa-code" className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                        Código TOTP actual
+                      </label>
+                      <input
+                        id="disable-2fa-code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        pattern="[0-9]{6}"
+                        value={disableTotpCode}
+                        onChange={(event) => {
+                          setDisableTotpCode(event.target.value.replace(/\D/g, "").slice(0, 6));
+                          setDisable2FaError("");
+                        }}
+                        className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm tracking-widest text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                      {disable2FaError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{disable2FaError}</p>}
+                      <button
+                        type="submit"
+                        disabled={disabling2Fa || disableTotpCode.length !== 6}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {disabling2Fa ? "Desactivando..." : "Confirmar desactivación"}
+                      </button>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-between">

@@ -400,6 +400,10 @@ export const authController = {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "CODE_REQUIRED" });
         return;
       }
+      if (typeof code !== "string" || !/^\d{6}$/.test(code.trim())) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_TOTP" });
+        return;
+      }
 
       const result = await authService.disable2Fa(req.user.userId, code.trim());
       res.status(HTTP_STATUS.OK).json(result);
