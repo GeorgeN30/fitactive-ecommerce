@@ -108,8 +108,14 @@ export default function OtpPage() {
           target: "/",
         });
       }
-    } catch {
-      setError("Codigo invalido o expirado. Intenta de nuevo.");
+    } catch (error: unknown) {
+      const code = (error as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setError(
+        code === "TOTP_NOT_SETUP"
+          ? "La verificación 2FA necesita configurarse de nuevo. Contacta al administrador."
+          : "Codigo invalido o expirado. Intenta de nuevo.",
+      );
       setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {

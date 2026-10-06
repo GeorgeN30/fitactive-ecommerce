@@ -145,6 +145,10 @@ export const authController = {
         res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
         return;
       }
+      if (message === "TOTP_NOT_SETUP") {
+        res.status(HTTP_STATUS.CONFLICT).json({ error: "TOTP_NOT_SETUP" });
+        return;
+      }
 
       console.error("Login error:", err);
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "LOGIN_FAILED" });
@@ -199,7 +203,6 @@ export const authController = {
         res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
         return;
       }
-
       console.error("OTP request error:", err);
       res
         .status(HTTP_STATUS.INTERNAL_ERROR)
@@ -236,6 +239,10 @@ export const authController = {
         res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
         return;
       }
+      if (message === "TOTP_NOT_SETUP") {
+        res.status(HTTP_STATUS.CONFLICT).json({ error: "TOTP_NOT_SETUP" });
+        return;
+      }
 
       console.error("OTP verify error:", err);
       res
@@ -260,6 +267,10 @@ export const authController = {
     } catch (err) {
       if (err instanceof Error && err.message === "ACCOUNT_BLOCKED") {
         res.status(HTTP_STATUS.FORBIDDEN).json({ error: "ACCOUNT_BLOCKED" });
+        return;
+      }
+      if (err instanceof Error && err.message === "TOTP_NOT_SETUP") {
+        res.status(HTTP_STATUS.CONFLICT).json({ error: "TOTP_NOT_SETUP" });
         return;
       }
       console.error("Google auth error:", err);

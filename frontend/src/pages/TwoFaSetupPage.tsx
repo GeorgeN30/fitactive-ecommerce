@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getSessionPersistence } from "../utils/session";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
 
 export default function TwoFaSetupPage() {
   const [searchParams] = useSearchParams();
   const isFirstTime = searchParams.get("firstTime") === "true";
-  const { user, updateUser, refreshUser } = useAuth();
+  const { user, refreshUser, establishSession } = useAuth();
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -35,8 +36,12 @@ export default function TwoFaSetupPage() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/auth/2fa/enable", { code });
-      updateUser({ twoFactorEnabled: true });
+      const { data } = await api.post("/auth/2fa/enable", { code });
+      establishSession(
+        data.token,
+        data.user,
+        getSessionPersistence() === "local",
+      );
       await refreshUser();
       setSuccess(true);
     } catch {

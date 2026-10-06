@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
@@ -23,10 +23,16 @@ export default function TwoFaVerifyPage() {
     navigate(path, { replace: true });
   }, [navigate, user]);
 
-  if (!preAuthUserId) {
-    navigate("/login", { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (!preAuthUserId) {
+      navigate("/login", {
+        replace: true,
+        state: { authError: "La sesión de verificación expiró. Inicia sesión nuevamente." },
+      });
+    }
+  }, [navigate, preAuthUserId]);
+
+  if (!preAuthUserId) return null;
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -38,12 +44,21 @@ export default function TwoFaVerifyPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response
         ?.status;
+      const apiError = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
       if (status === 401) {
         clearPreAuth();
-        navigate("/login", { replace: true });
+        navigate("/login", {
+          replace: true,
+          state: { authError: "La sesión de verificación expiró o no es válida. Inicia sesión nuevamente." },
+        });
         return;
       }
-      setError("código inválido. Intenta de nuevo.");
+      setError(
+        apiError === "TOTP_NOT_SETUP"
+          ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo."
+          : "El código es inválido o expiró. Revisa la hora automática de tu dispositivo e intenta de nuevo.",
+      );
       setCode("");
     } finally {
       setLoading(false);

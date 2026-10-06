@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../services/api";
 import {
+  SESSION_CLEARED_EVENT,
   clearStoredSession,
   getStoredSessionValue,
   persistPreAuthToken,
@@ -78,7 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [preAuthUserId, setPreAuthUserId] = useState<string | null>(null);
+  const [preAuthUserId, setPreAuthUserId] = useState<string | null>(() =>
+    getStoredSessionValue("preAuth_user_id"),
+  );
 
   useEffect(() => {
     const storedToken = getStoredSessionValue("token");
@@ -103,6 +106,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const handleSessionCleared = () => {
+      setToken(null);
+      setUser(null);
+      setPreAuthUserId(null);
+    };
+    window.addEventListener(SESSION_CLEARED_EVENT, handleSessionCleared);
+    return () => window.removeEventListener(SESSION_CLEARED_EVENT, handleSessionCleared);
+  }, []);
+
   function saveSession(
     newToken: string,
     newUser: User,
@@ -123,6 +136,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveSession(newToken, newUser, rememberMe);
   }
 
+  function beginPreAuthSession(
+    preAuthToken: string,
+    userId: string,
+    rememberMe: boolean,
+  ) {
+    clearStoredSession();
+    setToken(null);
+    setUser(null);
+    persistPreAuthToken(preAuthToken, userId, rememberMe);
+    setPreAuthUserId(userId);
+  }
+
   async function loginWithOtp(
     email: string,
     code: string,
@@ -131,8 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> {
     const { data } = await api.post("/auth/otp-verify", { email, code, name });
     if (data.requires2Fa) {
-      persistPreAuthToken(data.token, rememberMe);
-      setPreAuthUserId(data.userId);
+      beginPreAuthSession(data.token, data.userId, rememberMe);
       return true;
     }
     saveSession(data.token, data.user, rememberMe);
@@ -149,8 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
     });
     if (data.requires2Fa) {
-      persistPreAuthToken(data.token, rememberMe);
-      setPreAuthUserId(data.userId);
+      beginPreAuthSession(data.token, data.userId, rememberMe);
       return true;
     }
     saveSession(data.token, data.user, rememberMe);
@@ -168,6 +191,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post("/auth/google", {
       access_token: accessToken,
     });
+    if (data.requires2Fa) {
+      beginPreAuthSession(data.token, data.userId, rememberMe);
+      return {
+        requires2Fa: true,
+        isNewUser: false,
+        hasPassword: data.user?.hasPassword ?? false,
+      };
+    }
     saveSession(data.token, data.user, rememberMe);
     return {
       requires2Fa: false,
@@ -191,12 +222,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.removeItem("preAuth_token");
     sessionStorage.removeItem("preAuth_token");
+    localStorage.removeItem("preAuth_user_id");
+    sessionStorage.removeItem("preAuth_user_id");
     saveSession(data.token, data.user, rememberMe);
   }
 
   function clearPreAuth() {
     localStorage.removeItem("preAuth_token");
     sessionStorage.removeItem("preAuth_token");
+    localStorage.removeItem("preAuth_user_id");
+    sessionStorage.removeItem("preAuth_user_id");
     setPreAuthUserId(null);
   }
 

@@ -19,6 +19,7 @@ vi.mock("../src/services/baas", () => ({
     signJwt: vi.fn().mockResolvedValue({ token: "mock-jwt-token" }),
     verifyOtp: vi.fn(),
     verifyTotp: vi.fn(),
+    verifyGoogleToken: vi.fn(),
     generateTotp: vi.fn().mockResolvedValue({
       secret: "mock-secret",
       qr_svg: "<svg>mock</svg>",
@@ -245,9 +246,14 @@ describe("authService.loginWithPassword", () => {
     );
 
     expect("requires2Fa" in result && result.requires2Fa).toBe(true);
+    expect(mockBaas.signJwt).toHaveBeenCalledWith(
+      "user-1",
+      { purpose: "mfa_pending" },
+      300,
+    );
   });
 
-  it("should disable 2FA when twoFactorEnabled=true but totpSecret=null", async () => {
+  it("should fail closed when 2FA is enabled but its secret is missing", async () => {
     const bcrypt = await import("bcryptjs");
     const hash = await bcrypt.hash("password123", 12);
 
@@ -260,16 +266,53 @@ describe("authService.loginWithPassword", () => {
       totpSecret: null,
     } as never);
 
-    const result = await authService.loginWithPassword(
-      "test@example.com",
-      "password123"
-    );
+    await expect(
+      authService.loginWithPassword("test@example.com", "password123"),
+    ).rejects.toThrow("TOTP_NOT_SETUP");
+    expect(mockPrisma.usuarios.update).not.toHaveBeenCalled();
+  });
+});
 
-    expect("token" in result).toBe(true);
-    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-      data: { twoFactorEnabled: false },
+describe("authService.googleAuth", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockBaas.signJwt.mockResolvedValue({ token: "mfa-challenge" });
+  });
+
+  it("requires TOTP after Google authentication when 2FA is enabled", async () => {
+    mockBaas.verifyGoogleToken.mockResolvedValue({
+      email: "admin@test.com",
+      name: "Admin",
+      picture: "https://example.com/avatar.png",
+      provider_id: "google-user-1",
+      provider: "google",
     });
+    const user = {
+      id: "user-1",
+      email: "admin@test.com",
+      name: "Admin",
+      role: "admin",
+      provider: "google",
+      providerId: "google-user-1",
+      passwordHash: null,
+      picture: "https://example.com/avatar.png",
+      blocked: false,
+      twoFactorEnabled: true,
+      totpSecret: "totp-secret",
+      points: 0,
+    };
+    mockPrisma.usuarios.findUnique.mockResolvedValue(user as never);
+    mockPrisma.usuarios.update.mockResolvedValue(user as never);
+
+    const result = await authService.googleAuth("google-access-token");
+
+    expect("requires2Fa" in result && result.requires2Fa).toBe(true);
+    expect("userId" in result && result.userId).toBe("user-1");
+    expect(mockBaas.signJwt).toHaveBeenCalledWith(
+      "user-1",
+      { purpose: "mfa_pending" },
+      300,
+    );
   });
 });
 
@@ -355,7 +398,7 @@ describe("authService.verifyOtp", () => {
     expect("requires2Fa" in result && result.requires2Fa).toBe(true);
   });
 
-  it("should disable 2FA when twoFactorEnabled=true but totpSecret=null", async () => {
+  it("should fail closed when OTP login finds 2FA enabled without a secret", async () => {
     mockBaas.verifyOtp.mockResolvedValue({ valido: true, message: "ok" });
     mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
@@ -365,13 +408,10 @@ describe("authService.verifyOtp", () => {
       totpSecret: null,
     } as never);
 
-    const result = await authService.verifyOtp("test@example.com", "123456");
-
-    expect("token" in result).toBe(true);
-    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-      data: { twoFactorEnabled: false },
-    });
+    await expect(
+      authService.verifyOtp("test@example.com", "123456"),
+    ).rejects.toThrow("TOTP_NOT_SETUP");
+    expect(mockPrisma.usuarios.update).not.toHaveBeenCalled();
   });
 });
 
@@ -478,6 +518,10 @@ describe("authService.verify2Fa", () => {
     const result = await authService.verify2Fa("user-1", "123456");
 
     expect(result.token).toBe("mock-jwt-token");
+    expect(mockBaas.signJwt).toHaveBeenCalledWith(
+      "user-1",
+      { role: "customer", mfa_verified: true },
+    );
   });
 
   it("should throw INVALID_TOTP for wrong code", async () => {
@@ -495,7 +539,7 @@ describe("authService.verify2Fa", () => {
     );
   });
 
-  it("should auto-disable 2FA when totpSecret is null", async () => {
+  it("should fail closed when 2FA is enabled but its secret is missing", async () => {
     mockPrisma.usuarios.findUnique.mockResolvedValue({
       id: "user-1",
       email: "test@example.com",
@@ -504,13 +548,48 @@ describe("authService.verify2Fa", () => {
       twoFactorEnabled: true,
     } as never);
 
-    const result = await authService.verify2Fa("user-1", "123456");
+    await expect(
+      authService.verify2Fa("user-1", "123456"),
+    ).rejects.toThrow("TOTP_NOT_SETUP");
+    expect(mockPrisma.usuarios.update).not.toHaveBeenCalled();
+  });
+});
 
-    expect(result.token).toBe("mock-jwt-token");
-    expect(mockPrisma.usuarios.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-      data: { twoFactorEnabled: false },
-    });
+describe("authService.enable2Fa", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockBaas.signJwt.mockResolvedValue({ token: "verified-session-token" });
+  });
+
+  it("returns an MFA-verified session when enabling 2FA", async () => {
+    const user = {
+      id: "user-1",
+      email: "test@example.com",
+      name: "Test",
+      role: "customer",
+      provider: "password",
+      picture: null,
+      passwordHash: "password-hash",
+      twoFactorEnabled: false,
+      totpSecret: "totp-secret",
+      points: 0,
+    };
+    mockPrisma.usuarios.findUnique.mockResolvedValue(user as never);
+    mockPrisma.usuarios.update.mockResolvedValue({
+      ...user,
+      twoFactorEnabled: true,
+    } as never);
+    mockBaas.verifyTotp.mockResolvedValue({ valid: true });
+
+    const result = await authService.enable2Fa("user-1", "123456");
+
+    expect(result.success).toBe(true);
+    expect(result.token).toBe("verified-session-token");
+    expect(result.user.twoFactorEnabled).toBe(true);
+    expect(mockBaas.signJwt).toHaveBeenCalledWith(
+      "user-1",
+      { role: "customer", mfa_verified: true },
+    );
   });
 });
 
