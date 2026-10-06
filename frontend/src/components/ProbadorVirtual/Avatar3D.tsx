@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, ContactShadows, Html } from '@react-three/drei';
+import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Precarga de modelos
@@ -53,10 +53,9 @@ interface Avatar3DProps {
   torsoScaleX: number;
   torsoScaleY: number;
   genero: 'Hombre' | 'Mujer';
-  selectedProduct?: any;
 }
 
-export default function Avatar3D({ torsoScaleX, torsoScaleY, genero, selectedProduct }: Avatar3DProps) {
+export default function Avatar3D({ torsoScaleX, torsoScaleY, genero }: Avatar3DProps) {
   return (
     <div className="w-full h-full min-h-[500px] relative cursor-grab active:cursor-grabbing z-20">
       <Canvas shadows camera={{ position: [0, 0, 4.2], fov: 45 }}>

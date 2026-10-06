@@ -132,6 +132,26 @@ describe("orderService.createOrder", () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed checkout details before opening a transaction", async () => {
+    const entries = [{ productoTallaId: "talla-1", cantidad: 1 }];
+    await expect(
+      orderService.createOrder("user-1", entries, undefined, {
+        customerName: 42,
+      } as never),
+    ).rejects.toThrow("INVALID_CUSTOMER_NAME");
+    await expect(
+      orderService.createOrder("user-1", entries, undefined, {
+        customerName: "Ana O'Connor",
+        customerEmail: "ana@example.com",
+        customerPhone: "123456789",
+        shippingAddress: "Av. Central 123",
+        shippingDistrict: "Miraflores",
+        shippingCity: "Lima",
+      }),
+    ).rejects.toThrow("INVALID_CUSTOMER_PHONE");
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("creates an order, computes total from DB prices, and decrements stock", async () => {
     const tx = buildTx();
     tx.producto_tallas.findUnique.mockImplementation((args: { where: { id: string } }) => {

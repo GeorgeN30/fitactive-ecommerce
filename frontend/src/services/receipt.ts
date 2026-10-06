@@ -145,7 +145,7 @@ export function downloadReceipt(order: OrderView) {
   doc.setFontSize(11);
   doc.setTextColor(17, 17, 17);
 
-  doc.text("TOTAL PAGADO", 20, y);
+  doc.text("TOTAL DEL PEDIDO", 20, y);
 
   doc.setFontSize(16);
 

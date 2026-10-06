@@ -1,12 +1,11 @@
 import { useState, useMemo } from "react";
 import ProfileLayout from "../components/ProfileLayout";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
 
 export default function MeasuresPage() {
   const { user, updateProfile } = useAuth();
   
-  const isFemale = user?.genero === "Femenino";
+  const isFemale = ["Femenino", "Mujer", "female"].includes(user?.genero ?? "");
   
   // Default values based on gender
   const defaultAltura = isFemale ? 160 : 175;

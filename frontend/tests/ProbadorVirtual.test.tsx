@@ -8,13 +8,26 @@ vi.mock("../src/components/AppLayout", () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("../src/components/ProbadorVirtual/AvatarStage", () => ({
+  default: () => <div data-testid="avatar-stage" />,
+}));
+
 vi.mock("../src/services/api", () => ({
   default: {
     get: vi.fn(),
   },
 }));
 
-import ProbadorVirtual, { paginateProducts, PRODUCTS_PER_PAGE } from "../src/pages/ProbadorVirtual";
+vi.mock("../src/context/AuthContext", () => ({
+  useAuth: () => ({ user: null, updateProfile: vi.fn() }),
+}));
+
+vi.mock("../src/context/CartContext", () => ({
+  useCart: () => ({ addToCart: vi.fn() }),
+}));
+
+import ProbadorVirtual from "../src/pages/ProbadorVirtual";
+import { paginateProducts, PRODUCTS_PER_PAGE } from "../src/utils/productPagination";
 import api from "../src/services/api";
 
 interface TestProduct {

@@ -30,6 +30,7 @@ export default function ProtectedRoute({
   }
 
   if (
+    user.role === "customer" &&
     user.onboarding_completado === false &&
     location.pathname !== "/configurar-perfil"
   ) {

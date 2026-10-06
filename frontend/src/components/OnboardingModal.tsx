@@ -5,42 +5,42 @@ export default function OnboardingModal() {
   const { user, updateProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   // Form states
-  const [genero, setGenero] = useState("");
-  const [altura, setAltura] = useState(170);
-  const [pecho, setPecho] = useState(90);
-  const [cintura, setCintura] = useState(80);
-  const [cadera, setCadera] = useState(90);
-  const [muslo, setMuslo] = useState(55);
-  const [ropa, setRopa] = useState("");
-  const [colores, setColores] = useState("");
-  const [deporte, setDeporte] = useState("");
+  const [genero, setGenero] = useState(user?.genero || "");
+  const [altura, setAltura] = useState(user?.altura ?? 170);
+  const [pecho, setPecho] = useState(user?.medida_pecho ?? 90);
+  const [cintura, setCintura] = useState(user?.medida_cintura ?? 80);
+  const [cadera, setCadera] = useState(user?.medida_cadera ?? 90);
+  const [muslo, setMuslo] = useState(user?.medida_muslo ?? 55);
+  const [ropa, setRopa] = useState(user?.preferencia_ropa || "");
+  const [colores, setColores] = useState(user?.preferencia_colores || "");
+  const [deporte, setDeporte] = useState(user?.preferencia_deporte || "");
 
   // Only show if user is logged in, NOT admin, and hasn't completed onboarding
-  if (!user || user.role === "admin" || user.onboarding_completado) {
+  if (!user || user.role !== "customer" || user.onboarding_completado !== false) {
     return null;
   }
 
   async function handleFinish() {
+    setError("");
     setSaving(true);
     try {
-      if (updateProfile) {
-        await updateProfile({
-          genero: genero || undefined,
-          altura,
-          medida_pecho: pecho,
-          medida_cintura: cintura,
-          medida_cadera: cadera,
-          medida_muslo: muslo,
-          preferencia_ropa: ropa || undefined,
-          preferencia_colores: colores || undefined,
-          preferencia_deporte: deporte || undefined,
-          onboarding_completado: true,
-        });
-      }
-    } catch (err) {
-      console.error(err);
+      await updateProfile({
+        genero: genero || undefined,
+        altura,
+        medida_pecho: pecho,
+        medida_cintura: cintura,
+        medida_cadera: cadera,
+        medida_muslo: muslo,
+        preferencia_ropa: ropa || undefined,
+        preferencia_colores: colores || undefined,
+        preferencia_deporte: deporte || undefined,
+        onboarding_completado: true,
+      });
+    } catch {
+      setError("No pudimos guardar tus datos. Revisa tu conexión e inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -66,14 +66,14 @@ export default function OnboardingModal() {
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide text-sm">Género</label>
               <div className="grid grid-cols-2 gap-4">
                 <button 
-                  onClick={() => setGenero("Femenino")}
-                  className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Femenino" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
+                  onClick={() => setGenero("Mujer")}
+                  className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Femenino" || genero === "Mujer" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
                 >
                   Femenino
                 </button>
                 <button 
-                  onClick={() => setGenero("Masculino")}
-                  className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Masculino" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
+                  onClick={() => setGenero("Hombre")}
+                  className={`py-4 rounded-xl font-bold border-2 transition-all ${genero === "Masculino" || genero === "Hombre" ? 'border-black bg-slate-50 dark:border-[#E5FF00] dark:bg-slate-800 dark:text-[#E5FF00]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400'}`}
                 >
                   Masculino
                 </button>
@@ -201,6 +201,7 @@ export default function OnboardingModal() {
             </div>
           </div>
         )}
+        {error && <p role="alert" className="mt-4 text-sm font-semibold text-red-600">{error}</p>}
       </div>
     </div>
   );

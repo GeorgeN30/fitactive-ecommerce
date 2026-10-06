@@ -42,7 +42,7 @@ describe("LoginPage", () => {
     renderLogin();
 
     expect(screen.getByPlaceholderText("tu@email.com")).toBeVisible();
-    expect(screen.getByPlaceholderText("Tu contrasena")).toBeVisible();
+    expect(screen.getByPlaceholderText("Tu contraseña")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
   });
 
@@ -51,7 +51,7 @@ describe("LoginPage", () => {
     renderLogin();
 
     await user.type(screen.getByPlaceholderText("tu@email.com"), " User@Example.com ");
-    await user.type(screen.getByPlaceholderText("Tu contrasena"), "secret");
+    await user.type(screen.getByPlaceholderText("Tu contraseña"), "secret");
     await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     await waitFor(() => {
@@ -67,7 +67,7 @@ describe("LoginPage", () => {
     expect(rememberMe).toBeChecked();
     await user.click(rememberMe);
     await user.type(screen.getByPlaceholderText("tu@email.com"), "user@example.com");
-    await user.type(screen.getByPlaceholderText("Tu contrasena"), "secret");
+    await user.type(screen.getByPlaceholderText("Tu contraseña"), "secret");
     await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     await waitFor(() => {

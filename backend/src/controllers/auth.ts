@@ -2,6 +2,15 @@ import { Request, Response } from "express";
 import { authService } from "../services/auth";
 import { HTTP_STATUS, ROLES } from "../constants";
 import { AuthRequest } from "../middlewares/auth";
+import { Prisma } from "@prisma/client";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isValidMeasurement(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
+}
 
 export const authController = {
   // POST /api/auth/register-request
@@ -757,7 +766,16 @@ export const authController = {
 
       const { passwordHash, ...safeUser } = user;
       res.status(HTTP_STATUS.OK).json({
-        user: { ...safeUser, role: safeUser.role || ROLES.CUSTOMER, hasPassword: !!passwordHash },
+        user: {
+          ...safeUser,
+          role: safeUser.role || ROLES.CUSTOMER,
+          altura: safeUser.altura === null ? null : Number(safeUser.altura),
+          medida_pecho: safeUser.medida_pecho === null ? null : Number(safeUser.medida_pecho),
+          medida_cintura: safeUser.medida_cintura === null ? null : Number(safeUser.medida_cintura),
+          medida_cadera: safeUser.medida_cadera === null ? null : Number(safeUser.medida_cadera),
+          medida_muslo: safeUser.medida_muslo === null ? null : Number(safeUser.medida_muslo),
+          hasPassword: !!passwordHash,
+        },
       });
     } catch (err) {
       console.error("Get me error:", err);
@@ -767,28 +785,107 @@ export const authController = {
     }
   },
 
-  updateMe: async (req: Request, res: Response): Promise<void> => {
+  updateMe: async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      if (!req.user || !req.user.userId) {
+      if (!req.user?.userId) {
         res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "UNAUTHORIZED" });
         return;
       }
 
-      const { name, picture, genero, altura, medida_pecho, medida_cintura, medida_cadera, medida_muslo, preferencia_ropa, preferencia_colores, preferencia_deporte, onboarding_completado } = req.body;
+      if (!isRecord(req.body)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_PROFILE_DATA" });
+        return;
+      }
 
-      const dataToUpdate: any = {};
-      if (name !== undefined) dataToUpdate.name = name;
-      if (picture !== undefined) dataToUpdate.picture = picture;
-      if (altura !== undefined) dataToUpdate.altura = altura;
-      if (medida_pecho !== undefined) dataToUpdate.medida_pecho = medida_pecho;
-      if (medida_cintura !== undefined) dataToUpdate.medida_cintura = medida_cintura;
-      if (medida_cadera !== undefined) dataToUpdate.medida_cadera = medida_cadera;
-      if (genero !== undefined) dataToUpdate.genero = genero;
-      if (medida_muslo !== undefined) dataToUpdate.medida_muslo = medida_muslo;
-      if (preferencia_ropa !== undefined) dataToUpdate.preferencia_ropa = preferencia_ropa;
-      if (preferencia_colores !== undefined) dataToUpdate.preferencia_colores = preferencia_colores;
-      if (preferencia_deporte !== undefined) dataToUpdate.preferencia_deporte = preferencia_deporte;
-      if (onboarding_completado !== undefined) dataToUpdate.onboarding_completado = onboarding_completado;
+      const body = req.body;
+      const dataToUpdate: Prisma.usuariosUpdateInput = {};
+      let hasUpdate = false;
+
+      if (body.name !== undefined) {
+        if (typeof body.name !== "string" || body.name.trim().length > 150) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_NAME" });
+          return;
+        }
+        dataToUpdate.name = body.name.trim() || null;
+        hasUpdate = true;
+      }
+
+      if (body.picture !== undefined) {
+        if (body.picture !== null && (typeof body.picture !== "string" || body.picture.length > 3_000_000)) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_PICTURE" });
+          return;
+        }
+        dataToUpdate.picture = body.picture;
+        hasUpdate = true;
+      }
+
+      if (body.genero !== undefined) {
+        const allowedGenders = ["Hombre", "Mujer", "Masculino", "Femenino", "male", "female"];
+        if (typeof body.genero !== "string" || !allowedGenders.includes(body.genero)) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_GENDER" });
+          return;
+        }
+        dataToUpdate.genero = body.genero;
+        hasUpdate = true;
+      }
+
+      const measurementFields = [
+        ["altura", 100, 250],
+        ["medida_pecho", 30, 250],
+        ["medida_cintura", 30, 250],
+        ["medida_cadera", 30, 250],
+        ["medida_muslo", 20, 150],
+      ] as const;
+      for (const [field, min, max] of measurementFields) {
+        const value = body[field];
+        if (value === undefined) continue;
+        if (value !== null && !isValidMeasurement(value, min, max)) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: `INVALID_${field.toUpperCase()}` });
+          return;
+        }
+        dataToUpdate[field] = value;
+        hasUpdate = true;
+      }
+
+      const preferenceFields = ["preferencia_ropa", "preferencia_colores", "preferencia_deporte"] as const;
+      for (const field of preferenceFields) {
+        const value = body[field];
+        if (value === undefined) continue;
+        if (value !== null && (typeof value !== "string" || value.trim().length > 100)) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: `INVALID_${field.toUpperCase()}` });
+          return;
+        }
+        dataToUpdate[field] = typeof value === "string" ? value.trim() || null : value;
+        hasUpdate = true;
+      }
+
+      if (body.onboarding_completado !== undefined) {
+        if (typeof body.onboarding_completado !== "boolean") {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_ONBOARDING_STATUS" });
+          return;
+        }
+        if (body.onboarding_completado) {
+          const requiredFields = [
+            "genero",
+            "altura",
+            "medida_pecho",
+            "medida_cintura",
+            "medida_cadera",
+            "medida_muslo",
+          ];
+          if (requiredFields.some((field) => body[field] === undefined || body[field] === null)) {
+            res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "PROFILE_MEASUREMENTS_REQUIRED" });
+            return;
+          }
+        }
+        dataToUpdate.onboarding_completado = body.onboarding_completado;
+        hasUpdate = true;
+      }
+
+      if (!hasUpdate) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "EMPTY_PROFILE_UPDATE" });
+        return;
+      }
 
       const db = await import("../config/prisma").then((m) => m.prisma);
       const updatedUser = await db.usuarios.update({
@@ -801,21 +898,43 @@ export const authController = {
           picture: true,
           role: true,
           twoFactorEnabled: true,
-            points: true,
-            genero: true,
-            altura: true,
-            medida_pecho: true,
-            medida_cintura: true,
-            medida_cadera: true,
-            medida_muslo: true,
-              preferencia_ropa: true,
-              preferencia_colores: true,
-              preferencia_deporte: true,
-              onboarding_completado: true,
-        }
+          points: true,
+          provider: true,
+          genero: true,
+          altura: true,
+          medida_pecho: true,
+          medida_cintura: true,
+          medida_cadera: true,
+          medida_muslo: true,
+          preferencia_ropa: true,
+          preferencia_colores: true,
+          preferencia_deporte: true,
+          onboarding_completado: true,
+        },
       });
 
-      res.status(HTTP_STATUS.OK).json({ user: updatedUser });
+      res.status(HTTP_STATUS.OK).json({
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          role: updatedUser.role || ROLES.CUSTOMER,
+          picture: updatedUser.picture,
+          twoFactorEnabled: updatedUser.twoFactorEnabled,
+          points: updatedUser.points,
+          provider: updatedUser.provider || "LOCAL",
+          genero: updatedUser.genero,
+          altura: updatedUser.altura === null ? null : Number(updatedUser.altura),
+          medida_pecho: updatedUser.medida_pecho === null ? null : Number(updatedUser.medida_pecho),
+          medida_cintura: updatedUser.medida_cintura === null ? null : Number(updatedUser.medida_cintura),
+          medida_cadera: updatedUser.medida_cadera === null ? null : Number(updatedUser.medida_cadera),
+          medida_muslo: updatedUser.medida_muslo === null ? null : Number(updatedUser.medida_muslo),
+          preferencia_ropa: updatedUser.preferencia_ropa,
+          preferencia_colores: updatedUser.preferencia_colores,
+          preferencia_deporte: updatedUser.preferencia_deporte,
+          onboarding_completado: updatedUser.onboarding_completado,
+        },
+      });
     } catch (err) {
       console.error("Update me error:", err);
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "UPDATE_USER_FAILED" });

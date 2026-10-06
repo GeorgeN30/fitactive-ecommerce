@@ -7,6 +7,11 @@ import { fetchCatalogProducts, getCatalogPrice, type CatalogProduct } from "../s
 import { formatSoles } from "../utils/money";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format";
+const SPORT_SLIDES = [
+  "https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop",
+];
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -14,11 +19,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const sportSlides = [
-    "https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop",
-  ];
   const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
   const panelPath = user?.role === "admin" ? "/admin" : isInventoryUser ? "/inventory" : null;
   const panelLabel = user?.role === "admin" ? "Volver al panel admin" : "Volver al panel de inventario";
@@ -40,7 +40,7 @@ export default function HomePage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveSlide((current) =>
-        current === sportSlides.length - 1 ? 0 : current + 1
+        current === SPORT_SLIDES.length - 1 ? 0 : current + 1
       );
     }, 5000);
 
@@ -84,7 +84,7 @@ export default function HomePage() {
           <div
             className="absolute inset-0 opacity-40 bg-center bg-cover transition-all duration-700"
             style={{
-              backgroundImage: `url('${sportSlides[activeSlide]}')`,
+              backgroundImage: `url('${SPORT_SLIDES[activeSlide]}')`,
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
@@ -96,7 +96,7 @@ export default function HomePage() {
             <Link to="/catalogo" className="inline-block px-6 py-3 bg-brand-green text-black font-bold rounded-md hover:opacity-90 transition">Explorar productos</Link>
           </div>
           <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center gap-3">
-            {sportSlides.map((_, index) => (
+            {SPORT_SLIDES.map((_, index) => (
               <button
                 key={index}
                 type="button"

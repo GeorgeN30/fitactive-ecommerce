@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AppLayout from "./AppLayout";

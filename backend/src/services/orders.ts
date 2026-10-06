@@ -87,13 +87,15 @@ function validateCheckoutDetails(
 ): void {
   if (!checkoutDetails) return;
 
-  const name = checkoutDetails.customerName?.trim() ?? "";
-  const email = checkoutDetails.customerEmail?.trim() ?? "";
-  const phone = checkoutDetails.customerPhone?.trim() ?? "";
-  const address = checkoutDetails.shippingAddress?.trim() ?? "";
-  const district = checkoutDetails.shippingDistrict?.trim() ?? "";
-  const city = checkoutDetails.shippingCity?.trim() ?? "";
-  const reference = checkoutDetails.shippingReference?.trim() ?? "";
+  const values = checkoutDetails as unknown as Record<string, unknown>;
+  const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+  const name = text(values.customerName);
+  const email = text(values.customerEmail);
+  const phone = text(values.customerPhone);
+  const address = text(values.shippingAddress);
+  const district = text(values.shippingDistrict);
+  const city = text(values.shippingCity);
+  const reference = text(values.shippingReference);
 
   if (!name) {
     throw new Error("INVALID_CUSTOMER_NAME");
@@ -102,7 +104,7 @@ function validateCheckoutDetails(
   if (
     name.length < 3 ||
     name.length > 150 ||
-    !/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)
+    !/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(name)
   ) {
     throw new Error("INVALID_CUSTOMER_NAME");
   }

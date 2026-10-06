@@ -88,7 +88,7 @@ export default function CheckoutPage() {
       errors.name = "El nombre es obligatorio.";
     } else if (name.length < 3) {
       errors.name = "El nombre debe tener al menos 3 caracteres.";
-    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(name)) {
+    } else if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(name)) {
       errors.name = "El nombre solo debe contener letras y espacios.";
     }
 

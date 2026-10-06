@@ -95,6 +95,13 @@ function resolveExistingUserRole(email: string, currentRole: string | null): str
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72;
 
+type MeasurementValue = { toNumber(): number } | number | null;
+
+function serializeMeasurement(value: MeasurementValue): number | null {
+  if (value == null) return null;
+  return typeof value === "number" ? value : value.toNumber();
+}
+
 function validatePassword(password: string): void {
   if (typeof password !== "string") throw new Error("INVALID_PASSWORD_FORMAT");
   if (password.length < MIN_PASSWORD_LENGTH) throw new Error("PASSWORD_TOO_SHORT");
@@ -113,11 +120,14 @@ function sanitizeUser(user: {
   provider: string | null;
 
   genero: string | null;
-  altura: any;
-  medida_pecho: any;
-  medida_cintura: any;
-  medida_cadera: any;
-  medida_muslo: any;
+  altura: MeasurementValue;
+  medida_pecho: MeasurementValue;
+  medida_cintura: MeasurementValue;
+  medida_cadera: MeasurementValue;
+  medida_muslo: MeasurementValue;
+  preferencia_ropa: string | null;
+  preferencia_colores: string | null;
+  preferencia_deporte: string | null;
 
   onboarding_completado: boolean;
 }) {
@@ -132,11 +142,14 @@ function sanitizeUser(user: {
 
     genero: user.genero,
 
-    altura: user.altura,
-    medida_pecho: user.medida_pecho,
-    medida_cintura: user.medida_cintura,
-    medida_cadera: user.medida_cadera,
-    medida_muslo: user.medida_muslo,
+    altura: serializeMeasurement(user.altura),
+    medida_pecho: serializeMeasurement(user.medida_pecho),
+    medida_cintura: serializeMeasurement(user.medida_cintura),
+    medida_cadera: serializeMeasurement(user.medida_cadera),
+    medida_muslo: serializeMeasurement(user.medida_muslo),
+    preferencia_ropa: user.preferencia_ropa,
+    preferencia_colores: user.preferencia_colores,
+    preferencia_deporte: user.preferencia_deporte,
 
     onboarding_completado: user.onboarding_completado,
 

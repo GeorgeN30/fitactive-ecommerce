@@ -1,8 +1,6 @@
 import React from 'react';
-import { PRODUCTS_PER_PAGE, paginateProducts } from '../../pages/ProbadorVirtual';
 
 interface ProductSelectorProps {
-  productos: any[];
   visibleProducts: any[];
   selectedProduct: any;
   setSelectedProduct: (p: any) => void;
@@ -11,11 +9,18 @@ interface ProductSelectorProps {
   categoriaFiltro: string;
   setCategoriaFiltro: (c: string) => void;
   categoriasUnicas: string[];
+  currentPage: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  totalProducts: number;
+  firstProductIndex: number;
+  lastProductIndex: number;
 }
 
 export default function ProductSelector({ 
-  productos, visibleProducts, selectedProduct, setSelectedProduct, 
-  genero, handleCambioGenero, categoriaFiltro, setCategoriaFiltro, categoriasUnicas 
+  visibleProducts, selectedProduct, setSelectedProduct,
+  genero, handleCambioGenero, categoriaFiltro, setCategoriaFiltro, categoriasUnicas,
+  currentPage, pageCount, onPageChange, totalProducts, firstProductIndex, lastProductIndex,
 }: ProductSelectorProps) {
   
   return (
@@ -53,76 +58,65 @@ export default function ProductSelector({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {visibleProducts.map(prod => (
-          <button
-            key={prod.id}
-            onClick={() => setSelectedProduct(prod)}
-            className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 bg-white dark:bg-white/5 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green shadow-lg ring-1 ring-brand-green' : 'border-gray-100 dark:border-white/5 hover:border-brand-green/50'}`}
-          >
-            <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-50 dark:bg-black/40 mb-3 relative">
-              <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal p-2" />
-              {selectedProduct?.id === prod.id && (
-                <div className="absolute top-2 right-2 w-5 h-5 bg-brand-green text-black rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                </div>
-              )}
-            </div>
-            <h5 className="text-[10px] font-bold text-gray-900 dark:text-white text-center line-clamp-1">{prod.nombre}</h5>
-            <span className="text-xs font-black text-brand-green mt-1">S/ {Number(prod.precio || 0).toFixed(2)}</span>
-          </button>
-        ))}
-      </div>
-
-      {visibleProducts.length === 0 && (
-        <div className="text-center py-10 text-gray-500 font-bold text-sm bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-          No hay prendas disponibles.
-        </div>
-      )}
-
-      {/* Mockup Elements: Color & Size (Dynamic UI for demonstration) */}
-      <div className="mt-4 border-t border-gray-100 dark:border-white/5 pt-6">
-        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Color</h4>
-        <div className="flex gap-3">
-          {[
-            { id: 'negro', hex: '#1a1a1a' },
-            { id: 'gris', hex: '#6b7280' },
-            { id: 'verde', hex: '#15803d' },
-            { id: 'rosa', hex: '#db2777' },
-          ].map(color => {
-            const isSelected = selectedProduct?.colorHex === color.hex || selectedProduct?.color?.toLowerCase() === color.id;
-            return (
-              <button 
-                key={color.id}
-                onClick={() => setSelectedProduct({...selectedProduct, colorHex: color.hex, color: color.id})}
-                className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
-                  isSelected 
-                  ? 'border-brand-green ring-2 ring-brand-green/30 scale-110' 
-                  : 'border-transparent hover:scale-110'
-                }`}
-                style={{ backgroundColor: color.hex }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-2">
-        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Talla</h4>
-        <div className="flex gap-2">
-          {['XS', 'S', 'M', 'L'].map(t => (
-            <button 
-              key={t} 
-              onClick={() => setSelectedProduct({...selectedProduct, talla_sugerida: t})}
-              className={`w-9 h-9 rounded-lg text-xs font-black border transition-all ${
-                t === (selectedProduct?.talla_sugerida || 'M') 
-                ? 'bg-brand-green text-black border-brand-green' 
-                : 'bg-white text-gray-700 border-gray-200 dark:bg-transparent dark:text-gray-300 dark:border-white/20'
-              }`}
+      <div role="group" aria-label="Selector de prendas">
+        <div className="grid grid-cols-2 gap-4">
+          {visibleProducts.map(prod => (
+            <button
+              key={prod.id}
+              onClick={() => setSelectedProduct(prod)}
+              className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all duration-300 bg-white dark:bg-white/5 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green shadow-lg ring-1 ring-brand-green' : 'border-gray-100 dark:border-white/5 hover:border-brand-green/50'}`}
             >
-              {t}
+              <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-50 dark:bg-black/40 mb-3 relative">
+                <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal p-2" />
+                {selectedProduct?.id === prod.id && (
+                  <div className="absolute top-2 right-2 w-5 h-5 bg-brand-green text-black rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                )}
+              </div>
+              <h5 className="text-[10px] font-bold text-gray-900 dark:text-white text-center line-clamp-1">{prod.nombre}</h5>
+              <span className="text-xs font-black text-brand-green mt-1">S/ {Number(prod.precio || 0).toFixed(2)}</span>
             </button>
           ))}
+        </div>
+
+        {visibleProducts.length === 0 && (
+          <div className="text-center py-10 text-gray-500 font-bold text-sm bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+            No hay prendas disponibles.
+          </div>
+        )}
+
+        {totalProducts > 0 && <p className="mt-4 text-center text-xs font-bold text-gray-500">Mostrando {firstProductIndex}-{lastProductIndex} de {totalProducts} prendas</p>}
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-100 dark:border-white/5 pt-4 mt-4">
+            <button type="button" aria-label="Prendas anteriores" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} className="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40">Anterior</button>
+            <span className="text-xs text-gray-500">Página {currentPage} de {pageCount}</span>
+            <button type="button" aria-label="Prendas siguientes" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= pageCount} className="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40">Siguiente</button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-gray-100 dark:border-white/5 pt-6">
+        <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Talla disponible</h4>
+        <div className="flex flex-wrap gap-2">
+          {(selectedProduct?.producto_tallas || []).map((variant: any) => {
+            const size = String(variant.talla);
+            const isSelected = size === (selectedProduct?.talla_sugerida || '');
+            const outOfStock = Number(variant.stock || 0) <= 0;
+            return (
+            <button 
+              type="button"
+              key={String(variant.id || size)}
+              disabled={outOfStock}
+              aria-label={`${size}${outOfStock ? ' agotada' : ''}`}
+              onClick={() => setSelectedProduct({ ...selectedProduct, talla_sugerida: size })}
+              className={`min-w-9 h-9 px-2 rounded-lg text-xs font-black border transition-all disabled:cursor-not-allowed disabled:opacity-40 ${isSelected ? 'bg-brand-green text-black border-brand-green' : 'bg-white text-gray-700 border-gray-200 dark:bg-transparent dark:text-gray-300 dark:border-white/20'}`}
+            >
+              {size}
+            </button>
+          );})}
+          {!selectedProduct?.producto_tallas?.length && <span className="text-xs text-gray-500">Este producto no tiene tallas disponibles.</span>}
         </div>
       </div>
 

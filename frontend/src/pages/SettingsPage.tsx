@@ -7,16 +7,11 @@ import api from "../services/api";
 import { isStrongPassword } from "../utils/validation";
 
 export default function SettingsPage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"security" | "danger">(
     "security",
   );
-
-  const [name, setName] = useState(user?.name || "");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
-  const [profileError, setProfileError] = useState("");
 
   const [hasPassword, setHasPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -65,21 +60,6 @@ export default function SettingsPage() {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
-
-  async function handleSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    setProfileMsg("");
-    setProfileError("");
-    setSavingProfile(true);
-    try {
-      updateUser({ name: name.trim() || undefined });
-      setProfileMsg("Perfil actualizado.");
-    } catch {
-      setProfileError("No se pudo actualizar el perfil.");
-    } finally {
-      setSavingProfile(false);
-    }
-  }
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -224,7 +204,7 @@ export default function SettingsPage() {
     try {
       await api.post("/auth/verify-delete-otp", { code: fullCode });
       logout();
-      window.location.href = "/login";
+      window.location.assign("/login");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })
         ?.response?.data?.error;

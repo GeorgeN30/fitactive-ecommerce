@@ -36,6 +36,16 @@ export default function ProfileSetupPage() {
     setError("");
 
     if (!user) return;
+    if (
+      !Number.isFinite(altura) || altura < 100 || altura > 250 ||
+      !Number.isFinite(medidas.pecho) || medidas.pecho < 30 || medidas.pecho > 250 ||
+      !Number.isFinite(medidas.cintura) || medidas.cintura < 30 || medidas.cintura > 250 ||
+      !Number.isFinite(medidas.cadera) || medidas.cadera < 30 || medidas.cadera > 250 ||
+      !Number.isFinite(medidas.muslo) || medidas.muslo < 20 || medidas.muslo > 150
+    ) {
+      setError("Revisa que tus medidas estén dentro de los rangos indicados.");
+      return;
+    }
 
     try {
       setSaving(true);

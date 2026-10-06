@@ -49,9 +49,27 @@ export default function OrderTrackingPage() {
     );
   }
 
-  const est = order.estado.toLowerCase();
-  const step = est === 'entregado' ? 4 : est === 'enviado' ? 3 : est === 'preparando' ? 2 : 1;
-  const dateStr = order.fechaOrden ? new Date(order.fechaOrden).toISOString().split("T")[0] : "";
+  const est = order.estado.trim().toLowerCase();
+  const stepByStatus: Record<string, number> = {
+    confirmed: 1,
+    confirmado: 1,
+    preparing: 2,
+    preparando: 2,
+    shipped: 3,
+    enviado: 3,
+    delivered: 4,
+    entregado: 4,
+    returned: 4,
+    return: 4,
+    devuelto: 4,
+    devolución: 4,
+  };
+  const step = stepByStatus[est] ?? 0;
+  const isCancelled = est === "cancelled" || est === "cancelado";
+  const parsedDate = order.fechaOrden ? new Date(order.fechaOrden) : null;
+  const dateStr = parsedDate && !Number.isNaN(parsedDate.getTime())
+    ? parsedDate.toLocaleDateString("es-PE")
+    : "Fecha no disponible";
 
   return (
     <ProfileLayout>
@@ -71,6 +89,17 @@ export default function OrderTrackingPage() {
             </span>
           </div>
 
+          {isCancelled && (
+            <p role="status" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              Este pedido fue cancelado. Contacta con atención al cliente si necesitas más información.
+            </p>
+          )}
+          {est === "pending" && (
+            <p role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              El pedido está pendiente de pago. El seguimiento se actualizará cuando se confirme el pago.
+            </p>
+          )}
+
           <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
             <h2 className="text-2xl font-black uppercase mb-8 text-slate-900 dark:text-white">Seguimiento</h2>
 
@@ -83,8 +112,8 @@ export default function OrderTrackingPage() {
                   <i className="fa-solid fa-check text-xs"></i>
                 </div>
                 <div>
-                  <h4 className={`font-black text-lg ${step >= 1 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>Confirmado</h4>
-                  <p className="text-sm text-slate-500 mt-1">Tu pedido fue confirmado y el pago ha sido procesado exitosamente.</p>
+                  <h4 className={`font-black text-lg ${step >= 1 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>Pedido confirmado</h4>
+                  <p className="text-sm text-slate-500 mt-1">El pedido se confirmó después de procesar el pago.</p>
                 </div>
               </div>
 
@@ -124,7 +153,7 @@ export default function OrderTrackingPage() {
             </div>
 
             {/* Date Estimate */}
-            {step < 4 && (
+            {!isCancelled && est !== "pending" && step > 0 && step < 4 && (
               <div className="mt-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 flex items-center gap-4 border border-slate-100 dark:border-slate-700">
                 <div className="bg-white dark:bg-slate-700 p-3 rounded-xl shadow-sm text-brand-green">
                   <i className="fa-regular fa-calendar-check text-xl"></i>
@@ -155,7 +184,7 @@ export default function OrderTrackingPage() {
             </div>
 
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <span className="font-bold text-slate-500">TOTAL PAGADO</span>
+              <span className="font-bold text-slate-500">TOTAL DEL PEDIDO</span>
               <span className="font-black text-2xl text-[#E5FF00] bg-black px-4 py-1 rounded-xl">S/ {Number(order.total).toFixed(2)}</span>
             </div>
           </div>
@@ -167,11 +196,6 @@ export default function OrderTrackingPage() {
             >
               Descargar comprobante
             </button>
-            {step < 3 && (
-              <button className="flex-1 border-2 border-slate-200 dark:border-slate-700 py-4 rounded-xl font-black text-lg hover:border-red-500 hover:text-red-500 transition-colors">
-                Cancelar pedido
-              </button>
-            )}
           </div>
 
         </div>

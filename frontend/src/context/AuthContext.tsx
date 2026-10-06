@@ -25,6 +25,9 @@ export interface User {
   medida_cintura?: number | null;
   medida_cadera?: number | null;
   medida_muslo?: number | null;
+  preferencia_ropa?: string | null;
+  preferencia_colores?: string | null;
+  preferencia_deporte?: string | null;
 
   onboarding_completado?: boolean;
 }
