@@ -244,7 +244,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
+                Correo Electrónico
               </label>
               <input
                 type="email"
@@ -262,18 +262,16 @@ export default function RegisterPage() {
               />
               {(emailTouched || email.length > 0) && (
                 <p
-                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${
-                    emailValidationMessage
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-brand-green"
-                  }`}
+                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${emailValidationMessage
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-brand-green"
+                    }`}
                 >
                   <i
-                    className={`fa-solid ${
-                      emailValidationMessage
-                        ? "fa-circle-info"
-                        : "fa-circle-check"
-                    }`}
+                    className={`fa-solid ${emailValidationMessage
+                      ? "fa-circle-info"
+                      : "fa-circle-check"
+                      }`}
                   />
                   {emailValidationMessage || "Correo válido."}
                 </p>
@@ -281,7 +279,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -302,9 +300,8 @@ export default function RegisterPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 >
                   <i
-                    className={`fa-regular ${
-                      showPassword ? "fa-eye" : "fa-eye-slash"
-                    } text-sm`}
+                    className={`fa-regular ${showPassword ? "fa-eye" : "fa-eye-slash"
+                      } text-sm`}
                   />
                 </button>
               </div>
@@ -324,20 +321,23 @@ export default function RegisterPage() {
                 />
                 <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
                   Acepto los{" "}
+
                   <button
                     type="button"
                     onClick={() => setLegalDoc("terms")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Terminos de Servicio
+                    Términos de Servicio
                   </button>{" "}
+
                   y la{" "}
+
                   <button
                     type="button"
                     onClick={() => setLegalDoc("privacy")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Politica de Privacidad
+                    Política de Privacidad
                   </button>
                 </span>
               </label>
@@ -359,7 +359,7 @@ export default function RegisterPage() {
               }
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Enviando codigo..." : "Crear cuenta"}
+              {sending ? "Enviando código..." : "Crear cuenta"}
             </button>
           </form>
         )}
@@ -403,7 +403,7 @@ export default function RegisterPage() {
               disabled={sending || code.some((c) => c === "")}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Verificando..." : "Verificar codigo"}
+              {sending ? "Verificando..." : "Verificar código"}
             </button>
 
             <div className="text-center">
@@ -419,7 +419,7 @@ export default function RegisterPage() {
                     onClick={handleResend}
                     className="text-brand-green font-semibold hover:underline"
                   >
-                    Reenviar codigo
+                    Reenviar código
                   </button>
                 )}
               </p>
@@ -439,11 +439,10 @@ export default function RegisterPage() {
             <button
               onClick={handleGoogleLogin}
               disabled={!clientId}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${
-                clientId
-                  ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
-                  : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
-              }`}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${clientId
+                ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
+                : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
+                }`}
             >
               <i className="fa-brands fa-google text-sm" />
               Google
@@ -459,7 +458,7 @@ export default function RegisterPage() {
                 to="/login"
                 className="text-brand-green font-bold hover:underline ml-1"
               >
-                Inicia Sesion
+                Inicia Sesión
               </Link>
             </>
           ) : (

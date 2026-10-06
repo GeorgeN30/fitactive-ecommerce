@@ -16,11 +16,15 @@ export const orderController = {
       }
 
       const { entries, tryOnSessionId, checkoutDetails } = req.body;
+      if (!checkoutDetails || typeof checkoutDetails !== "object" || Array.isArray(checkoutDetails)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_CHECKOUT_DETAILS" });
+        return;
+      }
       const order = await orderService.createOrder(
         req.user.userId,
         entries,
         typeof tryOnSessionId === "string" ? tryOnSessionId : undefined,
-        checkoutDetails && typeof checkoutDetails === "object" ? checkoutDetails : undefined,
+        checkoutDetails,
       );
 
       void notifications.notifyNewOrder({
@@ -38,7 +42,15 @@ export const orderController = {
       if (
         message === "EMPTY_ORDER" ||
         message === "INVALID_ENTRY" ||
-        message === "INVALID_QUANTITY"
+        message === "INVALID_QUANTITY" ||
+        message === "INVALID_CUSTOMER_NAME" ||
+        message === "INVALID_CHECKOUT_DETAILS" ||
+        message === "INVALID_CUSTOMER_EMAIL" ||
+        message === "INVALID_CUSTOMER_PHONE" ||
+        message === "INVALID_SHIPPING_ADDRESS" ||
+        message === "INVALID_SHIPPING_DISTRICT" ||
+        message === "INVALID_SHIPPING_CITY" ||
+        message === "INVALID_SHIPPING_REFERENCE"
       ) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: message });
         return;

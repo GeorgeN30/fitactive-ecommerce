@@ -5,7 +5,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
@@ -22,15 +22,21 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import SetPasswordPage from "./pages/SetPasswordPage";
 import CatalogPage from "./pages/CatalogPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
-import ProbadorVirtual from "./pages/ProbadorVirtual";
 import { CartProvider } from "./context/CartContext";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentResultPage from "./pages/PaymentResultPage";
 import MyOrdersPage from "./pages/MyOrdersPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
+
+import ProfilePage from "./pages/ProfilePage";
+import ProfileSetupPage from "./pages/ProfileSetupPage";
+import MeasuresPage from "./pages/MeasuresPage";
+
+const ProbadorVirtual = lazy(() => import("./pages/ProbadorVirtual"));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -44,6 +50,7 @@ function AnimatedRoutes() {
   const location = useLocation();
   return (
     <div key={location.key} className="animate-route-fade-in">
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-500">Cargando…</div>}>
       <Routes location={location}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -58,6 +65,31 @@ function AnimatedRoutes() {
         <Route path="/catalogo" element={<CatalogPage />} />
         <Route path="/producto/:id" element={<ProductDetailPage />} />
         <Route path="/probador-virtual" element={<ProbadorVirtual />} />
+
+        <Route
+          path="/configurar-perfil"
+          element={
+            <ProtectedRoute>
+              <ProfileSetupPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/medidas"
+          element={
+            <ProtectedRoute>
+              <MeasuresPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/favoritos"
           element={
@@ -74,6 +106,14 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <MyOrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/mis-compras/:id"
+          element={
+            <ProtectedRoute>
+              <OrderTrackingPage />
             </ProtectedRoute>
           }
         />
@@ -114,7 +154,7 @@ function AnimatedRoutes() {
         />
 
         <Route
-          path="/settings"
+          path="/configuracion"
           element={
             <ProtectedRoute>
               <SettingsPage />
@@ -124,6 +164,7 @@ function AnimatedRoutes() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </div>
   );
 }

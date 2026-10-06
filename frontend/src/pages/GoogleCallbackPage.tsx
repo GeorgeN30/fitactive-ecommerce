@@ -22,12 +22,24 @@ export default function GoogleCallbackPage() {
     sessionStorage.removeItem("fitlook:remember-me");
 
     loginWithGoogle(accessToken, rememberMe)
-      .then(() => {
+      .then((result) => {
+        if (result.requires2Fa) {
+          navigate("/2fa-verify", { replace: true });
+          return;
+        }
         // Google accounts can continue without a password. It remains an
         // optional setup available from the user's security settings.
         navigate("/", { replace: true });
       })
-      .catch(() => setError("Error al autenticar con Google."));
+      .catch((error: unknown) => {
+        const code = (error as { response?: { data?: { error?: string } } })
+          ?.response?.data?.error;
+        setError(
+          code === "TOTP_NOT_SETUP"
+            ? "La verificación 2FA necesita configurarse de nuevo. Contacta al administrador."
+            : "Error al autenticar con Google.",
+        );
+      });
   }, [loginWithGoogle, navigate]);
 
   if (error) {

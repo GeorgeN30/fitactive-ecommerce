@@ -169,13 +169,29 @@ describe("AuthContext", () => {
     expect(result.current.token).toBe("temporary-token");
   });
 
+  it("restores a pending MFA challenge after a page reload", async () => {
+    sessionStorage.setItem("preAuth_token", "short-lived-challenge");
+    sessionStorage.setItem("preAuth_user_id", "mfa-user");
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(result.current.preAuthUserId).toBe("mfa-user");
+  });
+
   it("loginWithPassword returns true when requires2Fa", async () => {
+    localStorage.setItem("token", "previous-session-token");
+    localStorage.setItem("user", JSON.stringify({
+      id: "old-user",
+      email: "old@example.com",
+      role: "admin",
+    }));
     mockApi.post.mockResolvedValueOnce({
       data: {
         requires2Fa: true,
         userId: "u1",
         token: "preauth-token",
-        user: { id: "u1", email: "test@example.com" },
       },
     });
 
@@ -196,7 +212,49 @@ describe("AuthContext", () => {
     expect(requires2Fa!).toBe(true);
     expect(result.current.user).toBeNull();
     expect(localStorage.getItem("preAuth_token")).toBe("preauth-token");
+    expect(localStorage.getItem("preAuth_user_id")).toBe("u1");
+    expect(localStorage.getItem("token")).toBeNull();
     expect(result.current.preAuthUserId).toBe("u1");
+  });
+
+  it("verifies the MFA challenge with its own bearer token and replaces it with the session", async () => {
+    mockApi.post
+      .mockResolvedValueOnce({
+        data: { requires2Fa: true, userId: "u1", token: "mfa-challenge" },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          token: "verified-session",
+          user: {
+            id: "u1",
+            email: "test@example.com",
+            name: "Test",
+            role: "admin",
+            picture: null,
+          },
+        },
+      });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithPassword("test@example.com", "password123");
+    });
+    await act(async () => {
+      await result.current.verify2Fa("123456");
+    });
+
+    expect(mockApi.post).toHaveBeenNthCalledWith(
+      2,
+      "/auth/2fa/verify",
+      { code: "123456" },
+      { headers: { Authorization: "Bearer mfa-challenge" } },
+    );
+    expect(result.current.token).toBe("verified-session");
+    expect(result.current.user?.role).toBe("admin");
+    expect(localStorage.getItem("preAuth_token")).toBeNull();
+    expect(localStorage.getItem("preAuth_user_id")).toBeNull();
   });
 
   it("loginWithOtp persists session on success", async () => {
@@ -258,6 +316,7 @@ describe("AuthContext", () => {
 
   it("clearPreAuth removes preauth data", async () => {
     localStorage.setItem("preAuth_token", "preauth");
+    localStorage.setItem("preAuth_user_id", "u1");
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
@@ -269,6 +328,7 @@ describe("AuthContext", () => {
     });
 
     expect(localStorage.getItem("preAuth_token")).toBeNull();
+    expect(localStorage.getItem("preAuth_user_id")).toBeNull();
     expect(result.current.preAuthUserId).toBeNull();
   });
 

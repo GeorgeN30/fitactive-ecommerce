@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import api from "../services/api";
@@ -13,7 +13,9 @@ export default function LoginPage() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [error, setError] = useState("");
+  const location = useLocation();
+  const initialError = (location.state as { authError?: string } | null)?.authError;
+  const [error, setError] = useState(initialError || "");
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
@@ -51,8 +53,18 @@ export default function LoginPage() {
       } else {
         setSuccess(true);
       }
-    } catch {
-      setError("Correo o contraseña incorrectos.");
+    } catch (error: unknown) {
+      const code = (error as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setError(
+        code === "TOTP_NOT_SETUP"
+            ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo. Contacta al administrador."
+            : code === "ACCOUNT_BLOCKED"
+              ? "Esta cuenta está bloqueada. Contacta al administrador."
+              : code === "INVALID_CREDENTIALS"
+                ? "Correo o contraseña incorrectos. Comprueba las credenciales y vuelve a intentarlo."
+                : "No se pudo iniciar sesión. Inténtalo nuevamente.",
+      );
     } finally {
       setSending(false);
     }
@@ -93,8 +105,8 @@ export default function LoginPage() {
     <AuthLayout>
       {success && (
         <SuccessOverlay
-          message="Sesion iniciada"
-          subtitle="Bienvenido de vuelta"
+          message="Sesión iniciada"
+          subtitle="¡Bienvenido de vuelta!"
           onDone={navigateToHome}
         />
       )}
@@ -116,7 +128,7 @@ export default function LoginPage() {
         </Link>
 
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-          Iniciar sesion
+          Iniciar sesión
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-8">
           Ingresa tu correo y contraseña para acceder a tu cuenta.
@@ -129,7 +141,7 @@ export default function LoginPage() {
         >
           <div>
             <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-              Correo Electronico
+              Correo Electrónico
             </label>
             <input
               type="email"
@@ -166,7 +178,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Contrasena
+                Contraseña
               </label>
               <div className="relative">
                 <input
@@ -181,7 +193,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   aria-invalid={Boolean(passwordTouched && !password.trim())}
                   className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
                 />
                 <button
                   type="button"

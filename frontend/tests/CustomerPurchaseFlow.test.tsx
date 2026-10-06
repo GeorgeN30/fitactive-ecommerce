@@ -140,9 +140,9 @@ describe("customer purchase flow", () => {
     });
     renderPage(<CheckoutPage />);
 
-    await user.type(screen.getByPlaceholderText("Ej. Juan Pérez"), "Juan Pérez");
+    await user.type(screen.getByPlaceholderText("Ej. Juan Pérez"), "Ana O'Connor");
     await user.type(screen.getByPlaceholderText("correo@ejemplo.com"), "juan@test.com");
-    await user.type(screen.getByPlaceholderText("999 999 999"), "999999999");
+    await user.type(screen.getByPlaceholderText("Ej. 987654321"), "999999999");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.type(screen.getByPlaceholderText("Av. Javier Prado 1234"), "Av. Central 123");
     await user.type(screen.getByPlaceholderText("Miraflores"), "Miraflores");
@@ -163,7 +163,7 @@ describe("customer purchase flow", () => {
       [{ productoTallaId: "size-m", cantidad: 1 }],
       expect.any(String),
       {
-        customerName: "Juan Pérez",
+        customerName: "Ana O'Connor",
         customerEmail: "juan@test.com",
         customerPhone: "999999999",
         shippingAddress: "Av. Central 123",

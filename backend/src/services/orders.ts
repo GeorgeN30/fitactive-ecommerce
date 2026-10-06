@@ -82,6 +82,67 @@ function normalizeCheckoutValue(value: unknown, maxLength: number): string | nul
   const normalized = value.trim();
   return normalized ? normalized.slice(0, maxLength) : null;
 }
+function validateCheckoutDetails(
+  checkoutDetails?: OrderCheckoutDetails,
+): void {
+  if (!checkoutDetails) return;
+
+  const values = checkoutDetails as unknown as Record<string, unknown>;
+  const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+  const name = text(values.customerName);
+  const email = text(values.customerEmail);
+  const phone = text(values.customerPhone);
+  const address = text(values.shippingAddress);
+  const district = text(values.shippingDistrict);
+  const city = text(values.shippingCity);
+  const reference = text(values.shippingReference);
+
+  if (!name) {
+    throw new Error("INVALID_CUSTOMER_NAME");
+  }
+
+  if (
+    name.length < 3 ||
+    name.length > 150 ||
+    !/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(name)
+  ) {
+    throw new Error("INVALID_CUSTOMER_NAME");
+  }
+
+  if (
+    !email ||
+    email.length > 255 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    throw new Error("INVALID_CUSTOMER_EMAIL");
+  }
+
+  if (!/^9\d{8}$/.test(phone)) {
+    throw new Error("INVALID_CUSTOMER_PHONE");
+  }
+
+  if (address.length < 5 || address.length > 255) {
+    throw new Error("INVALID_SHIPPING_ADDRESS");
+  }
+
+  if (
+    district.length < 2 ||
+    district.length > 120
+  ) {
+    throw new Error("INVALID_SHIPPING_DISTRICT");
+  }
+
+  if (
+    city.length < 2 ||
+    city.length > 120
+  ) {
+    throw new Error("INVALID_SHIPPING_CITY");
+  }
+
+  if (reference.length > 255) {
+    throw new Error("INVALID_SHIPPING_REFERENCE");
+  }
+}
 
 function consolidateEntries(entries: OrderEntryInput[]): OrderEntryInput[] {
   const quantities = new Map<string, number>();
@@ -147,6 +208,7 @@ export const orderService = {
     checkoutDetails?: OrderCheckoutDetails,
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
+    validateCheckoutDetails(checkoutDetails);
     const entries = consolidateEntries(rawEntries);
 
     const orderId = randomUUID();

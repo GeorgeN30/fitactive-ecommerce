@@ -97,6 +97,9 @@ model usuarios {
   role             String?   @default("customer") @map("rol") @db.VarChar(50)
 
   // Datos biométricos
+  genero           String?   @db.VarChar(50)
+  altura           Decimal?  @db.Decimal(5, 2)
+  medida_muslo     Decimal?  @db.Decimal(5, 2)
   medida_pecho     Decimal?  @db.Decimal(5, 2)
   medida_cintura   Decimal?  @db.Decimal(5, 2)
   medida_cadera    Decimal?  @db.Decimal(5, 2)
@@ -109,6 +112,10 @@ model usuarios {
   twoFactorEnabled Boolean   @default(false)
   totpSecret       String?
   points           Int       @default(0)
+  preferencia_ropa       String?  @db.VarChar(100)
+  preferencia_colores    String?  @db.VarChar(100)
+  preferencia_deporte    String?  @db.VarChar(100)
+  onboarding_completado Boolean  @default(false)
 
   // Relaciones
   ordenes          ordenes[]

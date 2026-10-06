@@ -635,6 +635,12 @@ export default function AdminDashboard() {
         >
           <AdminIcon name="fa-store" size={16} /> Vista tienda
         </Link>
+        <Link
+          to="/configuracion"
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          <AdminIcon name="fa-user-shield" size={16} /> Seguridad de mi cuenta
+        </Link>
         <div className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-400">
           <div className="flex items-center gap-3">
             {theme === "dark" ? (

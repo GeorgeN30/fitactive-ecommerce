@@ -1,22 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import AppLayout from "../components/AppLayout";
+import ProfileLayout from "../components/ProfileLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
 import api from "../services/api";
 import { isStrongPassword } from "../utils/validation";
 
 export default function SettingsPage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "danger">(
-    "profile",
+  const [activeTab, setActiveTab] = useState<"security" | "danger">(
+    "security",
   );
-
-  const [name, setName] = useState(user?.name || "");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
-  const [profileError, setProfileError] = useState("");
 
   const [hasPassword, setHasPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -29,6 +24,11 @@ export default function SettingsPage() {
   const [pwMsg, setPwMsg] = useState("");
   const [pwError, setPwError] = useState("");
   const [changeTotp, setChangeTotp] = useState("");
+  const [showDisable2Fa, setShowDisable2Fa] = useState(false);
+  const [disableTotpCode, setDisableTotpCode] = useState("");
+  const [disabling2Fa, setDisabling2Fa] = useState(false);
+  const [disable2FaError, setDisable2FaError] = useState("");
+  const [disable2FaSuccess, setDisable2FaSuccess] = useState("");
 
   const [setPwValue, setSetPwValue] = useState("");
   const [confirmSetPw, setConfirmSetPw] = useState("");
@@ -66,18 +66,34 @@ export default function SettingsPage() {
     }
   }, [countdown]);
 
-  async function handleSaveProfile(e: React.FormEvent) {
+  async function handleDisable2Fa(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setProfileMsg("");
-    setProfileError("");
-    setSavingProfile(true);
+    setDisable2FaError("");
+    if (!/^\d{6}$/.test(disableTotpCode)) {
+      setDisable2FaError("Ingresa el código de 6 dígitos de tu aplicación de autenticación.");
+      return;
+    }
+
+    setDisabling2Fa(true);
     try {
-      updateUser({ name: name.trim() || undefined });
-      setProfileMsg("Perfil actualizado.");
-    } catch {
-      setProfileError("No se pudo actualizar el perfil.");
+      const { data } = await api.post("/auth/2fa/disable", { code: disableTotpCode });
+      if (data?.success !== true) throw new Error("TWO_FA_DISABLE_FAILED");
+      updateUser({ twoFactorEnabled: false });
+      setDisableTotpCode("");
+      setShowDisable2Fa(false);
+      setDisable2FaSuccess("2FA desactivado. Ya no se solicitará este código al iniciar sesión.");
+    } catch (err: unknown) {
+      const error = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setDisable2FaError(
+        error === "INVALID_TOTP"
+          ? "El código TOTP es incorrecto o ha expirado. Revisa la hora de tu dispositivo."
+          : error === "TOTP_NOT_SETUP"
+            ? "No se encontró la configuración 2FA de esta cuenta."
+            : "No se pudo desactivar 2FA. Inténtalo nuevamente.",
+      );
     } finally {
-      setSavingProfile(false);
+      setDisabling2Fa(false);
     }
   }
 
@@ -86,11 +102,11 @@ export default function SettingsPage() {
     setPwMsg("");
     setPwError("");
     if (newPassword !== confirmPassword) {
-      setPwError("Las contrasenas no coinciden.");
+      setPwError("Las contraseñas no coinciden.");
       return;
     }
     if (!isStrongPassword(newPassword)) {
-      setPwError("La contrasena no cumple todos los requisitos.");
+      setPwError("La contraseña no cumple todos los requisitos.");
       return;
     }
     setSavingPw(true);
@@ -100,7 +116,7 @@ export default function SettingsPage() {
         newPassword,
         totpCode: user?.twoFactorEnabled ? changeTotp : undefined,
       });
-      setPwMsg("Contrasena actualizada.");
+      setPwMsg("Contraseña actualizada.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -109,15 +125,15 @@ export default function SettingsPage() {
       const msg = (err as { response?: { data?: { error?: string } } })
         ?.response?.data?.error;
       if (msg === "INVALID_CURRENT_PASSWORD") {
-        setPwError("La contrasena actual es incorrecta.");
+        setPwError("La contraseña actual es incorrecta.");
       } else if (msg === "PASSWORD_TOO_SHORT") {
-        setPwError("La contrasena debe tener al menos 8 caracteres.");
+        setPwError("La contraseña debe tener al menos 8 caracteres.");
       } else if (msg === "TOTP_REQUIRED") {
-        setPwError("Debes ingresar el codigo TOTP de tu aplicacion.");
+        setPwError("Debes ingresar el código TOTP de tu aplicación.");
       } else if (msg === "INVALID_TOTP") {
-        setPwError("El codigo TOTP es incorrecto o ha expirado.");
+        setPwError("El código TOTP es incorrecto o ha expirado.");
       } else {
-        setPwError("No se pudo cambiar la contrasena.");
+        setPwError("No se pudo cambiar la contraseña.");
       }
     } finally {
       setSavingPw(false);
@@ -129,22 +145,22 @@ export default function SettingsPage() {
     setSetPwMsgVal("");
     setSetPwErrorVal("");
     if (setPwValue !== confirmSetPw) {
-      setSetPwErrorVal("Las contrasenas no coinciden.");
+      setSetPwErrorVal("Las contraseñas no coinciden.");
       return;
     }
     if (!isStrongPassword(setPwValue)) {
-      setSetPwErrorVal("La contrasena no cumple todos los requisitos.");
+      setSetPwErrorVal("La contraseña no cumple todos los requisitos.");
       return;
     }
     setSavingSetPw(true);
     try {
       await api.post("/auth/set-password", { newPassword: setPwValue });
       setHasPassword(true);
-      setSetPwMsgVal("Contrasena configurada.");
+      setSetPwMsgVal("Contraseña configurada.");
       setSetPwValue("");
       setConfirmSetPw("");
     } catch {
-      setSetPwErrorVal("No se pudo configurar la contrasena.");
+      setSetPwErrorVal("No se pudo configurar la contraseña.");
     } finally {
       setSavingSetPw(false);
     }
@@ -167,15 +183,15 @@ export default function SettingsPage() {
       const msg = (err as { response?: { data?: { error?: string } } })
         ?.response?.data?.error;
       if (msg === "INVALID_PASSWORD") {
-        setDeleteError("La contrasena es incorrecta.");
+        setDeleteError("La contraseña es incorrecta.");
       } else if (msg === "INVALID_TOTP") {
-        setDeleteError("El codigo TOTP es incorrecto.");
+        setDeleteError("El código TOTP es incorrecto.");
       } else if (msg === "PASSWORD_REQUIRED") {
-        setDeleteError("Debes ingresar tu contrasena.");
+        setDeleteError("Debes ingresar tu contraseña.");
       } else if (msg === "TOTP_REQUIRED") {
-        setDeleteError("Debes ingresar el codigo TOTP.");
+        setDeleteError("Debes ingresar el código TOTP.");
       } else {
-        setDeleteError("No se pudo enviar el codigo. Intenta de nuevo.");
+        setDeleteError("No se pudo enviar el código. Intenta de nuevo.");
       }
     } finally {
       setSendingOtp(false);
@@ -224,16 +240,16 @@ export default function SettingsPage() {
     try {
       await api.post("/auth/verify-delete-otp", { code: fullCode });
       logout();
-      window.location.href = "/login";
+      window.location.assign("/login");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })
         ?.response?.data?.error;
       if (msg === "INVALID_OTP") {
-        setDeleteError("Codigo invalido o expirado.");
+        setDeleteError("Código invalido o expirado.");
         setOtpCode(["", "", "", "", "", ""]);
         otpRefs.current[0]?.focus();
       } else {
-        setDeleteError("No se pudo verificar el codigo.");
+        setDeleteError("No se pudo verificar el código.");
         setOtpCode(["", "", "", "", "", ""]);
       }
     } finally {
@@ -250,12 +266,11 @@ export default function SettingsPage() {
       });
       setCountdown(60);
     } catch {
-      setDeleteError("No se pudo reenviar el codigo.");
+      setDeleteError("No se pudo reenviar el código.");
     }
   }
 
   const tabs = [
-    { key: "profile" as const, label: "Perfil", icon: "fa-user" },
     { key: "security" as const, label: "Seguridad", icon: "fa-shield-halved" },
     {
       key: "danger" as const,
@@ -265,11 +280,11 @@ export default function SettingsPage() {
   ];
 
   return (
-    <AppLayout>
+    <ProfileLayout>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">
-            Configuracion
+            Configuración
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Administra tu perfil y seguridad de la cuenta.
@@ -293,85 +308,75 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {activeTab === "profile" && (
-          <form
-            onSubmit={handleSaveProfile}
-            className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8 space-y-5"
-          >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-              Datos personales
-            </h3>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
-              </label>
-              <input
-                type="email"
-                value={user?.email || ""}
-                disabled
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">
-                El correo no se puede cambiar.
-              </p>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Nombre
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-700/50 transition-all"
-                placeholder="Tu nombre"
-              />
-            </div>
 
-            {profileMsg && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-xs px-4 py-2.5 rounded-lg dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-300">
-                {profileMsg}
-              </div>
-            )}
-            {profileError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-4 py-2.5 rounded-lg dark:bg-red-900/30 dark:border-red-800/50 dark:text-red-300">
-                {profileError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={savingProfile}
-              className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
-            >
-              {savingProfile ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </form>
-        )}
 
         {activeTab === "security" && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-200 dark:bg-brand-card-dark dark:border-slate-600 p-6 sm:p-8">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                 <i className="fa-solid fa-shield-halved mr-2 text-brand-green" />
-                Autenticacion de dos factores
+                Autenticación de dos factores
               </h3>
+              {disable2FaSuccess && (
+                <p role="status" className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  {disable2FaSuccess}
+                </p>
+              )}
               {user?.twoFactorEnabled ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                      2FA activo
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Tu cuenta tiene una capa extra de seguridad.
-                    </p>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                        2FA activo
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Tu cuenta tiene una capa extra de seguridad.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDisable2Fa((current) => !current);
+                        setDisable2FaError("");
+                        setDisableTotpCode("");
+                      }}
+                      className="text-xs font-semibold text-red-600 hover:underline dark:text-red-400"
+                    >
+                      {showDisable2Fa ? "Cancelar" : "Desactivar 2FA"}
+                    </button>
                   </div>
-                  <Link
-                    to="/2fa-setup"
-                    className="text-xs font-semibold text-brand-green hover:underline"
-                  >
-                    Configurar
-                  </Link>
+                  {showDisable2Fa && (
+                    <form onSubmit={handleDisable2Fa} className="space-y-3 rounded-xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900 dark:bg-red-950/20">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        Confirma con el código actual de tu aplicación. Al desactivar 2FA se eliminará su clave de esta cuenta.
+                      </p>
+                      <label htmlFor="disable-2fa-code" className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                        Código TOTP actual
+                      </label>
+                      <input
+                        id="disable-2fa-code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        pattern="[0-9]{6}"
+                        value={disableTotpCode}
+                        onChange={(event) => {
+                          setDisableTotpCode(event.target.value.replace(/\D/g, "").slice(0, 6));
+                          setDisable2FaError("");
+                        }}
+                        className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm tracking-widest text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                      {disable2FaError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{disable2FaError}</p>}
+                      <button
+                        type="submit"
+                        disabled={disabling2Fa || disableTotpCode.length !== 6}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {disabling2Fa ? "Desactivando..." : "Confirmar desactivación"}
+                      </button>
+                    </form>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
@@ -380,7 +385,7 @@ export default function SettingsPage() {
                       2FA no configurado
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Activa la autenticacion de dos factores para mayor
+                      Activa la autenticación de dos factores para mayor
                       seguridad.
                     </p>
                   </div>
@@ -402,15 +407,15 @@ export default function SettingsPage() {
               >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   <i className="fa-solid fa-key mr-2 text-brand-green" />
-                  Establecer contrasena
+                  Establecer contraseña
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Tu cuenta fue creada con Google. Configura una contrasena para
-                  poder iniciar sesion con correo y contrasena.
+                  Tu cuenta fue creada con Google. Configura una contraseña para
+                  poder iniciar sesión con correo y contraseña.
                 </p>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Nueva contrasena
+                    Nueva contraseña
                   </label>
                   <div className="relative">
                     <input
@@ -441,7 +446,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Confirmar contrasena
+                    Confirmar contraseña
                   </label>
                   <input
                     type={showSetPw ? "text" : "password"}
@@ -449,7 +454,7 @@ export default function SettingsPage() {
                     onChange={(e) => setConfirmSetPw(e.target.value)}
                     required
                     className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                    placeholder="Repite la contrasena"
+                    placeholder="Repite la contraseña"
                   />
                 </div>
 
@@ -469,7 +474,7 @@ export default function SettingsPage() {
                   disabled={savingSetPw || !isStrongPassword(setPwValue)}
                   className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
                 >
-                  {savingSetPw ? "Guardando..." : "Establecer contrasena"}
+                  {savingSetPw ? "Guardando..." : "Establecer contraseña"}
                 </button>
               </form>
             )}
@@ -482,11 +487,11 @@ export default function SettingsPage() {
               >
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   <i className="fa-solid fa-key mr-2 text-brand-green" />
-                  Cambiar contrasena
+                  Cambiar contraseña
                 </h3>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Contrasena actual
+                    Contraseña actual
                   </label>
                   <div className="relative">
                     <input
@@ -495,7 +500,7 @@ export default function SettingsPage() {
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       required
                       className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                      placeholder="Tu contrasena actual"
+                      placeholder="Tu contraseña actual"
                     />
                     <button
                       type="button"
@@ -511,7 +516,7 @@ export default function SettingsPage() {
                 {user?.twoFactorEnabled && (
                   <div>
                     <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                      Codigo TOTP
+                      Código TOTP
                     </label>
                     <input
                       type="text"
@@ -529,14 +534,14 @@ export default function SettingsPage() {
                       placeholder="123456"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-                      Como tienes 2FA activo, confirma el cambio con el codigo
-                      de tu aplicacion.
+                      Como tienes 2FA activo, confirma el cambio con el código
+                      de tu aplicación.
                     </p>
                   </div>
                 )}
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Nueva contrasena
+                    Nueva contraseña
                   </label>
                   <div className="relative">
                     <input
@@ -567,7 +572,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                    Confirmar nueva contrasena
+                    Confirmar nueva contraseña
                   </label>
                   <input
                     type={showNewPw ? "text" : "password"}
@@ -575,7 +580,7 @@ export default function SettingsPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green transition-all"
-                    placeholder="Repite la contrasena"
+                    placeholder="Repite la contraseña"
                   />
                 </div>
 
@@ -595,7 +600,7 @@ export default function SettingsPage() {
                   disabled={savingPw || !isStrongPassword(newPassword)}
                   className="bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-50"
                 >
-                  {savingPw ? "Guardando..." : "Cambiar contrasena"}
+                  {savingPw ? "Guardando..." : "Cambiar contraseña"}
                 </button>
               </form>
             )}
@@ -611,22 +616,22 @@ export default function SettingsPage() {
                   Eliminar cuenta
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mt-3">
-                  Esta accion es <strong>permanente</strong> y no se puede
-                  deshacer. Se eliminaran todos tus datos, incluyendo tu perfil,
+                  Esta acción es <strong>permanente</strong> y no se puede
+                  deshacer. Se eliminarán todos tus datos, incluyendo tu perfil,
                   pedidos y medidas AR.
                 </p>
 
                 <div className="mt-4">
                   <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300 text-xs px-4 py-2.5 rounded-lg">
-                    Se enviara un codigo de verificacion a{" "}
+                    Se enviará un código de verificación a{" "}
                     <strong>{user?.email}</strong> para confirmar la
-                    eliminacion.
+                    eliminación.
                   </div>
                 </div>
 
                 {!hasPassword && (
                   <div className="mt-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300 text-xs px-4 py-2.5 rounded-lg">
-                    Tu cuenta fue creada con Google. No necesitas contrasena
+                    Tu cuenta fue creada con Google. No necesitas contraseña
                     para eliminarla.
                   </div>
                 )}
@@ -634,7 +639,7 @@ export default function SettingsPage() {
                 {hasPassword && (
                   <div className="mt-4">
                     <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                      Contrasena
+                      Contraseña
                     </label>
                     <div className="relative">
                       <input
@@ -642,7 +647,7 @@ export default function SettingsPage() {
                         value={deletePw}
                         onChange={(e) => setDeletePw(e.target.value)}
                         className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-red-400 transition-all"
-                        placeholder="Tu contrasena"
+                        placeholder="Tu contraseña"
                       />
                       <button
                         type="button"
@@ -660,7 +665,7 @@ export default function SettingsPage() {
                 {user?.twoFactorEnabled && (
                   <div className="mt-4">
                     <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                      Codigo TOTP (2FA)
+                      Código TOTP (2FA)
                     </label>
                     <input
                       type="text"
@@ -683,7 +688,7 @@ export default function SettingsPage() {
                     />
                     <span className="text-xs text-slate-600 dark:text-slate-400 leading-tight">
                       Confirmo que deseo eliminar mi cuenta de forma permanente
-                      y entiendo que esta accion no se puede deshacer.
+                      y entiendo que esta acción no se puede deshacer.
                     </span>
                   </label>
                 </div>
@@ -700,8 +705,8 @@ export default function SettingsPage() {
                   className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-4"
                 >
                   {sendingOtp
-                    ? "Enviando codigo..."
-                    : "Enviar codigo de verificacion"}
+                    ? "Enviando código..."
+                    : "Enviar código de verificación"}
                 </button>
               </form>
             ) : (
@@ -711,8 +716,8 @@ export default function SettingsPage() {
                   Verifica tu identidad
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mt-3">
-                  Ingresa el codigo de 6 digitos enviado a{" "}
-                  <strong>{user?.email}</strong> para confirmar la eliminacion
+                  Ingresa el código de 6 dígitos enviado a{" "}
+                  <strong>{user?.email}</strong> para confirmar la eliminación
                   de tu cuenta.
                 </p>
 
@@ -762,7 +767,7 @@ export default function SettingsPage() {
                       onClick={handleResendDeleteOtp}
                       className="text-xs text-brand-green font-semibold hover:underline"
                     >
-                      Reenviar codigo
+                      Reenviar código
                     </button>
                   )}
                 </div>
@@ -783,6 +788,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </ProfileLayout>
   );
 }

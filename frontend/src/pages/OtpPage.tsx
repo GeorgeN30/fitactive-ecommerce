@@ -97,19 +97,25 @@ export default function OtpPage() {
       const requires2Fa = await loginWithOtp(email, fullCode, name, rememberMe);
       if (requires2Fa) {
         setSuccess({
-          message: "Sesion iniciada",
-          subtitle: "Redirigiendo a verificacion de seguridad...",
+          message: "Sesión iniciada",
+          subtitle: "Redirigiendo a verificación de seguridad...",
           target: "/2fa-verify",
         });
       } else {
         setSuccess({
-          message: "Sesion iniciada",
+          message: "Sesión iniciada",
           subtitle: "Bienvenido de vuelta",
           target: "/",
         });
       }
-    } catch {
-      setError("Codigo invalido o expirado. Intenta de nuevo.");
+    } catch (error: unknown) {
+      const code = (error as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setError(
+        code === "TOTP_NOT_SETUP"
+          ? "La verificación 2FA necesita configurarse de nuevo. Contacta al administrador."
+          : "Codigo invalido o expirado. Intenta de nuevo.",
+      );
       setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {

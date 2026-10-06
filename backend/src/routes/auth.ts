@@ -21,6 +21,7 @@ router.post("/2fa/verify", validateMfaPendingJWT, authController.verify2Fa);
 router.post("/2fa/disable", validateJWT, authController.disable2Fa);
 
 router.get("/me", validateJWT, authController.getMe);
+router.put("/me", validateJWT, authController.updateMe);
 router.post("/set-password", validateJWT, authController.setPassword);
 router.post("/change-password", validateJWT, authController.changePassword);
 router.post("/request-delete-otp", validateJWT, otpRequestLimiter, authController.requestDeleteOtp);

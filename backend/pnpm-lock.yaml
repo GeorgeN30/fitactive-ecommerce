@@ -33,7 +33,7 @@ importers:
         specifier: '7'
         version: 7.2.0
       mercadopago:
-        specifier: 3.6.1
+        specifier: ^3.6.1
         version: 3.6.1
     devDependencies:
       '@types/bcryptjs':
