@@ -1,8 +1,8 @@
 ALTER TABLE "usuarios"
-  ADD COLUMN "genero" VARCHAR(50),
-  ADD COLUMN "altura" DECIMAL(5, 2),
-  ADD COLUMN "medida_muslo" DECIMAL(5, 2),
-  ADD COLUMN "preferencia_ropa" VARCHAR(100),
-  ADD COLUMN "preferencia_colores" VARCHAR(100),
-  ADD COLUMN "preferencia_deporte" VARCHAR(100),
-  ADD COLUMN "onboarding_completado" BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS "genero" VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS "altura" DECIMAL(5, 2),
+  ADD COLUMN IF NOT EXISTS "medida_muslo" DECIMAL(5, 2),
+  ADD COLUMN IF NOT EXISTS "preferencia_ropa" VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS "preferencia_colores" VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS "preferencia_deporte" VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS "onboarding_completado" BOOLEAN NOT NULL DEFAULT false;
