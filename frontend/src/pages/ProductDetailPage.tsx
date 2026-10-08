@@ -132,10 +132,10 @@ export default function ProductDetailPage() {
 
   const stockActual = selectedSize
     ? Number(
-        producto?.producto_tallas?.find(
-          (t: any) => t.talla === selectedSize
-        )?.stock || 0
-      )
+      producto?.producto_tallas?.find(
+        (t: any) => t.talla === selectedSize
+      )?.stock || 0
+    )
     : 0;
 
   useEffect(() => {
@@ -204,19 +204,19 @@ export default function ProductDetailPage() {
 
   const guiaTallas = esMujer
     ? [
-        { t: "S", p: "83-90", c: "67-74", ca: "91-98" },
-        { t: "M", p: "90-97", c: "74-81", ca: "98-105" },
-        { t: "L", p: "97-104", c: "81-88", ca: "105-112" },
-        { t: "XL", p: "104-114", c: "88-98", ca: "112-120" },
-        { t: "XXL", p: "114-124", c: "98-108", ca: "120-128" },
-      ]
+      { t: "S", p: "83-90", c: "67-74", ca: "91-98" },
+      { t: "M", p: "90-97", c: "74-81", ca: "98-105" },
+      { t: "L", p: "97-104", c: "81-88", ca: "105-112" },
+      { t: "XL", p: "104-114", c: "88-98", ca: "112-120" },
+      { t: "XXL", p: "114-124", c: "98-108", ca: "120-128" },
+    ]
     : [
-        { t: "S", p: "88-96", c: "73-81", ca: "88-96" },
-        { t: "M", p: "96-104", c: "81-89", ca: "96-104" },
-        { t: "L", p: "104-112", c: "89-97", ca: "104-112" },
-        { t: "XL", p: "112-124", c: "97-109", ca: "112-120" },
-        { t: "XXL", p: "124-136", c: "109-121", ca: "120-128" },
-      ];
+      { t: "S", p: "88-96", c: "73-81", ca: "88-96" },
+      { t: "M", p: "96-104", c: "81-89", ca: "96-104" },
+      { t: "L", p: "104-112", c: "89-97", ca: "104-112" },
+      { t: "XL", p: "112-124", c: "97-109", ca: "112-120" },
+      { t: "XXL", p: "124-136", c: "109-121", ca: "120-128" },
+    ];
 
   return (
     <AppLayout>
@@ -268,11 +268,10 @@ export default function ProductDetailPage() {
                         key={`${image}-${index}`}
                         onClick={() => setActiveImage(image)}
                         aria-label={`Ver imagen ${index + 1}`}
-                        className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-colors ${
-                          mainImage === image
+                        className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-colors ${mainImage === image
                             ? "border-brand-green"
                             : "border-gray-200 dark:border-white/10"
-                        }`}
+                          }`}
                       >
                         <img
                           src={image}
@@ -353,11 +352,10 @@ export default function ProductDetailPage() {
                             prev === t.talla ? null : t.talla
                           )
                         }
-                        className={`w-12 h-12 rounded-xl text-sm font-black flex items-center justify-center transition-all border-2 cursor-pointer ${
-                          selectedSize === t.talla
+                        className={`w-12 h-12 rounded-xl text-sm font-black flex items-center justify-center transition-all border-2 cursor-pointer ${selectedSize === t.talla
                             ? "bg-brand-green border-brand-green text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                             : "bg-transparent border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-brand-green/50 hover:text-brand-green"
-                        }`}
+                          }`}
                       >
                         {t.talla}
                       </button>
@@ -368,13 +366,18 @@ export default function ProductDetailPage() {
                     </span>
                   )}
                 </div>
-
                 {selectedSize && (
                   <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest">
                     Stock disponible:{" "}
                     <span className="text-brand-green">
                       {stockActual} unidades
                     </span>
+                  </p>
+                )}
+
+                {!selectedSize && tallasDisponibles.length > 0 && (
+                  <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest">
+                    Selecciona una talla para ver su disponibilidad.
                   </p>
                 )}
               </div>
@@ -448,7 +451,8 @@ export default function ProductDetailPage() {
                       producto.img,
                     quantity: quantity,
                     size: selectedSize,
-                    color: "default",
+                    color: 'default',
+                    stock: stockActual,
                     tallaId: (producto.producto_tallas || []).find(
                       (t: any) => t.talla === selectedSize
                     )?.id,
@@ -517,11 +521,10 @@ export default function ProductDetailPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative cursor-pointer ${
-                    activeTab === tab
+                  className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative cursor-pointer ${activeTab === tab
                       ? "text-gray-900 dark:text-white"
                       : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  }`}
+                    }`}
                 >
                   {tab}
 

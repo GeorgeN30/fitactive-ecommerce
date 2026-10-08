@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import AppLayout from "../components/AppLayout";
+import ProfileLayout from "../components/ProfileLayout";
 import { useFavorites } from "../context/FavoritesContext";
 import { formatSoles } from "../utils/money";
 
@@ -7,7 +7,7 @@ export default function FavoritesPage() {
   const { favorites, removeFavorite } = useFavorites();
 
   return (
-    <AppLayout>
+    <ProfileLayout>
       <div className="bg-[#f8f9fa] dark:bg-brand-dark-bg min-h-screen py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
@@ -93,6 +93,6 @@ export default function FavoritesPage() {
           )}
         </div>
       </div>
-    </AppLayout>
+    </ProfileLayout>
   );
 }

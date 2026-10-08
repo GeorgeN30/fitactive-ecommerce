@@ -26,6 +26,12 @@ vi.mock("../src/services/baas", () => ({
   },
 }));
 
+vi.mock("../src/services/notifications", () => ({
+  notifications: {
+    notifyPaymentStatus: vi.fn(),
+  },
+}));
+
 vi.mock("../src/config/prisma", () => ({
   prisma: {
     $transaction: vi.fn(),
@@ -49,9 +55,11 @@ function buildTx() {
     producto_tallas: {
       findUnique: vi.fn(),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      update: vi.fn(),
     },
     ordenes: {
       create: vi.fn(),
+      updateMany: vi.fn(),
     },
     orden_detalles: {
       findMany: vi.fn(),
@@ -121,6 +129,26 @@ describe("orderService.createOrder", () => {
       ).rejects.toThrow("INVALID_QUANTITY");
     }
 
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed checkout details before opening a transaction", async () => {
+    const entries = [{ productoTallaId: "talla-1", cantidad: 1 }];
+    await expect(
+      orderService.createOrder("user-1", entries, undefined, {
+        customerName: 42,
+      } as never),
+    ).rejects.toThrow("INVALID_CUSTOMER_NAME");
+    await expect(
+      orderService.createOrder("user-1", entries, undefined, {
+        customerName: "Ana O'Connor",
+        customerEmail: "ana@example.com",
+        customerPhone: "123456789",
+        shippingAddress: "Av. Central 123",
+        shippingDistrict: "Miraflores",
+        shippingCity: "Lima",
+      }),
+    ).rejects.toThrow("INVALID_CUSTOMER_PHONE");
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -360,6 +388,39 @@ describe("orderService.listUserOrders", () => {
       cantidad: 2,
       precioUnitario: 49.9,
       subtotal: 99.8,
+    });
+  });
+});
+
+describe("orderService.releaseExpiredPendingOrders", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("cancels expired reservations and restores their size stock", async () => {
+    const tx = buildTx();
+    mockPrisma.ordenes.findMany.mockResolvedValue([
+      {
+        id: "order-expired",
+        usuario_id: "user-1",
+        numero: "ORD-2026-EXPIRED",
+        orden_detalles: [{ producto_talla_id: "talla-1", cantidad: 2 }],
+      } as never,
+    ]);
+    tx.ordenes.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.$transaction.mockImplementation(
+      (callback: (transaction: ReturnType<typeof buildTx>) => unknown) => callback(tx),
+    );
+
+    const released = await orderService.releaseExpiredPendingOrders();
+
+    expect(released).toBe(1);
+    expect(tx.ordenes.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ estado: "cancelled", mp_status: "expired" }),
+    }));
+    expect(tx.producto_tallas.update).toHaveBeenCalledWith({
+      where: { id: "talla-1" },
+      data: { stock: { increment: 2 } },
     });
   });
 });

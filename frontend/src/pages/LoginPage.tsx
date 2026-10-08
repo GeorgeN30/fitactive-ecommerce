@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
 import api from "../services/api";
@@ -13,7 +13,9 @@ export default function LoginPage() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [error, setError] = useState("");
+  const location = useLocation();
+  const initialError = (location.state as { authError?: string } | null)?.authError;
+  const [error, setError] = useState(initialError || "");
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
@@ -51,8 +53,18 @@ export default function LoginPage() {
       } else {
         setSuccess(true);
       }
-    } catch {
-      setError("Correo o contraseña incorrectos.");
+    } catch (error: unknown) {
+      const code = (error as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      setError(
+        code === "TOTP_NOT_SETUP"
+            ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo. Contacta al administrador."
+            : code === "ACCOUNT_BLOCKED"
+              ? "Esta cuenta está bloqueada. Contacta al administrador."
+              : code === "INVALID_CREDENTIALS"
+                ? "Correo o contraseña incorrectos. Comprueba las credenciales y vuelve a intentarlo."
+                : "No se pudo iniciar sesión. Inténtalo nuevamente.",
+      );
     } finally {
       setSending(false);
     }

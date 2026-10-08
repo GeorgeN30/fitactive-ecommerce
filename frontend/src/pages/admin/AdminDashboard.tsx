@@ -345,7 +345,11 @@ export default function AdminDashboard() {
         message: notification.message,
         kind: notification.priority === "high" ? "critical" : "info",
       });
-      if (event.type === "NEW_ORDER" || event.type === "ORDER_STATUS") {
+      if (
+        event.type === "NEW_ORDER" ||
+        event.type === "ORDER_STATUS" ||
+        event.type === "PAYMENT_STATUS"
+      ) {
         void refreshOrders();
       }
     });
@@ -389,9 +393,10 @@ export default function AdminDashboard() {
     } catch (error) {
       if (isAuthError(error)) {
         handleUnauthorized();
-        return;
+        throw error;
       }
       window.alert("No se pudo actualizar el estado del pedido.");
+      throw error;
     }
   };
 
@@ -629,6 +634,12 @@ export default function AdminDashboard() {
           className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
         >
           <AdminIcon name="fa-store" size={16} /> Vista tienda
+        </Link>
+        <Link
+          to="/configuracion"
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          <AdminIcon name="fa-user-shield" size={16} /> Seguridad de mi cuenta
         </Link>
         <div className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-400">
           <div className="flex items-center gap-3">

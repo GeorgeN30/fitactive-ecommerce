@@ -43,7 +43,7 @@ describe("notifications service", () => {
     const createdAt = new Date("2026-09-16T12:00:00.000Z");
     mockPrisma.notifications.findMany.mockResolvedValue([
       {
-        id: "notification-1",
+        id: "11111111-1111-4111-8111-111111111111",
         type: "discount",
         title: "Descuento aprobado",
         message: "Tu solicitud fue aprobada.",
@@ -61,7 +61,7 @@ describe("notifications service", () => {
     });
     expect(result).toEqual([
       expect.objectContaining({
-        id: "notification-1",
+        id: "11111111-1111-4111-8111-111111111111",
         type: "discount",
         read: false,
         createdAt,
@@ -72,10 +72,10 @@ describe("notifications service", () => {
   it("marks only notifications owned by the user as read", async () => {
     mockPrisma.notifications.updateMany.mockResolvedValue({ count: 1 } as never);
 
-    await notifications.markAsRead("user-1", "notification-1");
+    await notifications.markAsRead("user-1", "11111111-1111-4111-8111-111111111111");
 
     expect(mockPrisma.notifications.updateMany).toHaveBeenCalledWith({
-      where: { id: "notification-1", userId: "user-1" },
+      where: { id: "11111111-1111-4111-8111-111111111111", userId: "user-1" },
       data: { read: true },
     });
   });
@@ -84,8 +84,15 @@ describe("notifications service", () => {
     mockPrisma.notifications.updateMany.mockResolvedValue({ count: 0 } as never);
 
     await expect(
-      notifications.markAsRead("user-1", "notification-1"),
+      notifications.markAsRead("user-1", "11111111-1111-4111-8111-111111111111"),
     ).rejects.toThrow("NOTIFICATION_NOT_FOUND");
+  });
+
+  it("ignores transient notification identifiers without querying Prisma", async () => {
+    await expect(
+      notifications.markAsRead("user-1", "live-123"),
+    ).rejects.toThrow("NOTIFICATION_NOT_FOUND");
+    expect(mockPrisma.notifications.updateMany).not.toHaveBeenCalled();
   });
 
   it("persists and broadcasts new order notifications to admin, inventory and customer", async () => {

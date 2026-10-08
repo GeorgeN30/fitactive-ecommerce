@@ -7,6 +7,7 @@ import type { DiscountRequestResult } from "./discounts";
 export const EVENT_TYPES = {
   NEW_ORDER: "NEW_ORDER",
   ORDER_STATUS: "ORDER_STATUS",
+  PAYMENT_STATUS: "PAYMENT_STATUS",
   STOCK_ALERT: "STOCK_ALERT",
   DISCOUNT_REQUESTED: "DISCOUNT_REQUESTED",
   DISCOUNT_APPROVED: "DISCOUNT_APPROVED",
@@ -27,6 +28,14 @@ export interface StatusNotificationData {
   status: string;
 }
 
+export interface PaymentNotificationData {
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  orderStatus: string;
+  paymentStatus: string;
+}
+
 export interface StockNotificationData {
   productId: string;
   productName: string;
@@ -41,6 +50,7 @@ export interface NotificationRecord {
   message: string;
   read: boolean;
   createdAt: Date;
+  referenceId: string | null;
 }
 
 interface PersistNotificationInput {
@@ -48,6 +58,25 @@ interface PersistNotificationInput {
   title: string;
   message: string;
   referenceId?: string;
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente de pago",
+  confirmed: "Confirmado",
+  preparing: "Preparando",
+  shipped: "Enviado",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+  return: "Devolución",
+};
+
+function orderStatusLabel(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  return ORDER_STATUS_LABELS[normalized] || status;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function adminUserIds(): Promise<string[]> {
@@ -150,10 +179,15 @@ export const notifications = {
       message: row.message,
       read: row.read,
       createdAt: row.createdAt,
+      referenceId: row.referenceId,
     }));
   },
 
   async markAsRead(userId: string, notificationId: string): Promise<void> {
+    if (!isUuid(notificationId)) {
+      throw new Error("NOTIFICATION_NOT_FOUND");
+    }
+
     const updated = await prisma.notifications.updateMany({
       where: { id: notificationId, userId },
       data: { read: true },
@@ -223,16 +257,17 @@ export const notifications = {
     userId: string,
     order: StatusNotificationData
   ): Promise<void> {
-    await sendToUser(userId, EVENT_TYPES.ORDER_STATUS, {
-      orderId: order.orderId,
-      orderNumber: order.orderNumber,
-      status: order.status,
-    });
+    const statusLabel = orderStatusLabel(order.status);
     await persistNotification(userId, {
       type: "order",
       title: "Estado de pedido actualizado",
-      message: `Tu pedido ${order.orderNumber} cambió a estado ${order.status}.`,
+      message: `Tu pedido ${order.orderNumber} cambió a estado: ${statusLabel}.`,
       referenceId: order.orderId,
+    });
+    await sendToUser(userId, EVENT_TYPES.ORDER_STATUS, {
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      status: statusLabel,
     });
     const customer = await prisma.usuarios.findUnique({
       where: { id: userId },
@@ -240,8 +275,69 @@ export const notifications = {
     });
     await sendOrderEmail(customer?.email, `Actualización del pedido ${order.orderNumber}`, {
       pedido: order.orderNumber,
-      estado: order.status,
+      estado: statusLabel,
     });
+  },
+
+  async notifyPaymentStatus(payment: PaymentNotificationData): Promise<void> {
+    const statusLabels: Record<string, string> = {
+      approved: "aprobado",
+      pending: "pendiente",
+      in_process: "en proceso",
+      rejected: "rechazado",
+      cancelled: "cancelado",
+      cancelled_by_payer: "cancelado por el comprador",
+      expired: "expirado",
+      refunded: "reembolsado",
+      charged_back: "revertido",
+    };
+    const paymentLabel = statusLabels[payment.paymentStatus] || payment.paymentStatus;
+    const title = payment.paymentStatus === "approved"
+      ? "Pago aprobado"
+      : "Actualización del pago";
+    const message = `El pago del pedido ${payment.orderNumber} está ${paymentLabel}.`;
+
+    try {
+      const operationalUsers = await operationalUserIds();
+      await persistNotifications(operationalUsers, {
+        type: "payment",
+        title,
+        message,
+        referenceId: payment.orderId,
+      });
+      await persistNotification(payment.customerId, {
+        type: "payment",
+        title,
+        message,
+        referenceId: payment.orderId,
+      });
+
+      for (const userId of operationalUsers) {
+        await sendToUser(userId, EVENT_TYPES.PAYMENT_STATUS, {
+          orderId: payment.orderId,
+          orderNumber: payment.orderNumber,
+          orderStatus: payment.orderStatus,
+          paymentStatus: payment.paymentStatus,
+        });
+      }
+      await sendToUser(payment.customerId, EVENT_TYPES.PAYMENT_STATUS, {
+        orderId: payment.orderId,
+        orderNumber: payment.orderNumber,
+        orderStatus: payment.orderStatus,
+        paymentStatus: payment.paymentStatus,
+      });
+
+      const customer = await prisma.usuarios.findUnique({
+        where: { id: payment.customerId },
+        select: { email: true },
+      });
+      await sendOrderEmail(customer?.email, `${title}: ${payment.orderNumber}`, {
+        pedido: payment.orderNumber,
+        pago: paymentLabel,
+      });
+    } catch (error) {
+      console.error("[notifications] error en PAYMENT_STATUS:", error);
+    }
   },
 
   async notifyStockAlert(stock: StockNotificationData): Promise<void> {

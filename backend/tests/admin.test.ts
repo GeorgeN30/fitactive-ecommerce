@@ -237,7 +237,7 @@ describe("adminService.updateStock", () => {
     expect(mockPrisma.productos.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          producto_tallas: { create: [{ talla: "M", stock: 7 }] },
+          producto_tallas: { create: [{ talla: "M", stock: 7, rango_cm_min: null, rango_cm_max: null }] },
           producto_imagenes: {
             create: [
               { url: "https://cdn.example.com/polo-front.jpg", orden: 0 },
@@ -247,6 +247,43 @@ describe("adminService.updateStock", () => {
         }),
       }),
     );
+  });
+
+  it("persists multiple sizes and their measurement ranges", async () => {
+    mockPrisma.productos.create.mockResolvedValue(productRow("p-2", 8));
+
+    await adminService.createProduct({
+      nombre: "Polo por tallas",
+      precio: 89.9,
+      tallas: [
+        { talla: "S", stock: 3, rangoCmMin: 80, rangoCmMax: 90 },
+        { talla: "M", stock: 5, rangoCmMin: 90, rangoCmMax: 100 },
+      ],
+    });
+
+    expect(mockPrisma.productos.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          producto_tallas: {
+            create: [
+              { talla: "S", stock: 3, rango_cm_min: 80, rango_cm_max: 90 },
+              { talla: "M", stock: 5, rango_cm_min: 90, rango_cm_max: 100 },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects invalid measurement ranges", async () => {
+    await expect(
+      adminService.createProduct({
+        nombre: "Producto inválido",
+        precio: 20,
+        tallas: [{ talla: "M", stock: 1, rangoCmMin: 100, rangoCmMax: 90 }],
+      }),
+    ).rejects.toThrow("INVALID_MEASUREMENT_RANGE");
+    expect(mockPrisma.productos.create).not.toHaveBeenCalled();
   });
 
   it("rejects more than five product images before writing to the database", async () => {
@@ -437,5 +474,23 @@ describe("adminService finance summary", () => {
       type: "Devolución",
       amount: -40,
     });
+  });
+});
+
+describe("adminService order transitions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not allow an unpaid pending order to jump directly to shipping", async () => {
+    mockPrisma.ordenes.findUnique.mockResolvedValue({
+      id: "order-pending",
+      estado: "pending",
+    } as never);
+
+    await expect(
+      adminService.updateOrderStatus("order-pending", "shipped"),
+    ).rejects.toThrow("INVALID_STATUS_TRANSITION");
+    expect(mockPrisma.ordenes.update).not.toHaveBeenCalled();
   });
 });

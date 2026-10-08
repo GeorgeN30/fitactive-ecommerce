@@ -14,10 +14,12 @@ const VALIDATION_ERRORS = new Set([
   "INVALID_PRICE",
   "STATUS_REQUIRED",
   "INVALID_STATUS",
+  "INVALID_STATUS_TRANSITION",
   "INVALID_ROLE",
   "INVALID_CUSTOMER_STATUS",
   "SIZE_REQUIRED",
   "INVALID_QUANTITY",
+  "INVALID_MEASUREMENT_RANGE",
   "INVALID_MOVEMENT_TYPE",
   "MOTIVE_REQUIRED",
   "DUPLICATE_SIZE",
@@ -30,6 +32,7 @@ const VALIDATION_ERRORS = new Set([
   "INVALID_DISCOUNT_STATUS",
   "INVALID_DISCOUNT_DECISION",
   "DISCOUNT_COMMENT_TOO_LONG",
+  "INVENTORY_STATUS_FORBIDDEN",
 ]);
 
 const NOT_FOUND_ERRORS = new Set([
@@ -58,7 +61,9 @@ function respondWithError(res: Response, err: unknown, fallback: string): void {
     message === "DISCOUNT_ALREADY_ACTIVE" ||
     message === "DISCOUNT_REQUEST_ALREADY_PENDING" ||
     message === "DISCOUNT_REQUEST_ALREADY_RESOLVED" ||
-    message === "DISCOUNT_NOT_ACTIVE"
+    message === "DISCOUNT_NOT_ACTIVE" ||
+    message === "INVALID_INVENTORY_STATUS_TRANSITION" ||
+    message === "INVALID_STATUS_TRANSITION"
   ) {
     res.status(HTTP_STATUS.CONFLICT).json({ error: message });
     return;
@@ -218,6 +223,26 @@ export const adminController = {
       res.status(HTTP_STATUS.OK).json({ order });
     } catch (err) {
       respondWithError(res, err, "ORDER_STATUS_UPDATE_FAILED");
+    }
+  },
+
+  // PUT /api/inventory/orders/:id/status
+  async updateInventoryOrderStatus(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const order = await adminService.updateInventoryOrderStatus(
+        req.params.id,
+        req.body.status,
+      );
+
+      void notifications.notifyOrderStatus(order.customer.id, {
+        orderId: order.id,
+        orderNumber: order.numero,
+        status: order.estado,
+      });
+
+      res.status(HTTP_STATUS.OK).json({ order });
+    } catch (err) {
+      respondWithError(res, err, "INVENTORY_ORDER_STATUS_UPDATE_FAILED");
     }
   },
 

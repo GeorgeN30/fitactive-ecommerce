@@ -44,6 +44,12 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - INVENTORY_EMAIL=${INVENTORY_EMAIL}
       - INVENTORY_PASSWORD=${INVENTORY_PASSWORD}
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
+      - MP_CURRENCY_ID=${MP_CURRENCY_ID:-PEN}
+      - MP_TEST_BUYER_EMAIL=${MP_TEST_BUYER_EMAIL:-}
+      - APP_URL=${APP_URL:-http://localhost}
+      - MP_WEBHOOK_URL=${MP_WEBHOOK_URL}
     restart: unless-stopped
 
   frontend:
@@ -54,6 +60,7 @@ services:
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
         - VITE_BAAS_WS_URL=${VITE_BAAS_WS_URL:-wss://core.geozns.com/v1/ws}
         - VITE_JWT_APP_ID=${VITE_JWT_APP_ID:-integrador2_web}
+        - VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
     ports:
       - "80:80"
     depends_on:

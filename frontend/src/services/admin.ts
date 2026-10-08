@@ -92,6 +92,8 @@ interface BackendMovement {
 export interface ProductTallaInput {
   talla: string;
   stock?: number;
+  rangoCmMin?: number | null;
+  rangoCmMax?: number | null;
 }
 
 export interface ProductInput {
@@ -130,6 +132,9 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
       },
     ]),
   );
+  const sizeMeasurements = Object.fromEntries(
+    p.tallas.map((t) => [t.talla, [t.rangoCmMin ?? null, t.rangoCmMax ?? null] as [number | null, number | null]]),
+  );
   const imageUrls = p.imageUrls?.length
     ? p.imageUrls
     : p.imagenUrl
@@ -149,6 +154,7 @@ function toPrototypeProduct(p: BackendProduct): AdminPrototypeProduct {
     description: p.descripcion || "",
     stock,
     tallaIds,
+    sizeMeasurements,
     discounts,
     gender:
       p.genero === "male"
@@ -356,11 +362,23 @@ export async function fetchOrders(): Promise<AdminPrototypeOrder[]> {
   return (data.orders || []).map(toPrototypeOrder);
 }
 
+export async function fetchInventoryOrders(): Promise<AdminPrototypeOrder[]> {
+  const { data } = await api.get("/inventory/orders");
+  return (data.orders || []).map(toPrototypeOrder);
+}
+
 export async function updateOrderStatus(
   id: string,
   status: string,
 ): Promise<void> {
   await api.put(`/admin/orders/${id}/status`, { status });
+}
+
+export async function updateInventoryOrderStatus(
+  id: string,
+  status: string,
+): Promise<void> {
+  await api.put(`/inventory/orders/${id}/status`, { status });
 }
 
 export async function fetchCustomers(): Promise<AdminPrototypeUser[]> {

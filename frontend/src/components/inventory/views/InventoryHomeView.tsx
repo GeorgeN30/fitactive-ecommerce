@@ -5,7 +5,6 @@ type InventorySection =
   | "catalog"
   | "stock"
   | "alerts"
-  | "restock"
   | "audit"
   | "discounts"
   | "notifications";
@@ -168,7 +167,7 @@ export default function InventoryHomeView({
                 </div>
               </div>
               <button
-                onClick={() => setSection("restock")}
+                onClick={() => setSection("alerts")}
                 className="px-3 py-1.5 bg-[#F59E0B] text-black text-xs font-bold rounded-lg hover:bg-yellow-400 transition-colors"
               >
                 Reabastecer
@@ -229,7 +228,7 @@ export default function InventoryHomeView({
                   {item.status}
                 </span>
                 <button
-                  onClick={() => setSection("restock")}
+                  onClick={() => setSection("alerts")}
                   className="px-3 py-1.5 bg-[#F59E0B] text-black text-xs font-bold rounded-lg hover:bg-yellow-400 transition-colors"
                 >
                   Reabastecer

@@ -14,6 +14,7 @@ interface InventoryNotificationsViewProps {
   setNotifications: React.Dispatch<React.SetStateAction<InventoryNotification[]>>;
   onMarkRead?: (notification: InventoryNotification) => void | Promise<void>;
   onMarkAllRead?: () => void | Promise<void>;
+  onOpen?: (notification: InventoryNotification) => void;
 }
 
 export default function InventoryNotificationsView({
@@ -21,6 +22,7 @@ export default function InventoryNotificationsView({
   setNotifications,
   onMarkRead,
   onMarkAllRead,
+  onOpen,
 }: InventoryNotificationsViewProps) {
   const [toastMessage, setToastMessage] = useState("");
   const unreadCount = notifications.filter((notification) => !notification.read).length;
@@ -101,6 +103,15 @@ export default function InventoryNotificationsView({
                   className="mt-2 text-xs font-bold text-[#F59E0B] transition-colors hover:text-[#d97706]"
                 >
                   Marcar como leída
+                </button>
+              )}
+              {(notification.title.toLowerCase().includes("pedido") || notification.title.toLowerCase().includes("pago")) && (
+                <button
+                  type="button"
+                  onClick={() => onOpen?.(notification)}
+                  className="mt-2 ml-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Ver pedidos
                 </button>
               )}
             </div>

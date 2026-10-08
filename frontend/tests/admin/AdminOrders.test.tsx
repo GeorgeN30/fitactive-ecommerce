@@ -41,7 +41,8 @@ describe("AdminOrdersView", () => {
       />
     );
     await user.click(screen.getByText("ORD-2026-001"));
-    expect(screen.getByText("Cambiar estado")).toBeInTheDocument();
+    expect(screen.getByText("Acciones disponibles")).toBeInTheDocument();
+    expect(screen.getByText("Progreso del pedido")).toBeInTheDocument();
     const deliveredButton = screen.getByRole("button", { name: "Entregado" });
     await user.click(deliveredButton);
     expect(updateOrderStatus).toHaveBeenCalledWith("ORD-2026-001", "delivered");
