@@ -3,10 +3,22 @@ import { adminController } from "../controllers/admin";
 import { validateJWT } from "../middlewares/auth";
 import { checkRole } from "../middlewares/role";
 import { ROLES } from "../constants";
+import { settingsController } from "../controllers/settings";
+import { requireStaffMfa } from "../middlewares/storePolicy";
+import { supportController } from "../controllers/support";
+import { returnController } from "../controllers/returns";
+import { expenseController } from "../controllers/expenses";
 
 const router = Router();
 
 router.use(validateJWT, checkRole(ROLES.ADMIN));
+router.use(requireStaffMfa);
+router.get("/settings", settingsController.get);
+router.put("/settings", settingsController.update);
+router.get("/support", supportController.list);
+router.put("/support/:id", supportController.respond);
+router.get("/returns", returnController.list);
+router.put("/returns/:id/:action", returnController.action);
 
 router.get("/products", adminController.listProducts);
 router.post("/products", adminController.createProduct);
@@ -30,6 +42,8 @@ router.get("/inventory/low-stock", adminController.listLowStockProducts);
 router.get("/dashboard/stats", adminController.getDashboardStats);
 router.get("/dashboard/sales-chart", adminController.getSalesChart);
 router.get("/finance/summary", adminController.getFinanceSummary);
+router.get("/finance/expenses", expenseController.list);
+router.post("/finance/expenses", expenseController.create);
 router.get("/virtual-tryon/summary", adminController.getVirtualTryOnSummary);
 router.get("/dashboard/top-products", adminController.getTopProducts);
 router.get("/dashboard/categories", adminController.getCategories);

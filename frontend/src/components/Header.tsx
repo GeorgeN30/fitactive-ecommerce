@@ -204,7 +204,7 @@ export default function Header() {
             Catálogo
           </Link>
           <Link
-            to="/producto/1"
+            to="/probador-virtual"
             className="hover:text-brand-green transition-colors"
           >
             Probador Virtual
@@ -508,7 +508,7 @@ export default function Header() {
               Catálogo
             </Link>
             <Link
-              to="/producto/1"
+              to="/probador-virtual"
               onClick={() => setMobileMenuOpen(false)}
               className="rounded-lg px-3 py-3 hover:bg-slate-50 hover:text-brand-green dark:hover:bg-slate-700/50"
             >

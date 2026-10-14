@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { downloadReceipt } from "../services/receipt";
 import ProfileLayout from "../components/ProfileLayout";
 import { fetchMyOrders, type OrderView } from "../services/orders";
+import OrderReturns from "../components/OrderReturns";
 
 export default function OrderTrackingPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +13,7 @@ export default function OrderTrackingPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true); setError(""); setOrder(null);
     void fetchMyOrders()
       .then((loadedOrders) => {
         if (!cancelled) {
@@ -189,6 +191,7 @@ export default function OrderTrackingPage() {
             </div>
           </div>
 
+          <OrderReturns order={order} />
           <div className="flex gap-4">
             <button
               onClick={() => downloadReceipt(order)}

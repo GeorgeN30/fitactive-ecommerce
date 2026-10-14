@@ -196,7 +196,7 @@ const PRIVACY_SECTIONS: LegalSection[] = [
   },
 ];
 
-const LEGAL_DOCS: Record<LegalDocType, { title: string; intro: string; sections: LegalSection[] }> = {
+export const LEGAL_DOCS: Record<LegalDocType, { title: string; intro: string; sections: LegalSection[] }> = {
   terms: { title: "Términos y Condiciones de Uso", intro: TERMS_INTRO, sections: TERMS_SECTIONS },
   privacy: { title: "Política de Privacidad", intro: PRIVACY_INTRO, sections: PRIVACY_SECTIONS },
 };

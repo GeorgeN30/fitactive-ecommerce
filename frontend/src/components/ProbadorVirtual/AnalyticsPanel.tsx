@@ -6,9 +6,10 @@ interface AnalyticsPanelProps {
   altura: number;
   onEditMeasures: () => void;
   onAddToCart: () => void;
+  onSaveProduct?: () => void;
 }
 
-export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasures, onAddToCart }: AnalyticsPanelProps) {
+export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasures, onAddToCart, onSaveProduct }: AnalyticsPanelProps) {
   if (!analisis) {
     return (
       <div className="bg-white dark:bg-white/[0.02] p-8 rounded-3xl h-full flex items-center justify-center text-center">
@@ -112,8 +113,8 @@ export default function AnalyticsPanel({ analisis, medidas, altura, onEditMeasur
           >
             Añadir al carrito
           </button>
-          <button className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-widest text-xs rounded-xl hover:scale-[1.02] transition-transform">
-            Guardar Outfit
+          <button onClick={onSaveProduct} disabled={!onSaveProduct} className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-black font-black uppercase tracking-widest text-xs rounded-xl hover:scale-[1.02] transition-transform">
+            Guardar prenda en favoritos
           </button>
         </div>
       </div>

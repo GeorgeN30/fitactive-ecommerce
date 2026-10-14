@@ -4,6 +4,7 @@ import {
   MercadoPagoConfig,
   Payment,
   Preference,
+  PaymentRefund,
 } from "mercadopago";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
@@ -109,6 +110,11 @@ function mapOrderStatus(paymentStatus: string): string {
   }
 }
 
+export function resolvePaymentOrderStatus(current: string | null, paymentStatus: string) {
+  if (paymentStatus === "approved" && ([ORDER_STATUS.PREPARING, ORDER_STATUS.SHIPPED, ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED] as readonly string[]).includes(current || "")) return current!;
+  return mapOrderStatus(paymentStatus);
+}
+
 function shouldReleaseReservedStock(paymentStatus: string, orderStatus: string): boolean {
   return (
     orderStatus === ORDER_STATUS.PENDING &&
@@ -175,17 +181,26 @@ async function findOrderForPayment(
   });
 }
 
-async function applyPaymentToOrder(
+async function runPaymentTransaction<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+    catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034" || attempt >= 7) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(4 * 2 ** attempt, 80)));
+    }
+  }
+}
+
+export async function applyPaymentToOrder(
   payment: MercadoPagoPaymentResponse,
   options: { topic?: string; eventKey?: string } = {},
 ): Promise<MercadoPagoOrderStatusResult | null> {
   const paymentId = paymentResourceId(payment);
   const paymentStatus = normalizeStatus(payment.status) || "unknown";
   const paymentStatusDetail = normalizeStatus(payment.status_detail) || null;
-  const nextOrderStatus = mapOrderStatus(paymentStatus);
   const eventKey = options.eventKey;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await runPaymentTransaction(async (tx) => {
     if (eventKey) {
       try {
         await tx.mercadopago_webhook_events.create({
@@ -222,14 +237,14 @@ async function applyPaymentToOrder(
     const updated = await tx.ordenes.update({
       where: { id: order.id },
       data: {
-        estado: nextOrderStatus,
+        estado: resolvePaymentOrderStatus(order.estado, paymentStatus),
         mp_payment_id: paymentId,
         mp_status: paymentStatus,
         mp_status_detail: paymentStatusDetail,
         reservation_expires_at: null,
         mp_paid_at: paymentStatus === "approved"
           ? parseApprovedAt(payment.date_approved)
-          : null,
+          : order.mp_paid_at,
       },
     });
 
@@ -287,6 +302,13 @@ export function isValidMercadoPagoWebhookSignature(
 }
 
 export const mercadoPagoService = {
+  async refundPayment(paymentId: string, amount: number, requestId: string, refundId?: string | null) {
+    const client = new PaymentRefund(requireMercadoPagoClient());
+    const response = refundId ? await client.get({ payment_id: paymentId, refund_id: refundId })
+      : await client.create({ payment_id: paymentId, body: { amount }, requestOptions: { idempotencyKey: `fitlook-return-${requestId}` } });
+    if (!response.id || roundToCents(response.amount ?? NaN) !== roundToCents(amount) || !["approved", "in_process", "pending"].includes(response.status || "")) throw new Error("REFUND_NOT_CONFIRMED");
+    return { id: String(response.id), approved: response.status === "approved" };
+  },
   async createPreferenceForOrder(
     userId: string,
     orderId: string,

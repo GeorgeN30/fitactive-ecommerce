@@ -1,12 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { DISCOUNT_REQUEST_STATUS } from "../constants";
-import { calculateDiscountedPrice } from "../utils/pricing";
+import { resolveVariantPrice } from "../utils/pricing";
 
 export interface DiscountRequestInput {
   productoTallaIds: string[];
   porcentaje: number;
   motivo: string;
+  duracionHoras?: number;
+  fechaInicio?: string;
+  fechaFin?: string;
 }
 
 export interface DiscountRequestResult {
@@ -17,6 +20,11 @@ export interface DiscountRequestResult {
   createdAt: Date;
   reviewedAt: Date | null;
   reviewComment: string | null;
+  durationHours: number | null;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  offerStatus: "PENDING" | "ACTIVE" | "SCHEDULED" | "EXPIRED" | "REJECTED" | "REVERTED";
+  canRevert: boolean;
   product: {
     id: string;
     name: string;
@@ -46,11 +54,17 @@ type RequestRow = {
   comentario_admin: string | null;
   solicitado_en: Date;
   revisado_en: Date | null;
+  duracion_horas?: number | null;
+  fecha_inicio?: Date | null;
+  fecha_fin?: Date | null;
   producto_tallas: {
     id: string;
     talla: string;
     stock: number | null;
     descuento_porcentaje: number;
+    descuento_inicio?: Date | null;
+    descuento_fin?: Date | null;
+    descuento_solicitud_id?: string | null;
     productos: {
       id: string;
       nombre: string;
@@ -89,12 +103,28 @@ function validateInput(data: DiscountRequestInput): string[] {
     throw new Error("DISCOUNT_REASON_REQUIRED");
   }
 
+  if (data.duracionHoras !== undefined && ![24, 72, 168].includes(data.duracionHoras)) {
+    throw new Error("INVALID_DISCOUNT_DURATION");
+  }
+  if (data.duracionHoras !== undefined && (data.fechaInicio || data.fechaFin)) {
+    throw new Error("INVALID_DISCOUNT_WINDOW");
+  }
+  if (data.fechaInicio !== undefined || data.fechaFin !== undefined) {
+    const start = data.fechaInicio ? new Date(data.fechaInicio) : new Date();
+    const end = typeof data.fechaFin === "string" ? new Date(data.fechaFin) : new Date(NaN);
+    if (typeof data.fechaInicio !== "undefined" && typeof data.fechaInicio !== "string" ||
+        !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
+        end <= start || end <= new Date()) throw new Error("INVALID_DISCOUNT_WINDOW");
+  }
+
   return ids;
 }
 
 function mapRequest(row: RequestRow): DiscountRequestResult {
   const basePrice = row.producto_tallas.productos.precio.toNumber();
-  const currentDiscount = row.producto_tallas.descuento_porcentaje ?? 0;
+  const now = new Date();
+  const pricing = resolveVariantPrice(basePrice, row.producto_tallas, now);
+  const currentDiscount = pricing.discountPercent;
   return {
     id: row.id,
     status: row.estado,
@@ -103,6 +133,15 @@ function mapRequest(row: RequestRow): DiscountRequestResult {
     createdAt: row.solicitado_en,
     reviewedAt: row.revisado_en,
     reviewComment: row.comentario_admin,
+    durationHours: row.duracion_horas ?? null,
+    startsAt: row.fecha_inicio ?? null,
+    endsAt: row.fecha_fin ?? null,
+    canRevert: row.estado === "APPROVED" && row.producto_tallas.descuento_porcentaje > 0 &&
+      (row.producto_tallas.descuento_solicitud_id === row.id ||
+        !row.producto_tallas.descuento_solicitud_id && !row.producto_tallas.descuento_fin),
+    offerStatus: row.estado !== "APPROVED" ? row.estado as DiscountRequestResult["offerStatus"]
+      : row.fecha_fin && row.fecha_fin <= now ? "EXPIRED"
+      : row.fecha_inicio && row.fecha_inicio > now ? "SCHEDULED" : "ACTIVE",
     product: {
       id: row.producto_tallas.productos.id,
       name: row.producto_tallas.productos.nombre,
@@ -110,7 +149,7 @@ function mapRequest(row: RequestRow): DiscountRequestResult {
       size: row.producto_tallas.talla,
       basePrice,
       currentDiscountPercent: currentDiscount,
-      salePrice: calculateDiscountedPrice(basePrice, currentDiscount),
+      salePrice: pricing.salePrice,
     },
     requester: row.solicitante,
     reviewer: row.revisor,
@@ -126,7 +165,7 @@ const requestInclude = {
 async function runSerializableTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const maxAttempts = 3;
+  const maxAttempts = 8;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -138,6 +177,7 @@ async function runSerializableTransaction<T>(
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2034";
       if (!isSerializationConflict || attempt === maxAttempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, Math.min(4 * 2 ** (attempt - 1), 80)));
     }
   }
 
@@ -160,7 +200,8 @@ export const discountService = {
         if (variants.length !== ids.length) {
           throw new Error("SIZE_NOT_FOUND");
         }
-        if (variants.some((variant) => (variant.descuento_porcentaje ?? 0) > 0)) {
+        if (variants.some((variant) => (variant.descuento_porcentaje ?? 0) > 0 &&
+            (!variant.descuento_fin || variant.descuento_fin > new Date()))) {
           throw new Error("DISCOUNT_ALREADY_ACTIVE");
         }
 
@@ -183,6 +224,9 @@ export const discountService = {
               porcentaje: data.porcentaje,
               motivo: data.motivo.trim(),
               estado: DISCOUNT_REQUEST_STATUS.PENDING,
+              duracion_horas: data.duracionHoras ?? (data.fechaFin ? null : 72),
+              fecha_inicio: data.fechaInicio ? new Date(data.fechaInicio) : null,
+              fecha_fin: data.fechaFin ? new Date(data.fechaFin) : null,
             },
           });
         }
@@ -242,7 +286,7 @@ export const discountService = {
     decision: string,
     comment?: string,
   ): Promise<DiscountRequestResult> {
-    const normalizedDecision = decision?.trim().toUpperCase();
+    const normalizedDecision = typeof decision === "string" ? decision.trim().toUpperCase() : "";
     if (
       normalizedDecision !== DISCOUNT_REQUEST_STATUS.APPROVED &&
       normalizedDecision !== DISCOUNT_REQUEST_STATUS.REJECTED
@@ -250,6 +294,7 @@ export const discountService = {
       throw new Error("INVALID_DISCOUNT_DECISION");
     }
 
+    if (comment !== undefined && typeof comment !== "string") throw new Error("DISCOUNT_COMMENT_TOO_LONG");
     const normalizedComment = comment?.trim() || null;
     if (normalizedComment && normalizedComment.length > 255) {
       throw new Error("DISCOUNT_COMMENT_TOO_LONG");
@@ -266,6 +311,14 @@ export const discountService = {
       if (request.estado !== DISCOUNT_REQUEST_STATUS.PENDING) {
         throw new Error("DISCOUNT_REQUEST_ALREADY_RESOLVED");
       }
+      const now = new Date();
+      const startsAt = request.fecha_inicio && request.fecha_inicio > now ? request.fecha_inicio : now;
+      const endsAt = request.duracion_horas
+        ? new Date(startsAt.getTime() + request.duracion_horas * 3_600_000)
+        : request.fecha_fin;
+      if (normalizedDecision === DISCOUNT_REQUEST_STATUS.APPROVED && endsAt && endsAt <= now) {
+        throw new Error("INVALID_DISCOUNT_WINDOW");
+      }
 
       const updated = await tx.discount_requests.updateMany({
         where: {
@@ -277,6 +330,8 @@ export const discountService = {
           revisado_por: reviewerId,
           comentario_admin: normalizedComment,
           revisado_en: new Date(),
+          ...(normalizedDecision === DISCOUNT_REQUEST_STATUS.APPROVED
+            ? { fecha_inicio: startsAt, fecha_fin: endsAt } : {}),
         },
       });
       if (updated.count !== 1) {
@@ -287,9 +342,10 @@ export const discountService = {
         const variant = await tx.producto_tallas.updateMany({
           where: {
             id: request.producto_talla_id,
-            descuento_porcentaje: 0,
+            OR: [{ descuento_porcentaje: 0 }, { descuento_fin: { lte: now } }],
           },
-          data: { descuento_porcentaje: request.porcentaje },
+          data: { descuento_porcentaje: request.porcentaje, descuento_inicio: startsAt,
+            descuento_fin: endsAt, descuento_solicitud_id: request.id },
         });
         if (variant.count !== 1) {
           throw new Error("DISCOUNT_ALREADY_ACTIVE");
@@ -325,8 +381,10 @@ export const discountService = {
         where: {
           id: request.producto_talla_id,
           descuento_porcentaje: request.porcentaje,
+          OR: [{ descuento_solicitud_id: requestId },
+            { descuento_solicitud_id: null, descuento_fin: null }],
         },
-        data: { descuento_porcentaje: 0 },
+        data: { descuento_porcentaje: 0, descuento_inicio: null, descuento_fin: null, descuento_solicitud_id: null },
       });
       if (variant.count !== 1) {
         throw new Error("DISCOUNT_NOT_ACTIVE");

@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { useStoreSettings } from '../../context/StoreSettingsContext';
 
 // Precarga de modelos
 useGLTF.preload('/avatar/base_hombre.glb');
@@ -56,9 +57,10 @@ interface Avatar3DProps {
 }
 
 export default function Avatar3D({ torsoScaleX, torsoScaleY, genero }: Avatar3DProps) {
+  const settings = useStoreSettings();
   return (
     <div className="w-full h-full min-h-[500px] relative cursor-grab active:cursor-grabbing z-20">
-      <Canvas shadows camera={{ position: [0, 0, 4.2], fov: 45 }}>
+      <Canvas shadows={settings.hqRender} dpr={settings.hqRender ? [1, 2] : 1} camera={{ position: [0, 0, 4.2], fov: 45 }}>
 
         <ambientLight intensity={0.4} />
         <directionalLight

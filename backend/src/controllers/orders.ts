@@ -15,7 +15,7 @@ export const orderController = {
         return;
       }
 
-      const { entries, tryOnSessionId, checkoutDetails } = req.body;
+      const { entries, tryOnSessionId, checkoutDetails, expectedTotal } = req.body;
       if (!checkoutDetails || typeof checkoutDetails !== "object" || Array.isArray(checkoutDetails)) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_CHECKOUT_DETAILS" });
         return;
@@ -25,6 +25,7 @@ export const orderController = {
         entries,
         typeof tryOnSessionId === "string" ? tryOnSessionId : undefined,
         checkoutDetails,
+        expectedTotal,
       );
 
       void notifications.notifyNewOrder({
@@ -41,6 +42,7 @@ export const orderController = {
 
       if (
         message === "EMPTY_ORDER" ||
+        message === "INVALID_EXPECTED_TOTAL" ||
         message === "INVALID_ENTRY" ||
         message === "INVALID_QUANTITY" ||
         message === "INVALID_CUSTOMER_NAME" ||
@@ -59,7 +61,7 @@ export const orderController = {
         res.status(HTTP_STATUS.NOT_FOUND).json({ error: message });
         return;
       }
-      if (message === "INSUFFICIENT_STOCK") {
+      if (message === "INSUFFICIENT_STOCK" || message === "PRICE_CHANGED") {
         res.status(HTTP_STATUS.CONFLICT).json({ error: message });
         return;
       }

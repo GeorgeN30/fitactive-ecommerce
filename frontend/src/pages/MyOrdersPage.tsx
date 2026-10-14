@@ -37,7 +37,7 @@ export default function MyOrdersPage() {
   return (
     <ProfileLayout>
       <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800 min-h-[600px]">
-        <h2 className="text-2xl font-black uppercase tracking-wide mb-8 text-slate-900 dark:text-white">Mis Pedidos</h2>
+        <h1 className="text-2xl font-black uppercase tracking-wide mb-8 text-slate-900 dark:text-white">Mis Pedidos</h1>
 
         {loading && <div className="text-center text-gray-500 py-10">Cargando compras...</div>}
         {!loading && error && <div className="text-center text-red-500 py-10">{error}</div>}

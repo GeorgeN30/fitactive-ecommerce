@@ -43,6 +43,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 403 && error.response?.data?.error === "MFA_SETUP_REQUIRED") {
+      window.location.assign("/2fa-setup");
+    }
     const activeToken = getStoredSessionValue("token");
     const requestToken = axios.AxiosHeaders.from(error.config?.headers)
       .get("Authorization");
