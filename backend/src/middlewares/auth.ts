@@ -100,6 +100,7 @@ function validateToken(
       req.user = {
         userId,
         role: dbUser.role || ROLES.CUSTOMER,
+        twoFactorEnabled: dbUser.twoFactorEnabled,
       };
 
       next();

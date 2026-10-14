@@ -25,6 +25,7 @@ vi.mock("../src/context/AuthContext", () => ({
 vi.mock("../src/context/CartContext", () => ({
   useCart: () => ({ addToCart: vi.fn() }),
 }));
+vi.mock("../src/context/FavoritesContext", () => ({ useFavorites: () => ({ addFavorite: vi.fn() }) }));
 
 import ProbadorVirtual from "../src/pages/ProbadorVirtual";
 import { paginateProducts, PRODUCTS_PER_PAGE } from "../src/utils/productPagination";
@@ -36,6 +37,9 @@ interface TestProduct {
   genero: string;
   categoria: string;
   producto_tallas: [];
+  tallas: [];
+  precio: number;
+  totalStock: number;
   imagenUrl: string;
 }
 
@@ -46,6 +50,9 @@ function createProducts(count: number): TestProduct[] {
     genero: "Hombre",
     categoria: "Running",
     producto_tallas: [],
+    tallas: [],
+    precio: 100,
+    totalStock: 0,
     imagenUrl: `https://example.com/product-${index + 1}.jpg`,
   }));
 }

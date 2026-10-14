@@ -1,4 +1,5 @@
 import React from 'react';
+import ProductOffer from '../ProductOffer';
 
 export default function OutfitTab({ productos, selectedProductId, onSelectProduct }: {
   productos: any[];
@@ -24,7 +25,7 @@ export default function OutfitTab({ productos, selectedProductId, onSelectProduc
             </div>
             <div>
               <h5 className="text-[11px] font-bold text-gray-900 dark:text-white line-clamp-1">{prod.nombre}</h5>
-              <span className="text-xs font-black text-brand-green">S/ {Number(prod.precio || 0).toFixed(2)}</span>
+              <ProductOffer product={prod} />
             </div>
           </button>
         ))}

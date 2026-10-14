@@ -59,13 +59,13 @@ class BaasClient {
   async signJwt(
     userId: string,
     claims: Record<string, unknown>,
-    ttlSecs: number = 86400
+    ttlSecs?: number
   ): Promise<{ token: string }> {
     const { data } = await this.http.post("/v1/jwt/sign", {
       user_id: userId,
       app_id: config.jwtAppId,
       claims,
-      ttl_secs: ttlSecs,
+      ttl_secs: ttlSecs ?? (await import("./settings").then((module) => module.settingsService.get())).timeout * 60,
     });
     return data;
   }

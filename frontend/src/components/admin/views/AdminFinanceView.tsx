@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { fetchFinanceData, type FinanceData, type FinancePeriod } from "../../../services/finance";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createFinanceExpense, fetchFinanceData, type FinanceData, type FinancePeriod } from "../../../services/finance";
 
 function money(value: number | null): string {
   if (value === null) return "—";
@@ -83,6 +83,9 @@ export default function AdminFinanceView() {
   const [period, setPeriod] = useState<FinancePeriod>("month");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [expenseError, setExpenseError] = useState("");
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ category: "Operaciones", description: "", amount: "", spentAt: new Date().toISOString().slice(0, 10) });
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +116,19 @@ export default function AdminFinanceView() {
     { value: "quarter", label: "Trimestre" },
     { value: "year", label: "Año" },
   ];
+  const handleCreateExpense = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (savingExpense) return;
+    setSavingExpense(true); setExpenseError("");
+    try {
+      await createFinanceExpense({ category: expenseForm.category, description: expenseForm.description, amount: Number(expenseForm.amount), spentAt: expenseForm.spentAt });
+      setExpenseForm((current) => ({ ...current, description: "", amount: "" }));
+      const latest = await fetchFinanceData(period); setData(latest);
+    } catch (saveError) {
+      const code = (saveError as { response?: { data?: { error?: string } } }).response?.data?.error;
+      setExpenseError(code === "INVALID_EXPENSE_DATE" ? "El gasto no puede tener fecha futura." : "No se pudo guardar el egreso. Revisa los datos.");
+    } finally { setSavingExpense(false); }
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-10 text-gray-900 dark:text-white animate-fade-in">
@@ -145,14 +161,14 @@ export default function AdminFinanceView() {
           ? "Consultando ingresos y movimientos reales..."
           : error
             ? "No se pudo consultar Finanzas. Revisa la conexión y vuelve a entrar al módulo."
-            : "Los ingresos, devoluciones y categorías provienen de los pedidos reales. Gastos y métodos de pago siguen pendientes porque la base actual no guarda esos campos."}
+            : "Ventas, gastos ingresados y reembolsos provienen de registros persistidos. Los métodos de pago se contabilizan desde pedidos confirmados por Mercado Pago."}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Ingresos" value={loading ? "..." : money(summary.revenue)} detail={`${summary.orders} pedidos en el periodo`} accent="bg-[#00E87A]" />
+        <MetricCard label="Flujo neto" value={loading ? "..." : money(summary.revenue)} detail={`${summary.orders} pedidos, gastos y reembolsos del periodo`} accent="bg-[#00E87A]" />
         <MetricCard label="Pedidos" value={loading ? "..." : String(summary.orders)} detail={data?.periodLabel || "Periodo seleccionado"} accent="bg-[#38BDF8]" />
         <MetricCard label="Devoluciones" value={loading ? "..." : String(summary.returns)} detail="Pedidos marcados como devolución" accent="bg-[#F59E0B]" />
-        <MetricCard label="Gastos" value="—" detail="La BD aún no registra egresos" accent="bg-[#A78BFA]" muted />
+        <MetricCard label="Gastos" value={loading ? "..." : money(data?.expenseTotal || 0)} detail={`${data?.expenses.length || 0} egresos en el periodo`} accent="bg-[#A78BFA]" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)]">
@@ -197,7 +213,7 @@ export default function AdminFinanceView() {
         <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
-              <h2 className="font-bold">Ingresos por periodo</h2>
+              <h2 className="font-bold">Flujo neto por periodo</h2>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Ventas agrupadas por {period === "week" ? "día" : period === "month" ? "mes" : period === "quarter" ? "trimestre" : "año"}</p>
             </div>
             <i className="fa-solid fa-chart-column text-gray-300 dark:text-zinc-600" />
@@ -221,13 +237,25 @@ export default function AdminFinanceView() {
         </section>
 
         <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mb-5">
+            <div className="mb-5">
             <h2 className="font-bold">Métodos de pago</h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pendiente de integración con pagos</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Transacciones confirmadas en el periodo seleccionado</p>
           </div>
-          <EmptyFinancePanel>Mercado Pago y otros métodos aparecerán cuando la BD guarde esa información.</EmptyFinancePanel>
+          {data?.paymentMethods.length ? <div className="space-y-4">{data.paymentMethods.map((method) => <div key={method.name} className="rounded-xl border p-4"><div className="flex justify-between font-bold"><span>{method.name}</span><span>{money(method.amount)}</span></div><p className="mt-2 text-xs text-gray-500">{method.transactions} pagos aprobados · {method.percentage}% de ingresos brutos</p></div>)}</div> : <EmptyFinancePanel>No hay pagos confirmados en este periodo.</EmptyFinancePanel>}
         </section>
       </div>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <form onSubmit={(event) => void handleCreateExpense(event)} className="space-y-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div><h2 className="font-bold">Registrar egreso</h2><p className="mt-1 text-xs text-gray-500">Los egresos se guardan con responsable y fecha para el historial financiero.</p></div>
+          {expenseError && <p role="alert" className="text-sm text-red-600">{expenseError}</p>}
+          <label className="block text-sm">Categoría<input required minLength={2} maxLength={100} value={expenseForm.category} onChange={(event) => setExpenseForm({ ...expenseForm, category: event.target.value })} className="mt-1 block w-full rounded-lg border p-2 bg-transparent" /></label>
+          <label className="block text-sm">Descripción<input required minLength={3} maxLength={255} value={expenseForm.description} onChange={(event) => setExpenseForm({ ...expenseForm, description: event.target.value })} className="mt-1 block w-full rounded-lg border p-2 bg-transparent" /></label>
+          <div className="grid grid-cols-2 gap-3"><label className="block text-sm">Importe (S/)<input required type="number" min="0.01" max="99999999" step="0.01" value={expenseForm.amount} onChange={(event) => setExpenseForm({ ...expenseForm, amount: event.target.value })} className="mt-1 block w-full rounded-lg border p-2 bg-transparent" /></label><label className="block text-sm">Fecha<input required type="date" max={new Date().toISOString().slice(0, 10)} value={expenseForm.spentAt} onChange={(event) => setExpenseForm({ ...expenseForm, spentAt: event.target.value })} className="mt-1 block w-full rounded-lg border p-2 bg-transparent" /></label></div>
+          <button disabled={savingExpense} className="rounded-lg bg-brand-green px-4 py-2 font-bold text-black disabled:opacity-50">{savingExpense ? "Guardando…" : "Registrar egreso"}</button>
+        </form>
+        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><div className="p-5"><h2 className="font-bold">Egresos registrados</h2><p className="mt-1 text-xs text-gray-500">{data?.periodLabel || "Periodo seleccionado"}</p></div>{!data?.expenses.length ? <EmptyFinancePanel>No hay egresos registrados en este periodo.</EmptyFinancePanel> : <div className="divide-y dark:divide-zinc-800">{data.expenses.map((expense) => <div key={expense.id} className="flex justify-between gap-3 px-5 py-3 text-sm"><span><strong className="block">{expense.description}</strong><span className="text-xs text-gray-500">{expense.category} · {new Date(expense.spentAt).toLocaleDateString("es-PE")}</span></span><strong className="text-red-600">−{money(expense.amount)}</strong></div>)}</div>}</section>
+      </section>
 
       <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 dark:border-zinc-800">
@@ -249,8 +277,8 @@ export default function AdminFinanceView() {
                     <td className="px-5 py-4 font-bold">{transaction.reference}</td>
                     <td className="px-5 py-4 text-gray-600 dark:text-gray-300">{transaction.description}</td>
                     <td className="px-5 py-4 text-gray-500 dark:text-gray-400">{transaction.date}</td>
-                    <td className={`px-5 py-4 text-right font-bold ${transaction.type === "Devolución" ? "text-amber-600 dark:text-amber-300" : "text-emerald-600 dark:text-[#00E87A]"}`}>{transaction.amount >= 0 ? "+" : "−"}{money(Math.abs(transaction.amount))}</td>
-                    <td className="px-5 py-4 text-right"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${transaction.type === "Devolución" ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"}`}>{transaction.type}</span></td>
+                      <td className={`px-5 py-4 text-right font-bold ${transaction.type === "Ingreso" ? "text-emerald-600 dark:text-[#00E87A]" : transaction.type === "Gasto" ? "text-red-600" : "text-amber-600 dark:text-amber-300"}`}>{transaction.amount >= 0 ? "+" : "−"}{money(Math.abs(transaction.amount))}</td>
+                    <td className="px-5 py-4 text-right"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${transaction.type === "Ingreso" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300" : transaction.type === "Gasto" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"}`}>{transaction.type}</span></td>
                   </tr>
                 ))}
               </tbody>

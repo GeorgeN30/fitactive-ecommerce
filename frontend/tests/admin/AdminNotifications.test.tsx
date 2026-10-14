@@ -1,31 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import AdminNotifications from "../../src/pages/admin/AdminNotifications";
-
-describe("AdminNotifications", () => {
-  it("lista las notificaciones del sistema", () => {
-    render(<AdminNotifications onNavigate={vi.fn()} />);
-    expect(screen.getByText("Centro de Notificaciones")).toBeInTheDocument();
-    expect(screen.getByText("Nuevo Pedido #FL-2026-00847")).toBeInTheDocument();
-    expect(screen.getByText("Alerta de Stock Bajo")).toBeInTheDocument();
-  });
-
-  it("navega a la tab destino al pulsar Ver", async () => {
-    const user = userEvent.setup();
-    const onNavigate = vi.fn();
-    render(<AdminNotifications onNavigate={onNavigate} />);
-    await user.click(screen.getAllByRole("button", { name: "Ver" })[0]);
-    expect(onNavigate).toHaveBeenCalledWith("orders");
-  });
-
-  it("navega a inventario y devoluciones segun la notificacion", async () => {
-    const user = userEvent.setup();
-    const onNavigate = vi.fn();
-    render(<AdminNotifications onNavigate={onNavigate} />);
-    await user.click(screen.getAllByRole("button", { name: "Ver" })[1]);
-    expect(onNavigate).toHaveBeenCalledWith("inventory");
-    await user.click(screen.getAllByRole("button", { name: "Ver" })[3]);
-    expect(onNavigate).toHaveBeenCalledWith("returns");
-  });
-});
+function CurrentRoute() { const location = useLocation(); return <output>{location.pathname + location.search}</output>; }
+describe("legacy admin notification entry", () => { it("routes to the live notification centre", () => {
+  render(<MemoryRouter initialEntries={["/legacy-notifications"]}><AdminNotifications /><CurrentRoute /></MemoryRouter>);
+  expect(screen.getByText("/admin?section=notifications")).toBeInTheDocument();
+}); });

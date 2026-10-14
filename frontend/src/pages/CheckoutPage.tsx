@@ -12,10 +12,12 @@ import {
   type CheckoutDetails,
 } from "../services/orders";
 import { getVirtualTryOnSessionId } from "../services/virtualTryOn";
+import { useStoreSettings } from "../context/StoreSettingsContext";
 
 export default function CheckoutPage() {
-  const { cartItems, cartTotal, registerPendingCheckout } = useCart();
+  const { cartItems, cartTotal, registerPendingCheckout, revalidateCart } = useCart();
   const navigate = useNavigate();
+  const settings = useStoreSettings();
 
   const [step, setStep] = useState(1);
   const [orderNumber, setOrderNumber] = useState("");
@@ -169,6 +171,9 @@ export default function CheckoutPage() {
     try {
       let orderId = pendingOrderId;
       if (!orderId) {
+        const validation = revalidateCart ? await revalidateCart() : undefined;
+        if (validation?.unavailable) { setOrderError("Hay productos sin stock suficiente. Revisa tu carrito."); return; }
+        if (validation?.changed) { setOrderError("Actualizamos el precio o la disponibilidad. Revisa el resumen y confirma nuevamente."); return; }
         const entries = await resolveOrderEntries(cartItems);
         const checkoutDetails: CheckoutDetails = {
           customerName: customerData.name,
@@ -183,6 +188,7 @@ export default function CheckoutPage() {
           entries,
           getVirtualTryOnSessionId(),
           checkoutDetails,
+          cartTotal,
         );
         orderId = order.id;
         setPendingOrderId(order.id);
@@ -205,6 +211,9 @@ export default function CheckoutPage() {
 
       if (status === 401) {
         navigate("/login");
+      } else if (code === "PRICE_CHANGED") {
+        if (revalidateCart) await revalidateCart().catch(() => undefined);
+        setOrderError("La oferta o el precio cambió. Revisa el nuevo total y confirma nuevamente.");
       } else if (status === 409 || code === "INSUFFICIENT_STOCK") {
         setOrderError(
           "No hay stock suficiente para alguno de los productos. Ajusta las cantidades e inténtalo de nuevo.",
@@ -853,6 +862,7 @@ export default function CheckoutPage() {
 
                     <span className="font-bold text-brand-green">GRATIS</span>
                   </div>
+                  <p className="text-xs text-gray-500 mb-3">IGV incluido ({settings.tax}%): S/ {(cartTotal - cartTotal / (1 + settings.tax / 100)).toFixed(2)}</p>
 
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between">
                     <span className="font-extrabold">Total</span>

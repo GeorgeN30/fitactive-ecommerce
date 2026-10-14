@@ -92,6 +92,7 @@ describe("customer purchase flow", () => {
       clearCart: vi.fn(),
       registerPendingCheckout: vi.fn(),
       completePendingCheckout: vi.fn(),
+      revalidateCart: vi.fn().mockResolvedValue({ changed: false, unavailable: false }),
     });
     vi.mocked(createMercadoPagoPreference).mockResolvedValue({
       orderId: "order-1",
@@ -111,20 +112,21 @@ describe("customer purchase flow", () => {
     expect(screen.getAllByRole("link", { name: /Polo real|Ver detalle/ }).some((link) => link.getAttribute("href") === "/producto/real-product-1")).toBe(true);
   });
 
-  it("shows PEN amounts in cart and favorites", () => {
+  it("shows PEN amounts in cart and updates favorites from the current catalog", async () => {
+    vi.mocked(fetchCatalogProducts).mockResolvedValue([catalogProduct]);
     renderPage(<CartPage />);
     expect(screen.getAllByText("S/ 99.00").length).toBeGreaterThan(0);
     expect(screen.queryByText("$99.00")).not.toBeInTheDocument();
 
     vi.mocked(useFavorites).mockReturnValue({
-      favorites: [{ id: "real-product-1", cat: "Running", name: "Polo real", price: 80, img: "/polo.png" }],
+      favorites: [{ id: "real-product-1", cat: "Running", name: "Polo real", price: 100, img: "/polo.png" }],
       toggleFavorite: vi.fn(),
       addFavorite: vi.fn(),
       removeFavorite: vi.fn(),
       isFavorite: vi.fn(() => true),
     });
     renderPage(<FavoritesPage />);
-    expect(screen.getByText("S/ 80.00")).toBeInTheDocument();
+    expect(await screen.findByText("S/ 80.00")).toBeInTheDocument();
   });
 
   it("registers the order and redirects to Checkout Pro without clearing the cart early", async () => {
@@ -171,6 +173,7 @@ describe("customer purchase flow", () => {
         shippingCity: "Lima",
         shippingReference: "",
       },
+      99,
     );
   });
 });

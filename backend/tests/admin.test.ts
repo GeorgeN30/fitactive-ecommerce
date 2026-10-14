@@ -51,7 +51,9 @@ vi.mock("../src/config/prisma", () => ({
     },
     orden_detalles: {
       groupBy: vi.fn(),
+      findMany: vi.fn(),
     },
+    financial_expenses: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },
     usuarios: {
       findMany: vi.fn(),
       findUnique: vi.fn(),

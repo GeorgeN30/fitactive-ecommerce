@@ -52,6 +52,10 @@ interface BackendOrder {
   total: number;
   fechaOrden: string | null;
   customer: { id: string; email: string; name: string | null };
+  customerPhone?: string | null;
+  shippingAddress?: string | null;
+  shippingDistrict?: string | null;
+  shippingCity?: string | null;
   items: {
     productoId: string;
     nombre: string;
@@ -186,14 +190,14 @@ function toPrototypeOrder(o: BackendOrder): AdminPrototypeOrder {
     date: toDisplayDate(o.fechaOrden),
     estimatedDelivery: "",
     status: normalizeOrderStatus(o.estado),
-    address: "",
-    district: "",
-    city: "",
+    address: o.shippingAddress || "",
+    district: o.shippingDistrict || "",
+    city: o.shippingCity || "",
     paymentMethod: "Mercado Pago",
     customer: {
       name: o.customer.name || o.customer.email,
       email: o.customer.email,
-      phone: "",
+      phone: o.customerPhone || "",
     },
   };
 }

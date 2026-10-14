@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import ProfileLayout from "../components/ProfileLayout";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import { fetchMyOrders } from "../services/orders";
+import { useFavorites } from "../context/FavoritesContext";
+
+function profileGender(value?: string | null) {
+  const normalized = value?.toLowerCase();
+  return ["female", "mujer", "femenino"].includes(normalized || "") ? "Femenino" : ["male", "hombre", "masculino"].includes(normalized || "") ? "Masculino" : "";
+}
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
+  const { favorites } = useFavorites();
   const [name, setName] = useState(user?.name || "");
-  const [genero, setGenero] = useState(user?.genero || "");
+  const [genero, setGenero] = useState(profileGender(user?.genero));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [statsError, setStatsError] = useState("");
 
   const [stats, setStats] = useState({
     pedidos: 0,
@@ -17,23 +25,18 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    Promise.all([
-      api.get("/orders/my-orders").catch(() => ({ data: { orders: [] } })),
-      api.get("/favorites").catch(() => ({ data: [] }))
-    ]).then(([ordersRes, favsRes]) => {
-      const orders = ordersRes.data.orders || [];
-      const favs = favsRes.data || [];
-      const total = orders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-      setStats({
-        pedidos: orders.length,
-        favoritos: favs.length,
-        total: total.toFixed(2)
-      });
-    });
+    let cancelled = false;
+    void fetchMyOrders().then((orders) => {
+      if (cancelled) return;
+      const total = orders.filter((order) => ["confirmed", "preparing", "shipped", "delivered"].includes(order.estado.toLowerCase())).reduce((sum, order) => sum + order.total - (order.refundedAmount || 0), 0);
+      setStats({ pedidos: orders.length, favoritos: 0, total: total.toFixed(2) });
+    }).catch(() => { if (!cancelled) setStatsError("No se pudieron consultar las estadísticas de tus compras."); });
+    return () => { cancelled = true; };
   }, []);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (name.trim().length < 2) { setMsg("Ingresa un nombre de al menos 2 caracteres."); return; }
     setSaving(true);
     try {
       if (updateProfile) {
@@ -55,7 +58,7 @@ export default function ProfilePage() {
     <ProfileLayout>
       <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">Datos Personales</h2>
+          <h1 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">Datos Personales</h1>
           <button
             onClick={handleSave}
             disabled={saving}
@@ -74,9 +77,11 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <div>
-            <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Nombre completo</label>
+            <label htmlFor="profile-name" className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Nombre completo</label>
             <input
               type="text"
+              id="profile-name"
+              maxLength={150}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium"
@@ -92,8 +97,9 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Género</label>
+            <label htmlFor="profile-gender" className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">Género</label>
             <select
+              id="profile-gender"
               value={genero}
               onChange={(e) => setGenero(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium appearance-none"
@@ -105,17 +111,18 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {statsError && <p role="alert" className="text-red-600 mb-4">{statsError}</p>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
-            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">{stats.pedidos}</div>
+            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">{statsError ? "—" : stats.pedidos}</div>
             <div className="text-slate-500 font-bold text-sm uppercase tracking-wide">Pedidos</div>
           </div>
           <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
-            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">{stats.favoritos}</div>
+            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">{favorites.length}</div>
             <div className="text-slate-500 font-bold text-sm uppercase tracking-wide">Favoritos</div>
           </div>
           <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-6 text-center border border-slate-100 dark:border-slate-700">
-            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">S/ {stats.total}</div>
+            <div className="text-3xl font-black mb-1 text-slate-900 dark:text-white">{statsError ? "—" : `S/ ${stats.total}`}</div>
             <div className="text-slate-500 font-bold text-sm uppercase tracking-wide">Total compras</div>
           </div>
         </div>

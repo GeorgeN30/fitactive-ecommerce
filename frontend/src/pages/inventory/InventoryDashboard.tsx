@@ -5,7 +5,7 @@ import InventoryAlertsView from "../../components/inventory/views/InventoryAlert
 import InventoryCatalogView from "../../components/inventory/views/InventoryCatalogView";
 import React, { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import InventoryDiscountsView from "../../components/inventory/views/InventoryDiscountsView";
 import InventoryNotificationsView, {
@@ -63,12 +63,16 @@ function toInventoryNotification(notification: AdminNotification): InventoryNoti
 }
 
 export default function InventoryDashboard() {
-  const [section, setSection] = useState<Section>("dashboard");
+  const [searchParams] = useSearchParams();
+  const initialSection = searchParams.get("section");
+  const validSections = new Set<Section>(["dashboard", "orders", "catalog", "stock", "alerts", "audit", "discounts", "notifications"]);
+  const [section, setSection] = useState<Section>(() => validSections.has(initialSection as Section) ? initialSection as Section : "dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<InventoryNotification[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [toast, setToast] = useState<{
     title: string;
     message: string;
@@ -96,6 +100,16 @@ export default function InventoryDashboard() {
     clearStoredSession();
     window.location.href = "/login";
   };
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      void fetchInventory().then((loaded) => { if (!cancelled) setProducts(loaded); }).catch(() => undefined);
+    };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +127,7 @@ export default function InventoryDashboard() {
         }
       } catch (error) {
         if (isAuthError(error)) handleUnauthorized();
+        else if (!cancelled) setLoadError("No se pudo cargar el inventario. Reintenta para consultar datos actualizados.");
       }
     };
     void loadProducts();
@@ -526,13 +541,15 @@ export default function InventoryDashboard() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {loadError && <div role="alert" className="p-4 text-red-600 border rounded-xl">{loadError} <button onClick={() => window.location.reload()} className="underline">Reintentar</button></div>}
         <header className="lg:hidden bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
+              aria-label="Abrir menú del panel"
               className="text-gray-500 dark:text-gray-400 p-1"
             >
-              <i className="fa-solid fa-bars text-[24px]"></i>
+              <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
             </button>
             <div className="w-8 h-8 bg-[#F59E0B] rounded-lg flex items-center justify-center font-black text-black">
               FL
