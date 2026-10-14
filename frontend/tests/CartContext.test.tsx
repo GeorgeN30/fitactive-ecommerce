@@ -1,5 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("../src/services/catalog", async (importOriginal) => ({ ...(await importOriginal<typeof import("../src/services/catalog")>()), fetchCatalogProducts: vi.fn() }));
+import { fetchCatalogProducts } from "../src/services/catalog";
 import { CartProvider, useCart } from "../src/context/CartContext";
 import { SESSION_CLEARED_EVENT } from "../src/utils/session";
 
@@ -19,6 +21,16 @@ describe("CartContext startup", () => {
     const { result } = renderHook(() => useCart(), { wrapper });
     expect(result.current.cartItems).toEqual([]);
     expect(result.current.cartTotal).toBe(0);
+  });
+
+  it("revalidates expired prices and insufficient stock instead of trusting storage", async () => {
+    localStorage.setItem("fitactive-cart", JSON.stringify([{ id: "p1", name: "Polo", price: 80, img: "", tallaId: "s1", size: "M", quantity: 2, stock: 10 }]));
+    vi.mocked(fetchCatalogProducts).mockResolvedValue([{ id: "p1", nombre: "Polo", precio: 100, descripcion: null, categoria: null, marca: null, genero: null, imagenUrl: null, totalStock: 1, tallas: [{ id: "s1", talla: "M", stock: 1, salePrice: 80, discountPercent: 20, discountEndsAt: "2020-01-01T00:00:00Z" }] }]);
+    const { result } = renderHook(() => useCart(), { wrapper });
+    await act(async () => { expect(await result.current.revalidateCart()).toEqual({ changed: true, unavailable: true }); });
+    expect(result.current.cartItems[0].price).toBe(100);
+    expect(result.current.cartItems[0].stock).toBe(1);
+    expect(result.current.cartTotal).toBe(200);
   });
 
   it("ignores invalid stored lines instead of crashing price calculations", () => {

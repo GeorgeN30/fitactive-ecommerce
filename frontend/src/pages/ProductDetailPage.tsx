@@ -4,7 +4,9 @@ import AppLayout from "../components/AppLayout";
 import FavoriteButton from "../components/FavoriteButton";
 import ModalPortal from "../components/ModalPortal";
 import Toast from "../components/Toast";
-import api from "../services/api";
+import { useCatalog } from "../hooks/useCatalog";
+import { getCatalogOffer, getCatalogPrice } from "../services/catalog";
+import ProductOffer from "../components/ProductOffer";
 import { useCart } from "../context/CartContext";
 import {
   getVirtualTryOnSessionId,
@@ -41,6 +43,7 @@ function getPrimaryProductImage(product: any): string {
 function handleProductImageError(
   event: SyntheticEvent<HTMLImageElement>
 ): void {
+  if (event.currentTarget.src === PRODUCT_IMAGE_FALLBACK) return;
   event.currentTarget.onerror = null;
   event.currentTarget.src = PRODUCT_IMAGE_FALLBACK;
 }
@@ -53,12 +56,11 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("Descripción");
-  const [producto, setProducto] = useState<any>(null);
-  const [relacionados, setRelacionados] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
+  const { products, loading: cargando, error: loadError, refresh } = useCatalog();
+  const data = products.map((product) => ({ ...product, producto_tallas: product.tallas }));
+  const producto: any = data.find((product) => product.id === id);
+  const relacionados: any[] = data.filter((product) => product.id !== id).slice(0, 4);
   const [isSizeModalOpen, setIsSizeModalOpen] = useState(false);
-  const [rating, setRating] = useState("4.5");
-  const [reviewsCount, setReviewsCount] = useState(0);
   const [activeImage, setActiveImage] = useState("");
 
   const [toast, setToast] = useState<{
@@ -74,61 +76,7 @@ export default function ProductDetailPage() {
     XXL: 5,
   };
 
-  useEffect(() => {
-    const cargarProducto = async () => {
-      try {
-        setCargando(true);
-
-        const response = await api.get("/products");
-
-        const rawData = Array.isArray(response.data)
-          ? response.data
-          : response.data.products || response.data.data || [];
-
-        const data = rawData.map((item: any) => ({
-          ...item,
-          producto_tallas: item.producto_tallas || item.tallas || [],
-        }));
-
-        const productoEncontrado =
-          data.find((item: any) => String(item.id) === String(id)) ||
-          data[0];
-
-        setProducto(productoEncontrado);
-        setActiveImage(getProductImages(productoEncontrado)[0] || "");
-
-        const otrosProductos = data
-          .filter((item: any) => String(item.id) !== String(id))
-          .slice(0, 4);
-
-        setRelacionados(otrosProductos);
-
-        if (productoEncontrado) {
-          const strId = String(productoEncontrado.id);
-
-          let hash = 0;
-
-          for (let i = 0; i < strId.length; i++) {
-            hash = strId.charCodeAt(i) + ((hash << 5) - hash);
-          }
-
-          const pseudoRandomRating = (
-            3.8 +
-            (Math.abs(hash) % 13) * 0.1
-          ).toFixed(1);
-
-          setRating(pseudoRandomRating);
-          setReviewsCount(15 + (Math.abs(hash) % 336));
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setCargando(false);
-      }
-    };
-
-    cargarProducto();
-  }, [id]);
+  useEffect(() => { setSelectedSize(null); setQuantity(1); setActiveImage(""); }, [id]);
 
   const stockActual = selectedSize
     ? Number(
@@ -162,8 +110,9 @@ export default function ProductDetailPage() {
       <AppLayout>
         <div className="p-8 text-center min-h-screen flex flex-col items-center justify-center dark:bg-brand-dark-bg dark:text-white">
           <h1 className="text-2xl font-bold mb-4">
-            Producto no encontrado
+            {loadError ? "No se pudo cargar el producto" : "Producto no encontrado"}
           </h1>
+          {loadError && <button onClick={() => void refresh()} className="text-brand-green underline">Reintentar</button>}
 
           <Link
             to="/catalogo"
@@ -183,20 +132,10 @@ export default function ProductDetailPage() {
         (ordenTallas[a.talla] || 99) - (ordenTallas[b.talla] || 99)
     );
 
-  const selectedTalla = (producto.producto_tallas || []).find(
-    (t: any) => t.talla === selectedSize
-  );
-
-  const precioActual = Number(
-    selectedTalla?.salePrice || producto.precio || producto.price || 0
-  );
-
-  const descuentoActual = Number(
-    selectedTalla?.discountPercent || 0
-  );
+  const precioActual = getCatalogOffer(producto, selectedSize).price;
 
   const productImages = getProductImages(producto);
-  const mainImage = activeImage || productImages[0] || "";
+  const mainImage = activeImage || productImages[0] || PRODUCT_IMAGE_FALLBACK;
 
   const esMujer = ["mujer", "female"].includes(
     producto?.genero?.toLowerCase()
@@ -288,40 +227,17 @@ export default function ProductDetailPage() {
             <div className="w-full lg:w-1/2 flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <span className="px-3 py-1 bg-brand-green/10 text-brand-green border border-brand-green/20 text-[10px] font-black uppercase tracking-wider rounded-md">
-                  IN STOCK
+                  {producto.totalStock > 0 ? "EN STOCK" : "AGOTADO"}
                 </span>
 
-                <div className="flex items-center text-xs font-bold">
-                  <span className="text-yellow-400 mr-1 text-sm">
-                    ★
-                  </span>
-
-                  <span className="text-gray-900 dark:text-white">
-                    {rating}
-                  </span>
-
-                  <span className="text-gray-400 ml-1">
-                    ({reviewsCount} opiniones)
-                  </span>
-                </div>
+                <span className="text-xs text-gray-500">{producto.totalStock} unidades disponibles</span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white mb-2 leading-tight tracking-tight">
                 {producto.nombre || producto.name}
               </h1>
 
-              <div className="text-2xl font-black text-brand-green mb-6">
-                S/ {precioActual.toFixed(2)}
-
-                {descuentoActual > 0 && (
-                  <span className="text-sm text-gray-400 line-through ml-2">
-                    S/{" "}
-                    {Number(
-                      producto.precio || producto.price || 0
-                    ).toFixed(2)}
-                  </span>
-                )}
-              </div>
+              <ProductOffer product={producto} selectedSize={selectedSize} />
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed font-medium">
                 {producto.descripcion ||
@@ -419,11 +335,7 @@ export default function ProductDetailPage() {
                     cat: producto.categoria || "General",
                     name: producto.nombre || producto.name,
                     price: precioActual,
-                    img:
-                      producto.imagenUrl ||
-                      producto.imagen_url ||
-                      producto.img ||
-                      "",
+                    img: getPrimaryProductImage(producto),
                   }}
                   className="w-14 h-14 flex items-center justify-center border-2 rounded-xl transition-all cursor-pointer border-gray-200 dark:border-white/10 text-gray-400 hover:border-red-500 hover:text-red-500"
                   iconClassName="text-xl"
@@ -440,15 +352,13 @@ export default function ProductDetailPage() {
                     });
                     return;
                   }
+                  if (stockActual < quantity) { setToast({ message: "La talla ya no tiene stock suficiente.", type: "error" }); return; }
 
                   addToCart({
                     id: String(producto.id),
                     name: producto.nombre || producto.name,
                     price: precioActual,
-                    img:
-                      producto.imagenUrl ||
-                      producto.imagen_url ||
-                      producto.img,
+                    img: getPrimaryProductImage(producto),
                     quantity: quantity,
                     size: selectedSize,
                     color: 'default',
@@ -598,9 +508,7 @@ export default function ProductDetailPage() {
                           id: String(item.id),
                           cat: item.categoria || "General",
                           name: item.nombre || item.name,
-                          price: Number(
-                            item.precio || item.price || 0
-                          ),
+                          price: getCatalogPrice(item).price,
                           img: getPrimaryProductImage(item),
                         }}
                         className="absolute top-3 right-3 p-1.5 bg-white dark:bg-gray-700 rounded-full shadow-md hover:scale-110 transition-all z-10 cursor-pointer"
@@ -635,7 +543,7 @@ export default function ProductDetailPage() {
                     </h3>
 
                     <div className="font-black text-lg mb-4 mt-auto dark:text-gray-200">
-                      S/ {item.precio || item.price}
+                      <ProductOffer product={item} />
                     </div>
 
                     <div className="flex gap-2">

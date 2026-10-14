@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { mockNotifications } from "../../data/mock";
+import { fetchNotifications, markNotificationRead, type AdminNotification } from "../../services/notifications";
 import type { AdminTab } from "./AdminSidebar";
 
 interface AdminHeaderProps {
@@ -40,8 +40,14 @@ export default function AdminHeader({
 }: AdminHeaderProps) {
   const { user, logout } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-
-  const unreadCount = mockNotifications.length;
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [error, setError] = useState("");
+  const loadNotifications = useCallback(async () => {
+    try { setNotifications(await fetchNotifications()); setError(""); }
+    catch { setError("No se pudieron cargar las notificaciones."); }
+  }, []);
+  useEffect(() => { void loadNotifications(); }, [loadNotifications]);
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
     <header className="relative bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 flex-shrink-0">
@@ -61,6 +67,7 @@ export default function AdminHeader({
         <button
           onClick={() => setNotificationsOpen(!notificationsOpen)}
           aria-label="Notificaciones"
+          aria-expanded={notificationsOpen}
           className="relative text-gray-500 hover:text-gray-900 transition-colors"
         >
           <i className="fa-solid fa-bell text-lg" />
@@ -81,13 +88,20 @@ export default function AdminHeader({
                 {unreadCount} Nuevas
               </span>
             </div>
+            {error && <p role="alert" className="text-xs text-red-600">{error}<button onClick={() => void loadNotifications()} className="underline ml-2">Reintentar</button></p>}
             <div className="space-y-3 text-xs">
-              {mockNotifications.map((n) => (
+              {!error && notifications.length === 0 && <p className="text-gray-500">No hay notificaciones.</p>}
+              {notifications.map((n) => (
                 <div
                   key={n.id}
                   className="flex gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
                   onClick={() => {
-                    onTabChange(n.targetTab as AdminTab);
+                    const target: AdminTab = n.type === "order" || n.type === "payment" ? "orders" : n.type === "discount" || n.type === "stock" ? "inventory" : n.type === "return" ? "returns" : "notifications";
+                    onTabChange(target);
+                    if (!n.read) {
+                      setNotifications((current) => current.map((item) => item.id === n.id ? { ...item, read: true } : item));
+                      void markNotificationRead(n.id).catch(() => { setError("No se pudo marcar como leída."); void loadNotifications(); });
+                    }
                     setNotificationsOpen(false);
                   }}
                 >
@@ -104,7 +118,7 @@ export default function AdminHeader({
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{n.title}</p>
-                    <p className="text-gray-500 text-[11px]">{n.detail}</p>
+                    <p className="text-gray-500 text-[11px]">{n.message}</p>
                   </div>
                 </div>
               ))}

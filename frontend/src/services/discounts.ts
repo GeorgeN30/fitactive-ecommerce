@@ -10,6 +10,11 @@ export interface DiscountRequest {
   createdAt: string;
   reviewedAt: string | null;
   reviewComment: string | null;
+  durationHours?: number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  offerStatus?: "PENDING" | "ACTIVE" | "SCHEDULED" | "EXPIRED" | "REJECTED" | "REVERTED";
+  canRevert?: boolean;
   product: {
     id: string;
     name: string;
@@ -35,11 +40,13 @@ export async function createDiscountRequest(
   productoTallaIds: string[],
   porcentaje: number,
   motivo: string,
+  validity: { duracionHoras?: number; fechaInicio?: string; fechaFin?: string } = { duracionHoras: 72 },
 ): Promise<DiscountRequest[]> {
   const { data } = await api.post("/inventory/discount-requests", {
     productoTallaIds,
     porcentaje,
     motivo,
+    ...validity,
   });
   return data.requests as DiscountRequest[];
 }

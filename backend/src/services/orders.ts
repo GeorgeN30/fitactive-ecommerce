@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { ORDER_STATUS } from "../constants";
-import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
+import { resolveVariantPrice, roundToCents } from "../utils/pricing";
 import { notifications } from "./notifications";
 
 export interface OrderEntryInput {
@@ -161,7 +161,7 @@ function consolidateEntries(entries: OrderEntryInput[]): OrderEntryInput[] {
 async function runSerializableTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const maxAttempts = 3;
+  const maxAttempts = 20;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -176,6 +176,10 @@ async function runSerializableTransaction<T>(
       if (!isSerializationConflict || attempt === maxAttempts) {
         throw error;
       }
+      // Desynchronize contending checkouts; serialize stock conflicts until they
+      // resolve to a business-level INSUFFICIENT_STOCK response.
+      const backoff = Math.min(5 * 2 ** (attempt - 1), 100) + Math.floor(Math.random() * 12);
+      await new Promise((resolve) => setTimeout(resolve, backoff));
     }
   }
 
@@ -206,9 +210,11 @@ export const orderService = {
     rawEntries: OrderEntryInput[],
     tryOnSessionId?: string,
     checkoutDetails?: OrderCheckoutDetails,
+    expectedTotal?: number,
   ): Promise<OrderResult> {
     validateEntries(rawEntries);
     validateCheckoutDetails(checkoutDetails);
+    if (expectedTotal !== undefined && (typeof expectedTotal !== "number" || !Number.isFinite(expectedTotal) || expectedTotal < 0)) throw new Error("INVALID_EXPECTED_TOTAL");
     const entries = consolidateEntries(rawEntries);
 
     const orderId = randomUUID();
@@ -235,10 +241,7 @@ export const orderService = {
         }
 
         const precioBase = productoTalla.productos.precio.toNumber();
-        const precioUnitario = calculateDiscountedPrice(
-          precioBase,
-          productoTalla.descuento_porcentaje ?? 0,
-        );
+        const precioUnitario = resolveVariantPrice(precioBase, productoTalla).salePrice;
         total = roundToCents(total + precioUnitario * entry.cantidad);
 
         computed.push({
@@ -249,6 +252,7 @@ export const orderService = {
         });
       }
 
+      if (expectedTotal !== undefined && roundToCents(expectedTotal) !== total) throw new Error("PRICE_CHANGED");
       for (const entry of entries) {
         const updated = await tx.producto_tallas.updateMany({
           where: {
@@ -363,6 +367,7 @@ export const orderService = {
       id: order.id,
       numero: order.numero || order.id,
       total: order.total.toNumber(),
+      refundedAmount: order.refunded_amount?.toNumber() ?? 0,
       estado: order.estado || ORDER_STATUS.PENDING,
       fechaOrden: order.fecha_orden,
       customerName: order.customer_name,

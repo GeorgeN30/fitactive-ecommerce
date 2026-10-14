@@ -3,10 +3,12 @@ import { adminController } from "../controllers/admin";
 import { validateJWT } from "../middlewares/auth";
 import { checkRole } from "../middlewares/role";
 import { ROLES } from "../constants";
+import { requireStaffMfa } from "../middlewares/storePolicy";
 
 const router = Router();
 
 router.use(validateJWT, checkRole(ROLES.ADMIN, ROLES.INVENTORY));
+router.use(requireStaffMfa);
 
 router.get("/products", adminController.getInventory);
 router.get("/orders", adminController.listOrders);

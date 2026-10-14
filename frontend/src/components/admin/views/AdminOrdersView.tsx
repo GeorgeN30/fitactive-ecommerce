@@ -75,11 +75,11 @@ export default function AdminOrdersView({
   };
 
   const adminTransitions: Record<Order["status"], Array<Order["status"]>> = {
-    pending: ["confirmed", "cancelled"],
-    confirmed: ["preparing", "cancelled"],
-    preparing: ["shipped", "cancelled"],
-    shipped: ["delivered", "return"],
-    delivered: ["return"],
+    pending: ["cancelled"],
+    confirmed: ["preparing"],
+    preparing: ["shipped"],
+    shipped: ["delivered"],
+    delivered: [],
     cancelled: [],
     return: [],
   };
@@ -263,7 +263,7 @@ export default function AdminOrdersView({
               <p className="text-sm font-medium">{selectedOrder.address}</p>
               <p className="text-xs text-gray-500">{selectedOrder.district}</p>
               <p className="text-xs font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 inline-block px-2 py-1 rounded mt-2">
-                TRK-{selectedOrder.id.split("-")[2]}
+                Referencia: {selectedOrder.orderNumber || selectedOrder.id}
               </p>
             </div>
 

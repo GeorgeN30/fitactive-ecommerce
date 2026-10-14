@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../services/api";
+import { useStoreSettings } from "./StoreSettingsContext";
 import {
   SESSION_CLEARED_EVENT,
   clearStoredSession,
@@ -76,6 +77,7 @@ function normalizeUser(sessionUser: User): User {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const settings = useStoreSettings();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,6 +243,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setPreAuthUserId(null);
   }
+  useEffect(() => {
+    if (!token) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => { clearTimeout(timer); timer = setTimeout(() => clearStoredSession(), settings.timeout * 60_000); };
+    reset();
+    const events = ["pointerdown", "keydown", "scroll"];
+    events.forEach((event) => window.addEventListener(event, reset, { passive: true }));
+    return () => { clearTimeout(timer); events.forEach((event) => window.removeEventListener(event, reset)); };
+  }, [token, settings.timeout]);
 
   function updateUser(partial: Partial<User>) {
     setUser((prev) => {

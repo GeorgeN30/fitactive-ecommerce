@@ -15,6 +15,8 @@
     "prisma:seed": "ts-node-dev --transpile-only prisma/seed.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:stress": "vitest run tests/database.integration.test.ts tests/pricingFuzz.test.ts -t \"stress|burst|50,000\"",
     "test:watch": "vitest"
   },
   "keywords": [],

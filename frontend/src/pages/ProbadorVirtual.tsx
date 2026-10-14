@@ -1,7 +1,11 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import api from '../services/api';
+import { useStoreSettings } from '../context/StoreSettingsContext';
+import { useCatalog } from '../hooks/useCatalog';
+import { getSizePrice, getCatalogPrice } from '../services/catalog';
+import ProductOffer from '../components/ProductOffer';
+import { useFavorites } from '../context/FavoritesContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { paginateProducts, PRODUCTS_PER_PAGE } from '../utils/productPagination';
@@ -25,6 +29,8 @@ function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' | 'Unisex' {
 export default function ProbadorVirtual() {
   const { user, updateProfile } = useAuth();
   const { addToCart } = useCart();
+  const { addFavorite } = useFavorites();
+  const settings = useStoreSettings();
   const [searchParams] = useSearchParams();
   const productoIdUrl = searchParams.get('producto');
 
@@ -42,10 +48,12 @@ export default function ProbadorVirtual() {
   const [altura, setAltura] = useState(defaultAltura);
   const [medidas, setMedidas] = useState({ pecho: defaultPecho, cintura: defaultCintura, cadera: defaultCadera, muslo: defaultMuslo });
 
-  const [productos, setProductos] = useState<any[]>([]);
+  const catalog = useCatalog();
+  const productos = useMemo(() => catalog.products.map((item) => ({ ...item, imagen_url: item.imagenUrl,
+    genero: normalizeGender(item.genero), categoria: item.categoria || 'General',
+    producto_tallas: item.tallas.map((size) => ({ ...size, rango_cm_min: size.rangoCmMin, rango_cm_max: size.rangoCmMax })) })), [catalog.products]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [cargando, setCargando] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const { loading: cargando, error: loadError } = catalog;
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('Todas');
   const [productPage, setProductPage] = useState(1);
   const [tryOnSessionId] = useState(() => getVirtualTryOnSessionId());
@@ -53,66 +61,26 @@ export default function ProbadorVirtual() {
   const initialGender = useRef(genero);
   const reportedProducts = useRef(new Set<string>());
 
-  function seleccionarPorDefecto(listaValidos: any[]) {
-    const firstProduct = listaValidos.find((product) => product.genero === 'Hombre') || listaValidos[0];
-    if (!firstProduct) return;
-    setSelectedProduct(firstProduct);
-    if (firstProduct.genero === 'Hombre' || firstProduct.genero === 'Mujer') {
-      setGenero(firstProduct.genero);
-    }
-  }
 
   useEffect(() => {
     void trackVirtualTryOnEvent({ sessionId: tryOnSessionId, type: 'session_started', gender: initialGender.current }).catch(() => undefined);
   }, [tryOnSessionId]);
 
+  const lastUrl = useRef<string | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    const cargarDatos = async () => {
-      try {
-        const response = await api.get('/products');
-        const responseData = response.data as { products?: unknown[]; data?: unknown[] } | unknown[];
-        const rawData = Array.isArray(responseData)
-          ? responseData
-          : responseData.products || responseData.data || [];
-        const data = rawData.map((item: any) => ({
-          ...item,
-          imagen_url: item.imagen_url || item.imagenUrl || item.img,
-          genero: normalizeGender(item.genero),
-          categoria: item.categoria || 'General',
-          producto_tallas: (item.producto_tallas || item.tallas || []).map((talla: any) => ({
-            ...talla, rango_cm_min: talla.rango_cm_min ?? talla.rangoCmMin, rango_cm_max: talla.rango_cm_max ?? talla.rangoCmMax
-          })),
-        }));
-
-        const productosValidos = Array.isArray(data) ? data : [];
-        if (cancelled) return;
-        setProductos(productosValidos);
-        if (productosValidos.length > 0) {
-          if (productoIdUrl) {
-            const productoEspecifico = productosValidos.find((p: any) => String(p.id) === String(productoIdUrl));
-            if (productoEspecifico) {
-              setSelectedProduct(productoEspecifico);
-              if (productoEspecifico.genero === 'Hombre' || productoEspecifico.genero === 'Mujer') setGenero(productoEspecifico.genero);
-            } else {
-              setSelectedProduct(null);
-            }
-          } else {
-            seleccionarPorDefecto(productosValidos);
-          }
-        }
-      } catch (error) {
-        console.error("Error al cargar productos:", error);
-        if (!cancelled) setLoadError('No se pudieron cargar los productos del catálogo. Inténtalo de nuevo más tarde.');
-      } finally {
-        if (!cancelled) setCargando(false);
+    if (catalog.loading) return;
+    setSelectedProduct((current: any) => {
+      const changedUrl = lastUrl.current !== productoIdUrl;
+      lastUrl.current = productoIdUrl;
+      const target = productos.find((p) => p.id === (changedUrl ? productoIdUrl : current?.id || productoIdUrl));
+      if (target) {
+        if (changedUrl && target.genero !== 'Unisex') setGenero(target.genero);
+        return { ...target, talla_sugerida: changedUrl ? undefined : current?.talla_sugerida };
       }
-    };
-    void cargarDatos();
-    return () => {
-      cancelled = true;
-    };
-  }, [productoIdUrl]);
+      if (productoIdUrl) return null;
+      return productos.find((p) => p.genero === initialGender.current) || productos[0] || null;
+    });
+  }, [productos, productoIdUrl, catalog.loading]);
 
   const handleSaveMeasures = async () => {
     if (!user) {
@@ -234,10 +202,11 @@ export default function ProbadorVirtual() {
       ];
     }
 
-    const matchScore = Math.max(10, Math.min(99, 100 - (mejorDiferencia * 1.8))).toFixed(0);
+    const toleranceFactor = settings.tolerance === 'Estricto' ? 2.5 : settings.tolerance === 'Flexible' ? 1.2 : 1.8;
+    const matchScore = Math.max(10, Math.min(99, 100 - (mejorDiferencia * toleranceFactor))).toFixed(0);
 
     return { talla: tallaIdeal.talla || 'M', stock: tallaIdeal.stock || 0, matchScore, detalles: detallesFitMap };
-  }, [medidas, selectedProduct, genero, esPrendaInferior]);
+  }, [medidas, selectedProduct, genero, esPrendaInferior, settings.tolerance]);
 
   useEffect(() => {
     if (!selectedProduct || !analisis || reportedProducts.current.has(String(selectedProduct.id))) return;
@@ -298,7 +267,7 @@ export default function ProbadorVirtual() {
       addToCart({
         id: String(selectedProduct.id),
         name: selectedProduct.nombre,
-        price: Number(selectedProduct.precio || 0),
+        price: getSizePrice(selectedProduct, selectedVariant).price,
         img: selectedProduct.imagen_url || selectedProduct.img || '',
         quantity: 1,
         size: selectedSize,
@@ -390,7 +359,12 @@ export default function ProbadorVirtual() {
             </div>
 
             <div className="lg:col-span-3 min-h-[400px] lg:h-auto lg:min-h-[600px]">
-              <AnalyticsPanel analisis={analisis} medidas={medidas} altura={altura} onEditMeasures={() => setActiveTab('Medidas')} onAddToCart={handleAddToCartClick} />
+              {selectedProduct && <ProductOffer product={selectedProduct} selectedSize={selectedProduct.talla_sugerida || analisis?.talla} />}
+              <AnalyticsPanel analisis={analisis} medidas={medidas} altura={altura} onEditMeasures={() => setActiveTab('Medidas')} onAddToCart={handleAddToCartClick} onSaveProduct={() => {
+                if (!selectedProduct || !user) { alert('Inicia sesión y selecciona una prenda para guardarla.'); return; }
+                addFavorite({ id: selectedProduct.id, cat: selectedProduct.categoria, name: selectedProduct.nombre, img: selectedProduct.imagen_url || '', price: getCatalogPrice(selectedProduct).price });
+                alert('Prenda guardada en tus favoritos.');
+              }} />
             </div>
 
           </div>
@@ -416,7 +390,7 @@ export default function ProbadorVirtual() {
             addToCart({
               id: String(selectedProduct.id),
               name: selectedProduct.nombre,
-              price: Number(selectedProduct.precio || 0),
+              price: getSizePrice(selectedProduct, selectedVariant).price,
               img: selectedProduct.imagen_url || selectedProduct.img || '',
               quantity: 1,
               size: selectedSize,

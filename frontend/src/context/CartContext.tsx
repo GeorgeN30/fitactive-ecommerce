@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { fetchCatalogProducts, getSizePrice } from "../services/catalog";
 import {
   getSessionPersistence,
   getSessionScopedValue,
@@ -31,6 +32,7 @@ interface CartContextType {
   clearCart: () => void;
   registerPendingCheckout: (orderId: string) => void;
   completePendingCheckout: (orderId?: string) => void;
+  revalidateCart: () => Promise<{ changed: boolean; unavailable: boolean }>;
   cartCount: number;
   cartTotal: number;
 }
@@ -58,7 +60,7 @@ function isCartItem(value: unknown): value is CartItem {
 }
 
 function maxQuantity(stock: number | undefined): number {
-  return typeof stock === "number" && Number.isFinite(stock) && stock > 0
+  return typeof stock === "number" && Number.isFinite(stock) && stock >= 0
     ? Math.floor(stock)
     : Number.MAX_SAFE_INTEGER;
 }
@@ -134,12 +136,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [cartItems]);
 
   const addToCart = (item: CartItem) => {
+    if (!isCartItem(item) || item.stock === 0) return;
     setCartItems((currentItems) => {
       const existingItem = currentItems.find(
-        (cartItem) =>
-          cartItem.id === item.id &&
-          cartItem.size === item.size &&
-          cartItem.color === item.color,
+        (cartItem) => sameCartLine(cartItem, item),
       );
 
       if (existingItem) {
@@ -149,12 +149,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           existingItem.quantity + Math.max(1, item.quantity),
         );
         return currentItems.map((cartItem) =>
-          cartItem.id === item.id &&
-          cartItem.size === item.size &&
-          cartItem.color === item.color
+          sameCartLine(cartItem, item)
             ? {
                 ...cartItem,
                 stock,
+                price: item.price,
+                tallaId: item.tallaId ?? cartItem.tallaId,
                 quantity: nextQuantity,
               }
             : cartItem,
@@ -183,14 +183,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     size?: string,
     color?: string,
   ) => {
-    if (quantity < 1) return;
+    if (!Number.isInteger(quantity) || quantity < 1) return;
 
     setCartItems((currentItems) =>
       currentItems.map((item) =>
         item.id === id && item.size === size && item.color === color
           ? {
               ...item,
-              quantity: Math.min(quantity, maxQuantity(item.stock)),
+              quantity: Math.max(1, Math.min(quantity, maxQuantity(item.stock))),
             }
           : item,
       ),
@@ -228,6 +228,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const cartRef = useRef(cartItems);
+  useEffect(() => { cartRef.current = cartItems; }, [cartItems]);
+  const revalidateCart = useCallback(async () => {
+    if (cartRef.current.length === 0) return { changed: false, unavailable: false };
+    const products = await fetchCatalogProducts();
+    const current = cartRef.current;
+    let changed = false;
+    let unavailable = false;
+    const updated = current.map((item) => {
+      const product = products.find((p) => p.id === item.id);
+      const size = product?.tallas.find((s) => item.tallaId ? s.id === item.tallaId : s.talla === item.size);
+      if (!product || !size || size.stock < item.quantity) unavailable = true;
+      const price = product && size ? getSizePrice(product, size).price : item.price;
+      const stock = size?.stock ?? 0;
+      if (price !== item.price || stock !== item.stock || size?.id !== item.tallaId) changed = true;
+      return { ...item, price, stock, tallaId: size?.id ?? item.tallaId };
+    });
+    if (changed) setCartItems(updated);
+    return { changed, unavailable };
+  }, []);
 
   const cartTotal = cartItems.reduce(
     (total, item) => total + item.price * item.quantity,
@@ -244,8 +264,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         registerPendingCheckout,
         completePendingCheckout,
+        revalidateCart,
         cartCount,
-        cartTotal,
+        cartTotal: Math.round(cartTotal * 100) / 100,
       }}
     >
       {children}

@@ -24,6 +24,8 @@ function errorMessage(error: unknown): string {
     DISCOUNT_REQUEST_ALREADY_PENDING: "Ya existe una solicitud pendiente para esa talla.",
     DISCOUNT_ALREADY_ACTIVE: "Esa talla ya tiene un descuento activo.",
     SIZE_NOT_FOUND: "Una de las tallas ya no está disponible.",
+    INVALID_DISCOUNT_WINDOW: "La fecha final debe ser posterior al inicio y estar en el futuro.",
+    INVALID_DISCOUNT_DURATION: "Selecciona una duración válida.",
   };
   return messages[code || ""] || "No se pudo registrar la solicitud. Intenta nuevamente.";
 }
@@ -35,6 +37,9 @@ export default function InventoryDiscountsView({
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [discountPercent, setDiscountPercent] = useState(30);
   const [reason, setReason] = useState("");
+  const [duration, setDuration] = useState("72");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
   const [requests, setRequests] = useState<DiscountRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +60,10 @@ export default function InventoryDiscountsView({
 
   useEffect(() => {
     void loadRequests();
+    const refresh = () => { if (document.visibilityState !== "hidden") void loadRequests(); };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
   }, [loadRequests]);
 
   const availableSizes = useMemo(
@@ -104,7 +113,15 @@ export default function InventoryDiscountsView({
 
     try {
       setSubmitting(true);
-      const created = await createDiscountRequest(tallaIds, discountPercent, reason);
+      const start = startsAt ? new Date(startsAt) : new Date();
+      const end = new Date(endsAt);
+      if (duration === "custom" && (!Number.isFinite(end.getTime()) || end <= start || end <= new Date())) {
+        setFeedback("Elige una fecha final posterior al inicio y al momento actual.");
+        return;
+      }
+      const created = await createDiscountRequest(tallaIds, discountPercent, reason,
+        duration === "custom" ? { fechaInicio: startsAt ? start.toISOString() : undefined, fechaFin: end.toISOString() }
+          : { duracionHoras: Number(duration) });
       setRequests((current) => [...created, ...current]);
       setSelectedProductId(null);
       setSelectedSizes([]);
@@ -179,6 +196,11 @@ export default function InventoryDiscountsView({
         </div>
 
         <div className="bg-[#4F46E5]/5 border border-[#4F46E5]/20 rounded-2xl p-5">
+          <label className="block text-sm font-bold mb-2" htmlFor="discount-duration">Duración de la oferta</label>
+          <select id="discount-duration" value={duration} onChange={(event) => setDuration(event.target.value)} className="w-full rounded-lg border p-2 bg-white dark:bg-zinc-900 mb-3">
+            <option value="24">24 horas desde la aprobación</option><option value="72">3 días desde la aprobación</option><option value="168">7 días desde la aprobación</option><option value="custom">Fechas personalizadas</option>
+          </select>
+          {duration === "custom" && <div className="space-y-3 mb-3"><label className="block text-sm">Inicio (opcional; al aprobar si se deja vacío)<input aria-label="Inicio del descuento" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="block w-full rounded-lg border p-2 bg-white dark:bg-zinc-900" /></label><label className="block text-sm">Fin de la oferta<input aria-label="Fin del descuento" type="datetime-local" required value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="block w-full rounded-lg border p-2 bg-white dark:bg-zinc-900" /></label><p className="text-xs text-gray-500">Las fechas se ingresan en la zona horaria de tu dispositivo.</p></div>}
           <p className="text-xs font-bold text-[#4F46E5] uppercase tracking-wider mb-2">Vista previa</p>
           <p className="font-bold">{selectedProduct ? selectedProduct.name : "Selecciona un producto"}</p>
           <p className="text-xs text-gray-500 mt-1">Stock total: {totalStock} uds. · Se solicitará aprobación, no se aplicará todavía.</p>
@@ -195,7 +217,12 @@ export default function InventoryDiscountsView({
           <div className="flex items-center justify-between mb-4"><div><h2 className="text-lg font-bold">Mis solicitudes</h2><p className="text-xs text-gray-500 mt-1">El estado se actualiza por BaaS y queda registrado en la base de datos.</p></div><button type="button" onClick={() => void loadRequests()} className="text-xs font-bold text-[#4F46E5] hover:underline">Actualizar</button></div>
           {loadingRequests ? <p className="text-sm text-gray-400 py-10 text-center">Cargando historial…</p> : requests.length === 0 ? <p className="text-sm text-gray-400 py-10 text-center">Aún no tienes solicitudes.</p> : (
             <div className="space-y-3 max-h-[560px] overflow-y-auto">
-              {requests.map((request) => <div key={request.id} className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-zinc-800"><div className="flex justify-between gap-3 items-start"><div><p className="font-bold text-sm">{request.product.name} · Talla {request.product.size}</p><p className="text-xs text-gray-500 mt-1">-{request.percent}% · {request.reason}</p></div><span className={`text-[10px] font-bold px-2 py-1 rounded-full ${request.status === "APPROVED" ? "bg-green-100 text-green-700" : request.status === "REJECTED" ? "bg-red-100 text-red-700" : request.status === "REVERTED" ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-700"}`}>{statusLabel[request.status]}</span></div>{request.status === "REVERTED" && <p className="text-xs text-slate-500 mt-2">El administrador retiró el descuento activo.</p>}{request.reviewComment && <p className="text-xs text-gray-500 mt-2">Comentario: {request.reviewComment}</p>}</div>)}
+              {requests.map((request) => <div key={request.id} className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-zinc-800 space-y-2">
+                <p className="font-bold text-sm">{request.product.name} · Talla {request.product.size}</p><p className="text-xs text-gray-500">-{request.percent}% · {request.reason}</p>
+                <p className="text-xs font-bold">{request.offerStatus === "EXPIRED" ? "Vencida" : request.offerStatus === "SCHEDULED" ? "Programada" : request.offerStatus === "ACTIVE" ? "Activa" : statusLabel[request.status]}</p>
+                {request.endsAt ? <p className="text-xs text-gray-500">Hasta {new Date(request.endsAt).toLocaleString("es-PE")}</p> : request.durationHours && <p className="text-xs text-gray-500">{request.durationHours} horas desde la aprobación</p>}
+                {request.status === "REVERTED" && <p className="text-xs text-slate-500">El administrador retiró el descuento.</p>}{request.reviewComment && <p className="text-xs text-gray-500">Comentario: {request.reviewComment}</p>}
+              </div>)}
             </div>
           )}
         </div>

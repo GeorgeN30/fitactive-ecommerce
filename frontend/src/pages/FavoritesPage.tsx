@@ -2,9 +2,12 @@ import { Link } from "react-router-dom";
 import ProfileLayout from "../components/ProfileLayout";
 import { useFavorites } from "../context/FavoritesContext";
 import { formatSoles } from "../utils/money";
+import { useCatalog } from "../hooks/useCatalog";
+import ProductOffer from "../components/ProductOffer";
 
 export default function FavoritesPage() {
   const { favorites, removeFavorite } = useFavorites();
+  const { products, loading, error, refresh } = useCatalog();
 
   return (
     <ProfileLayout>
@@ -20,6 +23,7 @@ export default function FavoritesPage() {
               guardado{favorites.length !== 1 ? "s" : ""}
             </p>
           </div>
+          {error && <p role="alert" className="text-red-600 mb-4">{error} <button onClick={() => void refresh()} className="underline">Reintentar</button></p>}
 
           {favorites.length === 0 ? (
             <div className="bg-white dark:bg-brand-card-dark rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800">
@@ -78,7 +82,9 @@ export default function FavoritesPage() {
                   </h3>
 
                   <div className="font-black text-lg dark:text-gray-200">
-                    {formatSoles(item.price)}
+                    {products.find((product) => product.id === item.id)
+                      ? <ProductOffer product={products.find((product) => product.id === item.id)!} />
+                      : <span className="text-xs text-gray-500">{loading ? "Actualizando precio…" : error ? `Último precio: ${formatSoles(item.price)}` : "Producto no disponible"}</span>}
                   </div>
 
                   <Link

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import Toast from "../components/Toast";
@@ -14,12 +14,25 @@ export default function CartPage() {
     updateQuantity,
     clearCart,
     cartTotal,
+    revalidateCart,
   } = useCart();
 
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
+  const [validationError, setValidationError] = useState("");
+  useEffect(() => {
+    const validate = () => {
+      if (!revalidateCart) return;
+      void revalidateCart().then(({ changed, unavailable }) => {
+        setValidationError(unavailable ? "Hay productos sin stock suficiente. Ajusta o elimina esas líneas antes de comprar." : "");
+        if (changed) setToast({ message: "Actualizamos los precios y la disponibilidad del carrito.", type: "info" });
+      }).catch(() => setValidationError("No se pudo verificar el carrito. Reintenta antes de comprar."));
+    };
+    validate(); window.addEventListener("focus", validate);
+    return () => window.removeEventListener("focus", validate);
+  }, [revalidateCart]);
 
   if (cartItems.length === 0) {
     return (
@@ -79,6 +92,7 @@ export default function CartPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
+            {validationError && <p role="alert" className="lg:col-span-3 text-red-600">{validationError}</p>}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => (
                 <div

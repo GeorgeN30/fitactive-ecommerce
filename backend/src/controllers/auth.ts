@@ -409,6 +409,7 @@ export const authController = {
       res.status(HTTP_STATUS.OK).json(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "TWO_FA_DISABLE_FAILED";
+      if (message === "STAFF_MFA_REQUIRED") { res.status(403).json({ error: message }); return; }
 
       if (message === "TOTP_NOT_SETUP") {
         res

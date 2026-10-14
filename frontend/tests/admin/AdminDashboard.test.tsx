@@ -55,6 +55,7 @@ vi.mock("../../src/services/notifications", () => ({
   markNotificationRead: vi.fn().mockResolvedValue(undefined),
   mapLiveEventToAdminNotification: vi.fn(),
 }));
+vi.mock("../../src/services/returns", async (original) => ({ ...(await original<typeof import("../../src/services/returns")>()), fetchReturns: vi.fn().mockResolvedValue([]) }));
 
 function renderDashboard() {
   return render(
@@ -99,11 +100,11 @@ describe("AdminDashboard", () => {
     expect(headerTitle).toHaveClass("dark:text-white");
   });
 
-  it("navega al módulo mock de devoluciones", async () => {
+  it("navega al módulo persistente de devoluciones", async () => {
     renderDashboard();
     fireEvent.click(screen.getByRole("button", { name: "Devoluciones" }));
     expect(await screen.findByRole("heading", { name: "Devoluciones", level: 1 })).toBeInTheDocument();
-    expect(screen.getByText(/Esta vista es demostrativa/)).toBeInTheDocument();
-    expect(screen.getByText("ORD-2026-00841")).toBeInTheDocument();
+    expect(await screen.findByText("No hay devoluciones en este filtro.")).toBeInTheDocument();
+    expect(screen.queryByText("ORD-2026-00841")).not.toBeInTheDocument();
   });
 });

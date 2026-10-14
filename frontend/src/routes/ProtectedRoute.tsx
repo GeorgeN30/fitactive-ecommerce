@@ -1,9 +1,10 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useStoreSettings } from "../context/StoreSettingsContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: string;
+  requiredRole?: string | string[];
 }
 
 export default function ProtectedRoute({
@@ -12,6 +13,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const settings = useStoreSettings();
 
   if (loading) {
     return (
@@ -25,9 +27,10 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  if (requiredRole && !(Array.isArray(requiredRole) ? requiredRole.includes(user.role) : user.role === requiredRole)) {
     return <Navigate to="/" replace />;
   }
+  if (requiredRole && settings.twoFactor && !user.twoFactorEnabled) return <Navigate to="/2fa-setup" replace />;
 
   if (
     user.role === "customer" &&

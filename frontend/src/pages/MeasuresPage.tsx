@@ -133,7 +133,7 @@ export default function MeasuresPage() {
     <ProfileLayout>
       <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-6 sm:p-10 shadow-sm border border-slate-100 dark:border-slate-800 min-h-[600px]">
         <div className="mb-8">
-          <h2 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">Mis Medidas Biométricas</h2>
+          <h1 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">Mis Medidas Biométricas</h1>
           <p className="text-slate-500 mt-2">
             Ajusta tus proporciones para recibir recomendaciones de tallas perfectas.
             <span className="font-bold ml-1 text-slate-900 dark:text-white">

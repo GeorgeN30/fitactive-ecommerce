@@ -21,6 +21,7 @@ export interface OrderView {
   id: string;
   numero: string;
   total: number;
+  refundedAmount?: number;
   estado: string;
   fechaOrden: string | null;
   customerName: string | null;
@@ -93,11 +94,13 @@ export async function createOrder(
   entries: CreateOrderEntry[],
   tryOnSessionId?: string,
   checkoutDetails?: CheckoutDetails,
+  expectedTotal?: number,
 ): Promise<OrderView> {
   const { data } = await api.post("/orders", {
     entries,
     tryOnSessionId: tryOnSessionId || getVirtualTryOnSessionId(),
     checkoutDetails,
+    expectedTotal,
   });
   return data.order as OrderView;
 }

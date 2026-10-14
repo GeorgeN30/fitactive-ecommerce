@@ -1,252 +1,48 @@
-import { useState } from "react";
-
-interface AdminSettingsForm {
-  storeName: string;
-  email: string;
-  currency: string;
-  gateway: string;
-  sandbox: boolean;
-  tax: number;
-  tolerance: string;
-  hqRender: boolean;
-  limit: number;
-  twoFactor: boolean;
-  timeout: number;
-}
-
-interface SettingField {
-  key: keyof AdminSettingsForm;
-  label: string;
-  type: "text" | "email" | "number" | "select" | "toggle";
-  options?: string[];
-}
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import api from "../../../services/api";
+import { DEFAULT_STORE_SETTINGS, type StoreSettings } from "../../../context/StoreSettingsContext";
 
 export default function AdminSettingsView() {
-  const [savingSection, setSavingSection] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-
-  const [formData, setFormData] = useState<AdminSettingsForm>({
-    storeName: "FITLOOK Perú",
-    email: "contacto@fitlook.com",
-    currency: "PEN - Sol Peruano",
-    gateway: "MercadoPago",
-    sandbox: true,
-    tax: 18,
-    tolerance: "Moderado",
-    hqRender: false,
-    limit: 50,
-    twoFactor: true,
-    timeout: 30,
-  });
-
-  const handleSave = (sectionId: string) => {
-    setSavingSection(sectionId);
-    setTimeout(() => {
-      setSavingSection(null);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    }, 800);
+  const [settings, setSettings] = useState(DEFAULT_STORE_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [original, setOriginal] = useState(DEFAULT_STORE_SETTINGS);
+  const load = async () => {
+    setLoading(true);
+    try { const { data } = await api.get("/admin/settings"); setSettings(data.settings); setOriginal(data.settings); setFailed(false); setMessage(""); }
+    catch { setFailed(true); setMessage("No se pudo cargar la configuración."); }
+    finally { setLoading(false); }
   };
-
-  const handleChange = (
-    key: keyof AdminSettingsForm,
-    value: AdminSettingsForm[keyof AdminSettingsForm],
-  ) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => { void load(); }, []);
+  const change = (key: keyof StoreSettings, value: string | boolean | number) => setSettings((current) => ({ ...current, [key]: value }));
+  const save = async () => {
+    const patch = Object.fromEntries(Object.entries(settings).filter(([key, value]) => original[key as keyof StoreSettings] !== value));
+    if (!Object.keys(patch).length) { setMessage("No hay cambios por guardar."); return; }
+    setSaving(true); setMessage("");
+    try { const { data } = await api.put("/admin/settings", patch); setSettings(data.settings); setOriginal(data.settings); window.dispatchEvent(new Event("store-settings-updated")); setMessage("Cambios guardados en la base de datos."); }
+    catch (err) { const code = (err as { response?: { data?: { error?: string } } }).response?.data?.error; setMessage(code === "STAFF_MFA_NOT_READY" ? "Todos los usuarios de staff activos deben configurar 2FA antes de exigirlo." : "No se pudo guardar. Revisa los valores e inténtalo de nuevo."); }
+    finally { setSaving(false); }
   };
-
-  const sections = [
-    {
-      id: "general",
-      title: "Configuración General",
-      icon: "fa-building",
-      description: "Datos de la empresa, logo y moneda base",
-      fields: [
-        { key: "storeName", label: "Nombre de la Tienda", type: "text" },
-        { key: "email", label: "Correo de Contacto", type: "email" },
-        {
-          key: "currency",
-          label: "Moneda Principal",
-          type: "select",
-          options: ["PEN - Sol Peruano"],
-        },
-      ] satisfies SettingField[],
-    },
-    {
-      id: "payments",
-      title: "Pagos e Impuestos",
-      icon: "fa-credit-card",
-      description: "Pasarelas de pago y configuración de IGV",
-      fields: [
-        {
-          key: "gateway",
-          label: "Pasarela Principal",
-          type: "select",
-          options: ["MercadoPago", "Stripe", "Culqi", "Niubiz"],
-        },
-        { key: "sandbox", label: "Modo Pruebas (Sandbox)", type: "toggle" },
-        { key: "tax", label: "Tasa de Impuesto (%)", type: "number" },
-      ] satisfies SettingField[],
-    },
-    {
-      id: "tryon",
-      title: "Motor Probador Virtual",
-      icon: "fa-vr-cardboard",
-      description: "Ajustes del algoritmo de recomendación y 3D",
-      fields: [
-        {
-          key: "tolerance",
-          label: "Margen de Tolerancia (Tallas)",
-          type: "select",
-          options: ["Estricto", "Moderado", "Flexible"],
-        },
-        {
-          key: "hqRender",
-          label: "Renderizado 3D de alta calidad",
-          type: "toggle",
-        },
-        {
-          key: "limit",
-          label: "Límite de intentos diarios por IP",
-          type: "number",
-        },
-      ] satisfies SettingField[],
-    },
-    {
-      id: "security",
-      title: "Seguridad",
-      icon: "fa-shield-halved",
-      description: "Políticas de contraseñas y doble factor",
-      fields: [
-        {
-          key: "twoFactor",
-          label: "Exigir autenticación 2FA a staff",
-          type: "toggle",
-        },
-        {
-          key: "timeout",
-          label: "Cierre de sesión automático (min)",
-          type: "number",
-        },
-      ] satisfies SettingField[],
-    },
+  const fields: { key: keyof StoreSettings; label: string; min?: number; max?: number }[] = [
+    { key: "storeName", label: "Nombre de la tienda" }, { key: "email", label: "Correo de contacto" },
+    { key: "tax", label: "IGV incluido en los precios (%)", min: 0, max: 30 },
+    { key: "limit", label: "Sesiones del probador por IP al día", min: 1, max: 1000 },
+    { key: "timeout", label: "Duración máxima de sesión (minutos)", min: 5, max: 1440 },
   ];
-
-  return (
-    <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 relative">
-      <div
-        className={`fixed top-6 right-6 bg-[#00FF66] text-black px-6 py-3 rounded-xl font-bold shadow-lg shadow-[#00FF66]/20 transition-all duration-300 transform ${showToast ? "translate-y-0 opacity-100 z-50" : "-translate-y-10 opacity-0 pointer-events-none"}`}
-      >
-        <i className="fa-solid fa-check-circle mr-2"></i> Cambios guardados
-        exitosamente
-      </div>
-
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Configuración del Panel</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Administra los parámetros generales, paísarelas y el algoritmo del
-            probador
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-        {sections.map((section) => (
-          <div
-            key={section.id}
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-gray-100 dark:border-zinc-800 shadow-sm flex flex-col relative overflow-hidden"
-          >
-            <div className="flex items-center gap-4 mb-2">
-              <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-zinc-950 flex items-center justify-center text-[#00FF66] text-xl">
-                <i className={`fa-solid ${section.icon}`}></i>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">{section.title}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {section.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 space-y-5 flex-1 pb-16">
-              {section.fields.map((f, i) => (
-                <div key={i} className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {f.label}
-                  </label>
-
-                  {f.type === "text" ||
-                  f.type === "email" ||
-                  f.type === "number" ? (
-                    <input
-                      type={f.type}
-                      value={String(formData[f.key])}
-                      onChange={(e) =>
-                        handleChange(
-                          f.key,
-                          f.type === "number"
-                            ? Number(e.target.value)
-                            : e.target.value,
-                        )
-                      }
-                      className="px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66] transition-all"
-                    />
-                  ) : f.type === "select" ? (
-                    <select
-                      value={String(formData[f.key])}
-                      onChange={(e) => handleChange(f.key, e.target.value)}
-                      className="px-4 py-2.5 bg-gray-50 dark:bg-zinc-950/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66] transition-all appearance-none cursor-pointer"
-                    >
-                      {f.options?.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : f.type === "toggle" ? (
-                    <div className="flex items-center mt-1">
-                      <button
-                        onClick={() =>
-                          handleChange(
-                            f.key,
-                            !formData[f.key],
-                          )
-                        }
-                        className={`w-12 h-6 rounded-full relative transition-colors ${formData[f.key] ? "bg-[#00FF66]" : "bg-gray-300 dark:bg-zinc-700"}`}
-                      >
-                        <div
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${formData[f.key] ? "translate-x-6" : ""}`}
-                        />
-                      </button>
-                      <span className="ml-3 text-sm font-medium text-gray-500">
-                        {formData[f.key]
-                          ? "Activado"
-                          : "Desactivado"}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            <div className="absolute bottom-6 right-6">
-              <button
-                onClick={() => handleSave(section.id)}
-                disabled={savingSection !== null}
-                className="px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
-              >
-                {savingSection === section.id ? (
-                  <i className="fa-solid fa-spinner fa-spin"></i>
-                ) : (
-                  <i className="fa-solid fa-save text-gray-400"></i>
-                )}
-                Guardar cambios
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <div className="max-w-3xl space-y-6 text-gray-900 dark:text-white pb-10"><h1 className="text-2xl font-bold">Configuración del Panel</h1>
+    <p className="text-sm text-gray-500">Los ajustes se persisten y se aplican a la tienda. Los precios incluyen IGV; no se añade un segundo impuesto al pagar.</p>
+    {message && <p role="status" className="p-3 border rounded-lg">{message}</p>}
+    {loading ? <p>Cargando…</p> : failed ? <button onClick={() => void load()} className="underline">Reintentar</button> : <form onSubmit={(event) => { event.preventDefault(); void save(); }} className="space-y-5 bg-white dark:bg-zinc-900 rounded-2xl p-6">
+      {fields.map((field) => <label key={field.key} className="block text-sm font-bold">{field.label}<input type={typeof settings[field.key] === "number" ? "number" : field.key === "email" ? "email" : "text"} min={field.min} max={field.max} step={field.key === "tax" ? "0.01" : "1"} maxLength={field.key === "storeName" ? 100 : 255} required={field.key !== "email"} value={String(settings[field.key])} onChange={(event) => change(field.key, typeof settings[field.key] === "number" ? Number(event.target.value) : event.target.value)} className="block mt-2 w-full border rounded-lg p-3 bg-transparent" /></label>)}
+      <label className="block text-sm font-bold">Tolerancia del probador<select value={settings.tolerance} onChange={(event) => change("tolerance", event.target.value)} className="block mt-2 w-full border rounded-lg p-3 dark:bg-zinc-900">{["Estricto", "Moderado", "Flexible"].map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label className="flex gap-2"><input type="checkbox" checked={settings.hqRender} onChange={(event) => change("hqRender", event.target.checked)} />Renderizado 3D de alta calidad</label>
+      <label className="flex gap-2"><input type="checkbox" checked={settings.twoFactor} onChange={(event) => change("twoFactor", event.target.checked)} />Exigir 2FA al personal</label>
+      <p className="text-xs text-gray-500">El límite de sesión se aplica a nuevos tokens y al cierre por inactividad. Pagos: Mercado Pago · Moneda: PEN. Las credenciales se administran en el servidor.</p>
+      <Link to="/configuracion" className="block text-sm underline">Seguridad de mi cuenta</Link>
+      <button disabled={saving} className="px-5 py-3 bg-brand-green text-black font-bold rounded-xl disabled:opacity-50">{saving ? "Guardando…" : "Guardar cambios"}</button>
+    </form>}
+  </div>;
 }

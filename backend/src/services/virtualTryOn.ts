@@ -75,7 +75,7 @@ function startOfDay(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
 
-function dateRange(period: VirtualTryOnPeriod, customDate?: string, now = new Date()): DateRange {
+export function dateRange(period: VirtualTryOnPeriod, customDate?: string, now = new Date()): DateRange {
   if (period === "custom" && customDate && /^\d{4}-\d{2}-\d{2}$/.test(customDate)) {
     const [year, month, day] = customDate.split("-").map(Number);
     const start = new Date(year, month - 1, day);
@@ -131,7 +131,7 @@ function percentage(value: number, total: number): number {
   return total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0;
 }
 
-function validateEvent(input: VirtualTryOnEventInput): void {
+export function validateEvent(input: VirtualTryOnEventInput): void {
   if (!input || typeof input !== "object") throw new Error("INVALID_VIRTUAL_TRYON_EVENT");
   if (
     typeof input.sessionId !== "string" ||
@@ -140,6 +140,11 @@ function validateEvent(input: VirtualTryOnEventInput): void {
     throw new Error("INVALID_VIRTUAL_TRYON_SESSION");
   }
   if (!EVENT_TYPES.has(input.type)) throw new Error("INVALID_VIRTUAL_TRYON_EVENT");
+  const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  if (input.productId !== undefined && (typeof input.productId !== "string" || !isUuid(input.productId))) throw new Error("INVALID_VIRTUAL_TRYON_PRODUCT");
+  if (["try_on", "fit_result", "cart_added"].includes(input.type) && !input.productId) throw new Error("INVALID_VIRTUAL_TRYON_PRODUCT");
+  if (input.orderId !== undefined && (typeof input.orderId !== "string" || !isUuid(input.orderId))) throw new Error("INVALID_VIRTUAL_TRYON_ORDER");
+  if (input.gender !== undefined && (typeof input.gender !== "string" || input.gender.length > 30)) throw new Error("INVALID_VIRTUAL_TRYON_GENDER");
   if (input.size !== undefined && (typeof input.size !== "string" || input.size.length > 20)) {
     throw new Error("INVALID_VIRTUAL_TRYON_SIZE");
   }
@@ -171,7 +176,7 @@ function mapEventData(input: VirtualTryOnEventInput, userId?: string) {
   };
 }
 
-function aggregateEvents(events: Array<{
+export function aggregateEvents(events: Array<{
   sesion_id: string;
   tipo: string;
   producto_id: string | null;

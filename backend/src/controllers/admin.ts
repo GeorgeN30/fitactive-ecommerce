@@ -32,6 +32,8 @@ const VALIDATION_ERRORS = new Set([
   "INVALID_DISCOUNT_STATUS",
   "INVALID_DISCOUNT_DECISION",
   "DISCOUNT_COMMENT_TOO_LONG",
+  "INVALID_DISCOUNT_DURATION",
+  "INVALID_DISCOUNT_WINDOW",
   "INVENTORY_STATUS_FORBIDDEN",
 ]);
 
@@ -62,6 +64,9 @@ function respondWithError(res: Response, err: unknown, fallback: string): void {
     message === "DISCOUNT_REQUEST_ALREADY_PENDING" ||
     message === "DISCOUNT_REQUEST_ALREADY_RESOLVED" ||
     message === "DISCOUNT_NOT_ACTIVE" ||
+    message === "RETURN_WORKFLOW_REQUIRED" ||
+    message === "PAYMENT_NOT_CONFIRMED" ||
+    message === "PAID_ORDER_CANNOT_CANCEL" ||
     message === "INVALID_INVENTORY_STATUS_TRANSITION" ||
     message === "INVALID_STATUS_TRANSITION"
   ) {

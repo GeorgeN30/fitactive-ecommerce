@@ -1,4 +1,5 @@
 import React from 'react';
+import ProductOffer from '../ProductOffer';
 
 interface ProductSelectorProps {
   visibleProducts: any[];
@@ -75,7 +76,7 @@ export default function ProductSelector({
                 )}
               </div>
               <h5 className="text-[10px] font-bold text-gray-900 dark:text-white text-center line-clamp-1">{prod.nombre}</h5>
-              <span className="text-xs font-black text-brand-green mt-1">S/ {Number(prod.precio || 0).toFixed(2)}</span>
+              <ProductOffer product={prod} />
             </button>
           ))}
         </div>

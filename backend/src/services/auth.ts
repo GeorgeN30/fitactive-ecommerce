@@ -761,6 +761,10 @@ export const authService = {
     if (!user || !user.totpSecret) {
       throw new Error("TOTP_NOT_SETUP");
     }
+    if (["admin", "inventory", "receptionist"].includes(user.role || "") &&
+        (await import("./settings").then((module) => module.settingsService.get())).twoFactor) {
+      throw new Error("STAFF_MFA_REQUIRED");
+    }
 
     const result = await baas.verifyTotp(user.totpSecret, code);
     if (!result.valid) {
