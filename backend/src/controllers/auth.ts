@@ -43,6 +43,10 @@ export const authController = {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_EMAIL" });
         return;
       }
+      if (message === "EMAIL_DOMAIN_NOT_ALLOWED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "EMAIL_DOMAIN_NOT_ALLOWED" });
+        return;
+      }
       if (message === "EMAIL_EXISTS") {
         res.status(HTTP_STATUS.CONFLICT).json({ error: "EMAIL_EXISTS" });
         return;
@@ -92,6 +96,10 @@ export const authController = {
 
       if (message === "INVALID_EMAIL") {
         res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_EMAIL" });
+        return;
+      }
+      if (message === "EMAIL_DOMAIN_NOT_ALLOWED") {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "EMAIL_DOMAIN_NOT_ALLOWED" });
         return;
       }
       if (message === "EMAIL_EXISTS") {

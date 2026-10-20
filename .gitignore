@@ -17,6 +17,10 @@ playwright-report/
 .env.*
 !.env.example
 
+# Personal Nix development environment
+/flake.nix
+/flake.lock
+
 # Database files
 *.db
 *.db-journal

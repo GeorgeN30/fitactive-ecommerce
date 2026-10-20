@@ -16,7 +16,6 @@ import AdminDiscountRequestsView from "../../components/admin/views/AdminDiscoun
 import AdminRolesAccessView from "../../components/admin/views/AdminRolesAccessView";
 import AdminReturnsView from "../../components/admin/views/AdminReturnsView";
 import AdminSupportView from "../../components/admin/views/AdminSupportView";
-import AdminProductsView from "../../components/admin/views/AdminProductsView";
 import AdminFinanceView from "../../components/admin/views/AdminFinanceView";
 import ModalPortal from "../../components/ModalPortal";
 import NotificationToast from "../../components/NotificationToast";
@@ -99,7 +98,6 @@ const Eye = (props: IconProps) => <AdminIcon name="fa-eye" {...props} />;
 
 type Section =
   | "dashboard"
-  | "products"
   | "orders"
   | "clients"
   | "roles"
@@ -111,7 +109,7 @@ type Section =
   | "returns"
   | "support";
 
-const VALID_ADMIN_SECTIONS = new Set<Section>(["dashboard", "products", "orders", "clients", "roles", "metrics", "finance", "notifications", "config", "discounts", "returns", "support"]);
+const VALID_ADMIN_SECTIONS = new Set<Section>(["dashboard", "orders", "clients", "roles", "metrics", "finance", "notifications", "config", "discounts", "returns", "support"]);
 
 interface ProductFormData {
   name: string;
@@ -577,7 +575,6 @@ export default function AdminDashboard() {
       label: "Dashboard",
       icon: <LayoutDashboard size={18} />,
     },
-    { key: "products", label: "Productos", icon: <AdminIcon name="fa-box" size={18} /> },
     { key: "orders", label: "Pedidos", icon: <ShoppingCart size={18} /> },
     { key: "clients", label: "Clientes", icon: <Users size={18} /> },
     {
@@ -761,7 +758,6 @@ export default function AdminDashboard() {
         </header>
 
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto p-6 bg-[#F5F5F5] dark:bg-zinc-950">
-          {section === "products" && <AdminProductsView />}
           {section === "dashboard" && (
             <DashboardView
               goToOrders={() => setSection("orders")}

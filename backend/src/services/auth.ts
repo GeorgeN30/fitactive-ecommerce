@@ -72,6 +72,17 @@ function isValidEmail(email: string): boolean {
   return true;
 }
 
+function validateRegistrationEmail(email: string): void {
+  if (!isValidEmail(email)) {
+    throw new Error("INVALID_EMAIL");
+  }
+
+  const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+  if (!config.personalEmailDomains.includes(domain)) {
+    throw new Error("EMAIL_DOMAIN_NOT_ALLOWED");
+  }
+}
+
 function resolveRole(email: string): string {
   if (config.adminEmail && email === config.adminEmail.toLowerCase()) {
     return ROLES.ADMIN;
@@ -165,9 +176,7 @@ export const authService = {
     password: string,
     name?: string
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
-    if (!isValidEmail(email)) {
-      throw new Error("INVALID_EMAIL");
-    }
+    validateRegistrationEmail(email);
     validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
@@ -201,9 +210,7 @@ export const authService = {
     password: string,
     name?: string
   ): Promise<{ message: string }> {
-    if (!isValidEmail(email)) {
-      throw new Error("INVALID_EMAIL");
-    }
+    validateRegistrationEmail(email);
     validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
@@ -221,6 +228,7 @@ export const authService = {
     email: string,
     code: string
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
+    validateRegistrationEmail(email);
     const pending = getPendingRegistration(email);
     if (!pending) {
       throw new Error("NO_PENDING_REGISTRATION");

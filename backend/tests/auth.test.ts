@@ -11,6 +11,7 @@ vi.mock("../src/config/env", () => ({
     adminPassword: "Admin123",
     receptionistEmail: "receptionist@test.com",
     receptionistPassword: "Admin123",
+    personalEmailDomains: ["example.com", "test.com", "gmail.com"],
   },
 }));
 
@@ -82,6 +83,13 @@ describe("authService.register", () => {
     await expect(
       authService.register("not-an-email", "password123")
     ).rejects.toThrow("INVALID_EMAIL");
+  });
+
+  it("should reject unapproved domains during registration", async () => {
+    await expect(
+      authService.register("new-user@iconcubic.com", "password123")
+    ).rejects.toThrow("EMAIL_DOMAIN_NOT_ALLOWED");
+    expect(mockPrisma.usuarios.findUnique).not.toHaveBeenCalled();
   });
 
   it("should throw EMAIL_EXISTS for duplicate email", async () => {

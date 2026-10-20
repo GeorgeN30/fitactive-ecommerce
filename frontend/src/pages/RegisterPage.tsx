@@ -4,7 +4,7 @@ import AuthLayout, { LegalModal, type LegalDocType } from "../components/AuthLay
 import PasswordRequirements from "../components/PasswordRequirements";
 import SuccessOverlay from "../components/SuccessOverlay";
 import {
-  getEmailValidationMessage,
+  getRegistrationEmailValidationMessage,
   isStrongPassword,
 } from "../utils/validation";
 import { useAuth, type User } from "../context/AuthContext";
@@ -31,8 +31,10 @@ export default function RegisterPage() {
   const { establishSession } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const emailValidationMessage = getEmailValidationMessage(email);
+  const emailValidationMessage = getRegistrationEmailValidationMessage(email);
   const passwordIsStrong = isStrongPassword(password);
+  const emailHasError = (emailTouched || email.length > 0) && Boolean(emailValidationMessage);
+  const emailIsValid = email.length > 0 && !emailValidationMessage;
 
   useEffect(() => {
     if (step === "otp") {
@@ -108,6 +110,8 @@ export default function RegisterPage() {
             setError("Este correo ya está registrado. Inicia sesión.");
           } else if (data.error === "INVALID_EMAIL") {
             setError("El correo electrónico no es válido.");
+          } else if (data.error === "EMAIL_DOMAIN_NOT_ALLOWED") {
+            setError("Utiliza un correo personal de un proveedor admitido.");
           } else {
             setError("No se pudo enviar el código. Intenta de nuevo.");
           }
@@ -147,6 +151,8 @@ export default function RegisterPage() {
           inputRefs.current[0]?.focus();
         } else if (data.error === "EMAIL_EXISTS") {
           setError("Este correo ya está registrado. Inicia sesión.");
+        } else if (data.error === "EMAIL_DOMAIN_NOT_ALLOWED") {
+          setError("Utiliza un correo personal de un proveedor admitido.");
         } else {
           setError("No se pudo crear la cuenta. Intenta de nuevo.");
           setCode(["", "", "", "", "", ""]);
@@ -243,39 +249,66 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="registration-email" className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electrónico
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError("");
-                }}
-                onBlur={() => setEmailTouched(true)}
-                required
-                autoComplete="email"
-                aria-invalid={Boolean(emailTouched && emailValidationMessage)}
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
-                placeholder="ejemplo@correo.com"
-              />
-              {(emailTouched || email.length > 0) && (
-                <p
-                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${emailValidationMessage
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-brand-green"
-                    }`}
-                >
-                  <i
-                    className={`fa-solid ${emailValidationMessage
-                      ? "fa-circle-info"
-                      : "fa-circle-check"
+              <div
+                className={`relative rounded-xl border transition-all ${emailHasError
+                  ? "border-red-300 bg-red-50/70 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-500/10 dark:border-red-800 dark:bg-red-950/20"
+                  : emailIsValid
+                    ? "border-brand-green/70 bg-brand-green/5 focus-within:border-brand-green focus-within:ring-4 focus-within:ring-brand-green/10"
+                    : "border-slate-200 bg-slate-50 focus-within:border-brand-green focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-green/10 dark:border-slate-600 dark:bg-slate-700/50 dark:focus-within:bg-slate-600"
+                  }`}
+              >
+                <input
+                  id="registration-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
+                  onBlur={() => setEmailTouched(true)}
+                  required
+                  autoComplete="email"
+                  aria-invalid={emailHasError}
+                  aria-describedby="registration-email-help"
+                  className="w-full rounded-xl border-0 bg-transparent px-4 py-3 pr-11 text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-white"
+                  placeholder="ejemplo@correo.com"
+                />
+                {email.length > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 ${emailHasError
+                      ? "text-red-500"
+                      : emailIsValid
+                        ? "text-brand-green"
+                        : "text-slate-400"
                       }`}
-                  />
-                  {emailValidationMessage || "Correo válido."}
-                </p>
-              )}
+                  >
+                    <i className={`fa-solid ${emailHasError ? "fa-circle-exclamation" : emailIsValid ? "fa-circle-check" : "fa-circle-info"}`} />
+                  </span>
+                )}
+              </div>
+              <div
+                id="registration-email-help"
+                aria-live="polite"
+                className={`mt-2 flex items-start gap-2 text-[11px] leading-relaxed ${emailHasError
+                  ? "text-red-600 dark:text-red-400"
+                  : emailIsValid
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-slate-500 dark:text-slate-400"
+                  }`}
+              >
+                <i className={`fa-solid ${emailHasError ? "fa-circle-exclamation" : emailIsValid ? "fa-circle-check" : "fa-shield-halved"} mt-0.5`} />
+                <span>
+                  {emailHasError
+                    ? emailValidationMessage
+                    : emailIsValid
+                      ? "Correo personal válido."
+                      : "Aceptamos Gmail, Outlook, Hotmail, Live, Yahoo, iCloud y Proton."}
+                </span>
+              </div>
             </div>
             <div>
               <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
