@@ -7,6 +7,24 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
 dotenv.config({ path: path.resolve(__dirname, "../../../.env"), quiet: true });
 
+const defaultPersonalEmailDomains = [
+  "gmail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "yahoo.com",
+  "icloud.com",
+  "proton.me",
+  "protonmail.com",
+];
+
+const personalEmailDomains = (
+  process.env.PERSONAL_EMAIL_DOMAINS || defaultPersonalEmailDomains.join(",")
+)
+  .split(",")
+  .map((domain) => domain.trim().toLowerCase())
+  .filter(Boolean);
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "4000", 10),
@@ -26,6 +44,7 @@ export const config = {
   inventoryPassword: process.env.INVENTORY_PASSWORD || process.env.RECEPTIONIST_PASSWORD || "",
   receptionistEmail: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_EMAIL || "",
   receptionistPassword: process.env.INVENTORY_EMAIL ? "" : process.env.RECEPTIONIST_PASSWORD || "",
+  personalEmailDomains,
   mercadoPago: {
     accessToken: process.env.MP_ACCESS_TOKEN || "",
     webhookSecret: process.env.MP_WEBHOOK_SECRET || "",

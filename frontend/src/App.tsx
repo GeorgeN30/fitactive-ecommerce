@@ -2,6 +2,7 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
   useLocation,
 } from "react-router-dom";
 import { lazy, Suspense, useEffect } from "react";
@@ -143,7 +144,7 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route path="/admin/products" element={<ProtectedRoute requiredRole="admin"><LegacyAdminRedirect section="products" /></ProtectedRoute>} />
+        <Route path="/admin/products" element={<ProtectedRoute requiredRole="admin"><Navigate replace to="/admin" /></ProtectedRoute>} />
         <Route path="/admin/orders" element={<ProtectedRoute requiredRole="admin"><LegacyAdminRedirect section="orders" /></ProtectedRoute>} />
         <Route path="/admin/customers" element={<ProtectedRoute requiredRole="admin"><LegacyAdminRedirect section="clients" /></ProtectedRoute>} />
         <Route path="/admin/notifications" element={<ProtectedRoute requiredRole="admin"><LegacyAdminRedirect section="notifications" /></ProtectedRoute>} />

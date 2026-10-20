@@ -11,7 +11,6 @@ interface AdminHeaderProps {
 
 const tabLabels: Record<AdminTab, string> = {
   dashboard: "Dashboard",
-  products: "Productos",
   inventory: "Inventario",
   orders: "Pedidos",
   customers: "Clientes",
@@ -23,7 +22,6 @@ const tabLabels: Record<AdminTab, string> = {
 
 const tabSubtitles: Record<AdminTab, string> = {
   dashboard: "Panel de administración · FITLOOK",
-  products: "Gestión de productos · FITLOOK",
   inventory: "Control de stock · FITLOOK",
   orders: "Seguimiento de pedidos · FITLOOK",
   customers: "Base de datos de clientes · FITLOOK",
