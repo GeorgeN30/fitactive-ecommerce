@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import {
-  getSessionPersistence,
-  getSessionScopedValue,
-  getStoredSessionValue,
-  SESSION_CLEARED_EVENT,
-} from "../utils/session";
+import { SESSION_CLEARED_EVENT } from "../utils/session";
 
-interface FavoriteProduct {
+export interface FavoriteProduct {
   id: string;
   cat: string;
   name: string;
@@ -28,18 +23,18 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<FavoriteProduct[]>(() => {
-    if (!getStoredSessionValue("token")) {
-      localStorage.removeItem("favorites");
-      return [];
-    }
-
-    const saved = getSessionScopedValue("favorites");
-
     try {
-      return saved ? JSON.parse(saved) : [];
+      const saved = localStorage.getItem("favorites");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
     } catch {
-      return [];
+      // Fallback empty
     }
+    return [];
   });
 
   useEffect(() => {
@@ -50,44 +45,40 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (favorites.length === 0) {
-      localStorage.removeItem("favorites");
-      sessionStorage.removeItem("favorites");
-      return;
+    try {
+      if (favorites.length === 0) {
+        localStorage.removeItem("favorites");
+      } else {
+        localStorage.setItem("favorites", JSON.stringify(favorites));
+      }
+    } catch (err) {
+      console.error("Error saving favorites to localStorage:", err);
     }
-    const persistence = getSessionPersistence();
-    const storage = persistence === "session" ? sessionStorage : localStorage;
-    localStorage.removeItem("favorites");
-    sessionStorage.removeItem("favorites");
-    storage.setItem("favorites", JSON.stringify(favorites));
   }, [favorites]);
 
   const addFavorite = (product: FavoriteProduct) => {
     setFavorites((prev) => {
-      if (prev.some((item) => item.id === product.id)) {
+      if (prev.some((item) => String(item.id) === String(product.id))) {
         return prev;
       }
-
       return [...prev, product];
     });
   };
 
   const removeFavorite = (id: string) => {
-    setFavorites((prev) => prev.filter((item) => item.id !== id));
+    setFavorites((prev) => prev.filter((item) => String(item.id) !== String(id)));
   };
 
   const isFavorite = (id: string) => {
-    return favorites.some((item) => item.id === id);
+    return favorites.some((item) => String(item.id) === String(id));
   };
 
   const toggleFavorite = (product: FavoriteProduct) => {
     setFavorites((prev) => {
-      const exists = prev.some((item) => item.id === product.id);
-
+      const exists = prev.some((item) => String(item.id) === String(product.id));
       if (exists) {
-        return prev.filter((item) => item.id !== product.id);
+        return prev.filter((item) => String(item.id) !== String(product.id));
       }
-
       return [...prev, product];
     });
   };

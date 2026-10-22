@@ -31,30 +31,79 @@ export interface CatalogPrice {
   discount: number;
 }
 
-export function getCatalogPrice(product: CatalogProduct): CatalogPrice {
-  const available = product.tallas.filter((size) => size.stock > 0);
-  if (available.length === 0) return { price: product.precio, discount: 0 };
-  return available.map((size) => getSizePrice(product, size)).reduce((best, price) => price.price < best.price ? price : best);
+export function getSizePrice(product: CatalogProduct, size: CatalogSize): CatalogPrice {
+  const basePrice = Number(product.precio) || 0;
+  const now = Date.now();
+
+  const startsAt = size.discountStartsAt ? Date.parse(size.discountStartsAt) : null;
+  const endsAt = size.discountEndsAt ? Date.parse(size.discountEndsAt) : null;
+  const isStarted = !startsAt || (!isNaN(startsAt) && startsAt <= now);
+  const isNotExpired = !endsAt || (!isNaN(endsAt) && endsAt > now);
+
+  const rawPercent = Math.round(Number(size.discountPercent) || 0);
+  const rawSalePrice = Number(size.salePrice);
+
+  const hasValidPercent = rawPercent > 0 && rawPercent < 100;
+
+  if (isStarted && isNotExpired && hasValidPercent) {
+    let finalSalePrice =
+      !isNaN(rawSalePrice) && rawSalePrice > 0 && rawSalePrice < basePrice
+        ? Math.round(rawSalePrice * 100) / 100
+        : Math.round(basePrice * (1 - rawPercent / 100) * 100) / 100;
+
+    const calculatedDiscount = Math.round(((basePrice - finalSalePrice) / basePrice) * 100);
+
+    if (calculatedDiscount > 0 && calculatedDiscount < 100 && finalSalePrice < basePrice) {
+      return { price: finalSalePrice, discount: calculatedDiscount };
+    }
+  }
+
+  return { price: basePrice, discount: 0 };
 }
 
-export function getSizePrice(product: CatalogProduct, size: CatalogSize): CatalogPrice {
-  const now = Date.now();
-  if ((size.discountStartsAt && Date.parse(size.discountStartsAt) > now) ||
-      (size.discountEndsAt && Date.parse(size.discountEndsAt) <= now)) return { price: product.precio, discount: 0 };
-  return { price: size.salePrice, discount: size.discountPercent };
+export function getCatalogPrice(product: CatalogProduct): CatalogPrice {
+  const available = (product.tallas || []).filter((size) => Number(size.stock) > 0);
+  if (available.length === 0) return { price: Number(product.precio) || 0, discount: 0 };
+  return available
+    .map((size) => getSizePrice(product, size))
+    .reduce((best, price) => (price.price < best.price ? price : best));
 }
 
 export function getCatalogOffer(product: CatalogProduct, selectedSize?: string | null) {
-  const available = product.tallas.filter((size) => size.stock > 0);
-  const chosen = selectedSize ? product.tallas.find((size) => size.talla === selectedSize)
-    : available.reduce<CatalogSize | undefined>((best, size) => !best || getSizePrice(product, size).price < getSizePrice(product, best).price ? size : best, undefined);
-  const pricing = chosen ? getSizePrice(product, chosen) : { price: product.precio, discount: 0 };
-  return { ...pricing, endsAt: pricing.discount > 0 ? chosen?.discountEndsAt : null,
+  const available = (product.tallas || []).filter((size) => Number(size.stock) > 0);
+  const chosen = selectedSize
+    ? (product.tallas || []).find((size) => String(size.talla).trim().toUpperCase() === String(selectedSize).trim().toUpperCase())
+    : available.reduce<CatalogSize | undefined>(
+        (best, size) => (!best || getSizePrice(product, size).price < getSizePrice(product, best).price ? size : best),
+        undefined
+      );
+
+  const pricing = chosen ? getSizePrice(product, chosen) : { price: Number(product.precio) || 0, discount: 0 };
+
+  return {
+    ...pricing,
+    endsAt: pricing.discount > 0 ? chosen?.discountEndsAt : null,
     from: !selectedSize && new Set(available.map((size) => getSizePrice(product, size).price)).size > 1,
-    sizes: available.filter((size) => getSizePrice(product, size).discount > 0).map((size) => size.talla) };
+    sizes: available.filter((size) => getSizePrice(product, size).discount > 0).map((size) => size.talla),
+  };
 }
 
 export async function fetchCatalogProducts(): Promise<CatalogProduct[]> {
   const { data } = await api.get("/products");
-  return (data.products || data.data || data) as CatalogProduct[];
+  const rawList = ((data.products || data.data || data) as CatalogProduct[]) || [];
+
+  // Filter only products configured for Hombre or Mujer
+  return rawList.filter((p) => {
+    const gen = (p.genero || "").trim().toLowerCase();
+    return (
+      !gen ||
+      gen === "hombre" ||
+      gen === "mujer" ||
+      gen === "male" ||
+      gen === "female" ||
+      gen === "masculino" ||
+      gen === "femenino" ||
+      gen === "unisex"
+    );
+  });
 }

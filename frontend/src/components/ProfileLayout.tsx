@@ -10,20 +10,19 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
   const location = useLocation();
 
   const getMenuClass = (path: string) => {
-
     const isActive = location.pathname === path || location.pathname.startsWith(path + "/");
-    return `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${isActive
-      ? "bg-brand-green/20 text-brand-green dark:bg-brand-green/10"
-      : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-      }`;
+    return `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+      isActive
+        ? "bg-brand-green/20 text-brand-green dark:bg-brand-green/10"
+        : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+    }`;
   };
+
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
 
     setPhotoError("");
-
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
@@ -42,15 +41,12 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
 
     try {
       const reader = new FileReader();
-
       reader.onload = async () => {
         try {
           const picture = reader.result;
-
           if (typeof picture !== "string") {
             throw new Error("INVALID_IMAGE");
           }
-
           await updateProfile({ picture });
         } catch {
           setPhotoError("No se pudo actualizar la foto.");
@@ -72,6 +68,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
 
     e.target.value = "";
   };
+
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -105,6 +102,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
                   className="hidden"
                 />
               </div>
+
               {uploadingPhoto && (
                 <p className="text-sm text-slate-500 mb-2">
                   Actualizando foto...
@@ -117,7 +115,9 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
                 </p>
               )}
 
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white">{user?.name || "Usuario"}</h3>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                {user?.name || "Usuario"}
+              </h3>
               <p className="text-sm text-slate-500 mb-3">{user?.email}</p>
               <div className="inline-block bg-[#E5FF00] text-black text-xs font-bold px-3 py-1 rounded-full mb-6">
                 Cliente Premium
@@ -126,9 +126,6 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
               <div className="flex flex-col text-left space-y-2 border-t border-slate-100 dark:border-slate-800 pt-6">
                 <Link to="/perfil" className={getMenuClass("/perfil")}>
                   <i className="fa-solid fa-user w-5 text-center"></i> Mi perfil
-                </Link>
-                <Link to="/medidas" className={getMenuClass("/medidas")}>
-                  <i className="fa-solid fa-ruler w-5 text-center"></i> Mis medidas
                 </Link>
                 <Link to="/mis-compras" className={getMenuClass("/mis-compras")}>
                   <i className="fa-solid fa-box w-5 text-center"></i> Pedidos
@@ -139,7 +136,10 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
                 <Link to="/configuracion" className={getMenuClass("/configuracion")}>
                   <i className="fa-solid fa-gear w-5 text-center"></i> Configuración
                 </Link>
-                <button onClick={logout} className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 mt-4 transition-colors">
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 mt-4 transition-colors cursor-pointer"
+                >
                   <i className="fa-solid fa-arrow-right-from-bracket w-5 text-center"></i> Cerrar sesión
                 </button>
               </div>

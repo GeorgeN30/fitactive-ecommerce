@@ -27,10 +27,16 @@ export function validateSettings(input: unknown): Partial<StoreSettings> {
 export const settingsService = {
   async get(): Promise<StoreSettings> {
     if (cache && cache.until > Date.now()) return cache.settings;
-    const row = await prisma.store_settings.findUnique({ where: { id: "store" } });
-    const settings = { ...DEFAULT_SETTINGS, ...(row?.values as Partial<StoreSettings>) };
-    cache = { settings, until: Date.now() + 15_000 };
-    return settings;
+    try {
+      const model = (prisma as any).store_settings;
+      if (!model || typeof model.findUnique !== 'function') return DEFAULT_SETTINGS;
+      const row = await model.findUnique({ where: { id: "store" } });
+      const settings = { ...DEFAULT_SETTINGS, ...(row?.values as Partial<StoreSettings>) };
+      cache = { settings, until: Date.now() + 15_000 };
+      return settings;
+    } catch {
+      return DEFAULT_SETTINGS;
+    }
   },
   async update(input: unknown, userId: string): Promise<StoreSettings> {
     const patch = validateSettings(input);
