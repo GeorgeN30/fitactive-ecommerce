@@ -1746,11 +1746,7 @@ function HombreModel({
         if (idxGrande !== undefined) inf[idxGrande] = Math.min(Math.max((sizeIndex - 1.0) * 3.3, 0), 1.0);
       }
 
-      // Morphs diferenciales para modo Detallado:
-      // En tallas estándar rápidas (XS-XXL), el cuerpo está 100% coordinado por el morph base
-      // integral 'Grande' sin doble-abombamiento ni cintura estrangulada.
-      // Si el usuario en "Detallado" amplía deliberadamente una zona por encima de su complexión,
-      // se activa de manera limpia y suave el morph localized correspondiente.
+      // Morphs anatómicos complementarios por zona
       const extraCintura = Math.max(0, sCintura - sizeIndex);
       const extraPiernas = Math.max(0, sMuslo - sizeIndex);
       const extraCadera = Math.max(0, sCadera - sizeIndex);
@@ -1785,9 +1781,7 @@ function HombreModel({
       }
     }
 
-    // 4. Estatura vertical y centrado
-
-    // 4. Estatura vertical y centrado
+    // Estatura vertical y centrado
     if (groupRef.current) {
       groupRef.current.scale.set(1.0, sAltura, 1.0);
       groupRef.current.position.y = -0.85 * sAltura;
@@ -1940,9 +1934,7 @@ function MujerModel({
         }
       }
 
-      // BRAZOS MANUALES:
-      // MakeHuman Gordita y Delgada ya contienen los brazos proporcionados al cuerpo.
-      // Brazo_Extra solo se activa si el usuario usa deliberadamente el slider manual de brazos.
+      // Ajuste de brazos anatómicos MakeHuman
       if (idxBrazo !== undefined) {
         inf[idxBrazo] = sBrazo > 1.0 ? Math.min(Math.max((sBrazo - 1.0) * 1.8, 0), 1.0) : 0.0;
       }
@@ -1959,9 +1951,7 @@ function MujerModel({
       }
     }
 
-    // Estatura vertical centrada
-
-    // Estatura vertical centrada
+    // Estatura vertical y centrado
     if (groupRef.current) {
       groupRef.current.scale.set(1.0, sAltura, 1.0);
       groupRef.current.position.y = -0.82 * sAltura;
