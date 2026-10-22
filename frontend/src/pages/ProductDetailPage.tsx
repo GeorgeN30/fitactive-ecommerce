@@ -403,7 +403,7 @@ export default function ProductDetailPage() {
               </button>
 
               <Link
-                to={`/probador-virtual?producto=${producto.id}`}
+                to={`/probador-virtual?producto=${producto.id}${selectedSize ? `&talla=${encodeURIComponent(selectedSize)}` : ''}`}
                 className="w-full py-4 bg-transparent border-2 border-brand-green text-brand-green text-xs font-black uppercase tracking-widest rounded-xl hover:bg-brand-green hover:text-black transition-all flex items-center justify-center gap-2"
               >
                 <svg

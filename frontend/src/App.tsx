@@ -34,7 +34,6 @@ import LegacyAdminRedirect from "./components/admin/LegacyAdminRedirect";
 
 import ProfilePage from "./pages/ProfilePage";
 import ProfileSetupPage from "./pages/ProfileSetupPage";
-import MeasuresPage from "./pages/MeasuresPage";
 
 const ProbadorVirtual = lazy(() => import("./pages/ProbadorVirtual"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
@@ -92,22 +91,7 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/medidas"
-          element={
-            <ProtectedRoute>
-              <MeasuresPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/favoritos"
-          element={
-            <ProtectedRoute>
-              <FavoritesPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/favoritos" element={<FavoritesPage />} />
         <Route path="/carrito" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/checkout/result" element={<PaymentResultPage />} />
