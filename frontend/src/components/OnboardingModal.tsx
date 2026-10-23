@@ -79,7 +79,7 @@ export default function OnboardingModal() {
                       : "border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400"
                   }`}
                 >
-                  🏃‍♀️ Mujer
+                  Mujer
                 </button>
                 <button
                   type="button"
@@ -90,7 +90,7 @@ export default function OnboardingModal() {
                       : "border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400"
                   }`}
                 >
-                  🏃‍♂️ Hombre
+                  Hombre
                 </button>
               </div>
             </div>

@@ -349,4 +349,24 @@ export const virtualTryOnService = {
       funnel: current.funnel,
     };
   },
+
+  async getMyHistory(userId: string) {
+    return prisma.virtual_tryon_events.findMany({
+      where: { usuario_id: userId, tipo: "try_on" },
+      include: {
+        productos: {
+          select: {
+            id: true,
+            nombre: true,
+            categoria: true,
+            precio: true,
+            imagen_url: true,
+            genero: true,
+          },
+        },
+      },
+      orderBy: { creado_en: "desc" },
+      take: 20,
+    });
+  },
 };

@@ -13,6 +13,15 @@ interface AvatarStageProps {
 const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 // Escalas antropométricas MakeHuman estándar proporcionales por talla (0 distorsión)
+export const FIT_COMPATIBILITY_INFO: Record<string, { label: string; score: number; desc: string }> = {
+  S: { label: 'Entalle Atlético (Slim Fit)', score: 96, desc: 'Ajuste ergonómico al cuerpo sin exceso de tela' },
+  M: { label: 'Entalle Estándar (Regular Fit)', score: 99, desc: 'Caída de confección oficial con proporción ideal' },
+  L: { label: 'Entalle Confort (Relaxed Fit)', score: 95, desc: 'Mayor holgura y comodidad para movimiento libre' },
+  XS: { label: 'Entalle Ceñido (Tight Fit)', score: 94, desc: 'Silueta compacta de compresión atlética' },
+  XL: { label: 'Entalle Amplio (Loose Fit)', score: 93, desc: 'Volumen amplio con caída relajada' },
+  XXL: { label: 'Entalle Extra Amplio (Oversized)', score: 91, desc: 'Corte holgado de máxima cobertura' },
+};
+
 const STANDARD_SIZE_SCALES: Record<string, BodyScales> = {
   XS: {
     scalePecho: 0.88,
@@ -131,6 +140,24 @@ export default function AvatarStage({
 
   return (
     <div className="relative flex flex-col h-full w-full items-center justify-center rounded-[2.5rem] border border-gray-200/60 dark:border-white/10 shadow-[inset_0_0_80px_rgba(16,185,129,0.04)] overflow-hidden bg-gradient-to-b from-white/40 via-transparent to-brand-green/5 dark:from-white/[0.02]">
+      {/* Indicador de Compatibilidad y Entalle (HU-018) */}
+      <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex justify-center">
+        <div className="bg-black/75 dark:bg-black/85 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 shadow-xl flex items-center gap-3 max-w-md animate-fade-in pointer-events-auto">
+          <div className="flex items-center justify-center w-7 h-7 rounded-xl bg-brand-green/20 text-brand-green text-xs font-black">
+            {FIT_COMPATIBILITY_INFO[normSize]?.score || 98}%
+          </div>
+          <div className="text-left">
+            <div className="text-[11px] font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+              <span>{FIT_COMPATIBILITY_INFO[normSize]?.label || 'Ajuste Anatómico Estándar'}</span>
+              <span className="text-[9px] text-brand-green font-bold">· Talla {normSize}</span>
+            </div>
+            <div className="text-[10px] text-gray-300 line-clamp-1">
+              {FIT_COMPATIBILITY_INFO[normSize]?.desc || 'Ajuste coordinado proporcional'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Glow estético central */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
         <div className="w-72 h-[30rem] bg-brand-green/10 blur-3xl rounded-full"></div>
@@ -201,7 +228,7 @@ export default function AvatarStage({
         <div className="absolute top-[82px] left-4 right-4 z-20 pointer-events-none flex justify-center">
           {isOutOfStock ? (
             <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-bold backdrop-blur-md shadow-sm flex items-center gap-1.5 animate-fade-in">
-              <span>⚠️</span>
+              <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
               <span>Talla <strong>{normSize}</strong> agotada en inventario · Modo visualización 3D</span>
             </div>
           ) : (
@@ -215,46 +242,11 @@ export default function AvatarStage({
 
       {/* Controles de Cámara 3D Flotantes (Reset, Zoom +/-, Rotar) */}
       <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl">
-        <button
-          type="button"
-          onClick={() => triggerCam('reset')}
-          title="Reiniciar vista de cámara"
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"
-        >
-          🔄
-        </button>
-        <button
-          type="button"
-          onClick={() => triggerCam('zoom-in')}
-          title="Acercar (Zoom In)"
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"
-        >
-          ➕
-        </button>
-        <button
-          type="button"
-          onClick={() => triggerCam('zoom-out')}
-          title="Alejar (Zoom Out)"
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"
-        >
-          ➖
-        </button>
-        <button
-          type="button"
-          onClick={() => triggerCam('rotate-left')}
-          title="Girar a la izquierda"
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"
-        >
-          ↺
-        </button>
-        <button
-          type="button"
-          onClick={() => triggerCam('rotate-right')}
-          title="Girar a la derecha"
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"
-        >
-          ↻
-        </button>
+        <button type="button" onClick={() => triggerCam('reset')} title="Reiniciar vista de cámara" className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"><i className="fa-solid fa-rotate-left"></i></button>
+        <button type="button" onClick={() => triggerCam('zoom-in')} title="Acercar (Zoom In)" className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"><i className="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button type="button" onClick={() => triggerCam('zoom-out')} title="Alejar (Zoom Out)" className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"><i className="fa-solid fa-magnifying-glass-minus"></i></button>
+        <button type="button" onClick={() => triggerCam('rotate-left')} title="Girar a la izquierda" className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"><i className="fa-solid fa-arrow-rotate-left"></i></button>
+        <button type="button" onClick={() => triggerCam('rotate-right')} title="Girar a la derecha" className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black bg-gray-100 dark:bg-white/10 hover:bg-brand-green hover:text-black transition-all cursor-pointer text-gray-700 dark:text-gray-300"><i className="fa-solid fa-arrow-rotate-right"></i></button>
       </div>
 
       {/* Visor Three.js con Avatar 3D Centrado Horizontalmente */}

@@ -47,7 +47,7 @@ export default function CartPage() {
 
         <div className="min-h-screen bg-[#f8f9fa] dark:bg-brand-dark-bg flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="text-6xl mb-6">🛒</div>
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-3xl text-slate-400"><i className="fa-solid fa-bag-shopping"></i></div>
 
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-3">
               Tu carrito está vacío
@@ -136,7 +136,7 @@ export default function CartPage() {
                           className="text-gray-400 hover:text-red-500 transition"
                           title="Eliminar producto"
                         >
-                          🗑️
+                          <i className="fa-regular fa-trash-can"></i>
                         </button>
                       </div>
 

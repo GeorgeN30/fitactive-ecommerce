@@ -151,7 +151,7 @@ export default function CatalogPage() {
                       : "text-gray-500 hover:text-black dark:hover:text-white"
                   }`}
                 >
-                  {g === "Todos" ? "Todos" : g === "Hombre" ? "🏃‍♂️ Hombre" : "🏃‍♀️ Mujer"}
+                  {g}
                 </button>
               ))}
             </div>

@@ -54,7 +54,7 @@ function MetricCard({
   label: string;
   value: string;
   detail: string;
-  icon: string;
+  icon: ReactNode;
   color: string;
 }) {
   return (
@@ -230,11 +230,11 @@ export default function VirtualTryOnMetrics() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Pruebas realizadas" value={loading ? "..." : String(data?.totalTests || 0)} detail={growthLabel(data?.testsGrowth || 0)} icon="👕" color="text-[#00FF66]" />
-        <MetricCard label="Prendas probadas" value={loading ? "..." : String(data?.garmentsTried || 0)} detail={growthLabel(data?.garmentsGrowth || 0)} icon="🧥" color="text-blue-500" />
-        <MetricCard label="Tasa de conversión" value={loading ? "..." : `${data?.conversionRate || 0}%`} detail={growthLabel(data?.conversionGrowth || 0)} icon="📈" color="text-[#00FF66]" />
-        <MetricCard label="Outfits creados" value={loading ? "..." : String(data?.outfitsCreated || 0)} detail={growthLabel(data?.outfitsGrowth || 0)} icon="🛍️" color="text-orange-500" />
-        <MetricCard label="Tiempo promedio" value={loading ? "..." : `${data?.avgTimeMinutes || 0} min`} detail={growthLabel(data?.avgTimeGrowth || 0)} icon="⏱️" color="text-violet-500" />
+        <MetricCard label="Pruebas realizadas" value={loading ? "..." : String(data?.totalTests || 0)} detail={growthLabel(data?.testsGrowth || 0)} icon={<i className="fa-solid fa-shirt text-xl"></i>} color="text-[#00FF66]" />
+        <MetricCard label="Prendas probadas" value={loading ? "..." : String(data?.garmentsTried || 0)} detail={growthLabel(data?.garmentsGrowth || 0)} icon={<i className="fa-solid fa-vest text-xl"></i>} color="text-blue-500" />
+        <MetricCard label="Tasa de conversión" value={loading ? "..." : `${data?.conversionRate || 0}%`} detail={growthLabel(data?.conversionGrowth || 0)} icon={<i className="fa-solid fa-chart-line text-xl"></i>} color="text-[#00FF66]" />
+        <MetricCard label="Outfits creados" value={loading ? "..." : String(data?.outfitsCreated || 0)} detail={growthLabel(data?.outfitsGrowth || 0)} icon={<i className="fa-solid fa-bag-shopping text-xl"></i>} color="text-orange-500" />
+        <MetricCard label="Tiempo promedio" value={loading ? "..." : `${data?.avgTimeMinutes || 0} min`} detail={growthLabel(data?.avgTimeGrowth || 0)} icon={<i className="fa-solid fa-stopwatch text-xl"></i>} color="text-violet-500" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

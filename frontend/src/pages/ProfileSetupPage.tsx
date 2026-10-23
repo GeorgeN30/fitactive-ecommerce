@@ -72,7 +72,7 @@ export default function ProfileSetupPage() {
                       : "border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-gray-300"
                   }`}
                 >
-                  {g === "Hombre" ? "🏃‍♂️ Hombre" : "🏃‍♀️ Mujer"}
+                  {g}
                 </button>
               ))}
             </div>

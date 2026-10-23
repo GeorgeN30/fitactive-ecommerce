@@ -265,7 +265,7 @@ export default function ProbadorVirtual() {
                     : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                 }`}
               >
-                🏃‍♂️ Hombre
+                Hombre
               </button>
               <button
                 type="button"
@@ -276,7 +276,7 @@ export default function ProbadorVirtual() {
                     : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                 }`}
               >
-                🏃‍♀️ Mujer
+                Mujer
               </button>
             </div>
           </div>
@@ -440,7 +440,7 @@ export default function ProbadorVirtual() {
                       <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/5 text-xs">
                         {isOutOfStock ? (
                           <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold">
-                            <span>❌</span>
+                            <i className="fa-solid fa-circle-xmark text-red-500"></i>
                             <span>Agotado en Talla {selectedSize}</span>
                           </div>
                         ) : (
@@ -476,7 +476,7 @@ export default function ProbadorVirtual() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-6">
-                  <div className="text-4xl mb-3">👕</div>
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-2xl text-slate-400"><i className="fa-solid fa-shirt"></i></div>
                   <p className="text-xs font-bold">Selecciona una prenda del catálogo para ver su información y probarla.</p>
                 </div>
               )}

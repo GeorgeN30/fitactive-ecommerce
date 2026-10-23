@@ -53,7 +53,7 @@ export default function ProductSelector({
                 : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
             }`}
           >
-            {g === 'Hombre' ? '🏃‍♂️ Hombre' : '🏃‍♀️ Mujer'}
+            {g === 'Hombre' ? 'Hombre' : 'Mujer'}
           </button>
         ))}
       </div>
@@ -68,7 +68,7 @@ export default function ProductSelector({
         >
           {categoriasUnicas.map((cat) => (
             <option key={cat} value={cat} className="text-gray-900 bg-white dark:bg-zinc-900 dark:text-white">
-              {cat === 'Todas' ? '📂 Todas las categorías' : cat}
+              {cat === 'Todas' ? 'Todas las categorías' : cat}
             </option>
           ))}
         </select>
@@ -89,16 +89,14 @@ export default function ProductSelector({
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-gray-200 text-xs font-medium rounded-xl px-3.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-brand-green/50"
           />
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-            🔍
-          </span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400"><i className="fa-solid fa-magnifying-glass"></i></span>
           {searchTerm && (
             <button
               type="button"
               onClick={() => onSearchChange('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-white"
             >
-              ✕
+              <i className="fa-solid fa-xmark"></i>
             </button>
           )}
         </div>
