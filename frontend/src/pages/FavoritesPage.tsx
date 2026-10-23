@@ -113,7 +113,7 @@ export default function FavoritesPage() {
                         <ProductOffer product={matchedProd} />
                       ) : (
                         <span className="text-xs text-gray-500">
-                          {loading ? "Actualizando precio…" : formatSoles(item.price)}
+                          {loading ? "Actualizando precio…" : formatSoles(item.price ?? 0)}
                         </span>
                       )}
                     </div>

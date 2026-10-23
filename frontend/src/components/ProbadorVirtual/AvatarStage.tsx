@@ -10,7 +10,8 @@ interface AvatarStageProps {
   onSelectColor?: (color: string | null) => void;
 }
 
-const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const STANDARD_SIZES = ['S', 'M', 'L', 'XS', 'XL', 'XXL'];
+const CORE_SIZES = ['S', 'M', 'L'];
 
 // Escalas antropométricas MakeHuman estándar proporcionales por talla (0 distorsión)
 export const FIT_COMPATIBILITY_INFO: Record<string, { label: string; score: number; desc: string }> = {
@@ -79,18 +80,53 @@ const STANDARD_SIZE_SCALES: Record<string, BodyScales> = {
   },
 };
 
-const COLOR_SWATCHES = [
-  { name: 'Original Catálogo', hex: 'original', bg: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)' },
-  { name: 'Negro Jet', hex: '#121316', bg: '#121316' },
-  { name: 'Blanco Óptico', hex: '#f4f5f7', bg: '#f4f5f7' },
-  { name: 'Azul Marino', hex: '#172554', bg: '#172554' },
-  { name: 'Gris Carbón', hex: '#374151', bg: '#374151' },
-  { name: 'Terracota Coral', hex: '#a94c42', bg: '#a94c42' },
-  { name: 'Rojo Carmesí', hex: '#991b1b', bg: '#991b1b' },
-  { name: 'Verde Militar', hex: '#14532d', bg: '#14532d' },
-  { name: 'Azul Royal', hex: '#1d4ed8', bg: '#1d4ed8' },
-  { name: 'Rosa Hyper', hex: '#be185d', bg: '#be185d' },
-];
+// Colores reales auténticos del catálogo oficial de cada prenda
+function getAvailableProductColors(product: any): { name: string; hex: string; bg: string }[] {
+  if (!product) return [{ name: 'Original Catálogo', hex: 'original', bg: '#121316' }];
+
+  const name = (product.nombre || '').toLowerCase();
+  const desc = (product.descripcion || '').toLowerCase();
+
+  // 1. Prendas oficiales con colores específicos certificados de packshot
+  if (name.includes('legend') || (name.includes('nike') && name.includes('polo'))) {
+    return [
+      { name: 'Blanco Óptico Oficial', hex: '#f4f5f7', bg: '#f4f5f7' },
+      { name: 'Negro Anthracite', hex: '#121316', bg: '#121316' },
+    ];
+  }
+  if (name.includes('alate')) {
+    return [
+      { name: 'Espresso Brown Oficial', hex: '#442a22', bg: '#442a22' },
+      { name: 'Negro Classic', hex: '#121316', bg: '#121316' },
+    ];
+  }
+  if (name.includes('yoga') && (name.includes('tank') || name.includes('crop') || name.includes('top'))) {
+    return [
+      { name: 'Terracota Coral Oficial', hex: '#a94c42', bg: '#a94c42' },
+      { name: 'Negro Studio', hex: '#121316', bg: '#121316' },
+    ];
+  }
+  if (name.includes('vector') || name.includes('reebok')) {
+    return [
+      { name: 'Negro & Vector Blanco Oficial', hex: '#121316', bg: '#121316' },
+      { name: 'Azul Marino & Vector', hex: '#172554', bg: '#172554' },
+    ];
+  }
+  if (name.includes('tiro') || name.includes('challenger') || name.includes('unstoppable') || name.includes('pro 365')) {
+    return [
+      { name: 'Negro Deportivo Oficial', hex: '#121316', bg: '#121316' },
+      { name: 'Gris Carbón', hex: '#374151', bg: '#374151' },
+    ];
+  }
+
+  // 2. Colores explícitos del producto si existen en la BD
+  if (product.color) {
+    return [{ name: `Color Oficial (${product.color})`, hex: 'original', bg: '#121316' }];
+  }
+
+  // 3. Original Catálogo (sin inventar paletas de fantasía)
+  return [{ name: 'Color Oficial de Catálogo', hex: 'original', bg: '#121316' }];
+}
 
 export default function AvatarStage({
   selectedProduct,
@@ -107,6 +143,7 @@ export default function AvatarStage({
   } | null>(null);
 
   const activeColor = externalCustomColor !== undefined ? externalCustomColor : internalColor;
+  const availableColors = useMemo(() => getAvailableProductColors(selectedProduct), [selectedProduct]);
 
   const setColor = (c: string | null) => {
     setInternalColor(c);
@@ -203,21 +240,23 @@ export default function AvatarStage({
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mr-1 hidden sm:inline">
             Color:
           </span>
-          {COLOR_SWATCHES.map((swatch) => {
-            const isActive = activeColor === swatch.hex || (!activeColor && swatch.hex === 'original');
+          {availableColors.map((swatch) => {
+            const isActive = activeColor === swatch.hex || (!activeColor && swatch.hex === availableColors[0]?.hex);
             return (
               <button
                 key={swatch.name}
                 type="button"
                 title={swatch.name}
                 onClick={() => setColor(swatch.hex === 'original' ? null : swatch.hex)}
-                className={`w-5 h-5 rounded-full transition-transform cursor-pointer border ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                   isActive
-                    ? 'ring-2 ring-brand-green scale-125 border-white shadow-sm'
-                    : 'border-white/40 hover:scale-110 opacity-80 hover:opacity-100'
+                    ? 'bg-brand-green/20 text-brand-green border-brand-green ring-1 ring-brand-green'
+                    : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-white/20'
                 }`}
-                style={{ background: swatch.bg }}
-              />
+              >
+                <span className="w-3.5 h-3.5 rounded-full border border-white/30 shadow-sm" style={{ background: swatch.bg }} />
+                <span className="text-[10px] hidden sm:inline">{swatch.name}</span>
+              </button>
             );
           })}
         </div>

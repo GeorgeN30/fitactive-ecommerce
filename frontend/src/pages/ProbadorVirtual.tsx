@@ -11,7 +11,7 @@ import { paginateProducts, PRODUCTS_PER_PAGE } from '../utils/productPagination'
 import { getVirtualTryOnSessionId, markVirtualTryOnProduct, trackVirtualTryOnEvent } from '../services/virtualTryOn';
 import ProductSelector from '../components/ProbadorVirtual/ProductSelector';
 
-const AvatarStage = lazy(() => import('../components/ProbadorVirtual/AvatarStage'));
+import AvatarStage from '../components/ProbadorVirtual/AvatarStage';
 
 function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   const normalized = value?.trim().toLowerCase();
@@ -19,7 +19,7 @@ function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   return 'Hombre';
 }
 
-const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const STANDARD_SIZES = ['S', 'M', 'L', 'XS', 'XL', 'XXL'];
 
 export default function ProbadorVirtual() {
   const { user } = useAuth();
@@ -205,9 +205,13 @@ export default function ProbadorVirtual() {
   const handleSelectSize = (sz: string) => {
     const norm = sz.trim().toUpperCase();
     setSelectedSize(norm);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('talla', norm);
-    setSearchParams(nextParams, { replace: true });
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('talla', norm);
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // fallback
+    }
   };
 
   const handleSelectProduct = (product: any) => {
@@ -337,14 +341,7 @@ export default function ProbadorVirtual() {
 
             {/* Columna Central: Escenario 3D con Avatar Centrado Horizontalmente */}
             <div className="lg:col-span-6 flex flex-col h-[520px] lg:h-[720px] relative">
-              <Suspense
-                fallback={
-                  <div className="flex h-full w-full items-center justify-center rounded-[2.5rem] bg-gray-100 dark:bg-white/5 text-xs text-gray-500 font-bold">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-green mr-3"></div>
-                    Cargando probador 3D…
-                  </div>
-                }
-              >
+              
                 <AvatarStage
                   selectedProduct={selectedProduct}
                   genero={genero}
@@ -353,7 +350,6 @@ export default function ProbadorVirtual() {
                   customColor={customColor}
                   onSelectColor={setCustomColor}
                 />
-              </Suspense>
             </div>
 
             {/* Columna Derecha: Ficha de Acción, Tallas, Stock y Compra Directa */}

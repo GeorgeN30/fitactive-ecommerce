@@ -5,7 +5,7 @@ export interface FavoriteProduct {
   id: string;
   cat?: string;
   name?: string;
-  price?: number;
+  price: number;
   img?: string;
 }
 
