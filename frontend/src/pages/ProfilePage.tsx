@@ -11,8 +11,8 @@ function profileGender(value?: string | null) {
   return ["female", "mujer", "femenino"].includes(normalized || "")
     ? "Femenino"
     : ["male", "hombre", "masculino"].includes(normalized || "")
-    ? "Masculino"
-    : "";
+      ? "Masculino"
+      : "";
 }
 
 export default function ProfilePage() {
@@ -23,6 +23,7 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.name || "");
   const [genero, setGenero] = useState(profileGender(user?.genero));
+  const [tipoCuerpo, setTipoCuerpo] = useState("medio");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [statsError, setStatsError] = useState("");
@@ -35,6 +36,20 @@ export default function ProfilePage() {
 
   const [tryOnHistory, setTryOnHistory] = useState<UserTryOnHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const savedType = localStorage.getItem(
+      `fitlook_tipo_cuerpo_${user.id}`
+    );
+
+    if (savedType && ["delgado", "medio", "ancho"].includes(savedType)) {
+      setTipoCuerpo(savedType);
+    } else {
+      setTipoCuerpo("medio");
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +97,10 @@ export default function ProfilePage() {
     }
     setSaving(true);
     try {
+      localStorage.setItem(
+        `fitlook_tipo_cuerpo_${user?.id ?? "anonimo"}`,
+        tipoCuerpo
+      );
       if (updateProfile) {
         await updateProfile({
           name: name.trim() || undefined,
@@ -122,9 +141,13 @@ export default function ProfilePage() {
             </div>
           )}
 
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>
-              <label htmlFor="profile-name" className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">
+              <label
+                htmlFor="profile-name"
+                className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide"
+              >
                 Nombre completo
               </label>
               <input
@@ -136,6 +159,7 @@ export default function ProfilePage() {
                 className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium"
               />
             </div>
+
             <div>
               <label className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">
                 Correo electrónico
@@ -147,8 +171,12 @@ export default function ProfilePage() {
                 className="w-full bg-slate-100 dark:bg-slate-900 dark:border-slate-800 border border-slate-200 dark:text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed font-medium"
               />
             </div>
+
             <div>
-              <label htmlFor="profile-gender" className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">
+              <label
+                htmlFor="profile-gender"
+                className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide"
+              >
                 Género
               </label>
               <select
@@ -161,6 +189,28 @@ export default function ProfilePage() {
                 <option value="Femenino">Femenino</option>
                 <option value="Masculino">Masculino</option>
               </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="profile-body-type"
+                className="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide"
+              >
+                Tipo de cuerpo
+              </label>
+              <select
+                id="profile-body-type"
+                value={tipoCuerpo}
+                onChange={(e) => setTipoCuerpo(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium"
+              >
+                <option value="delgado">Delgado</option>
+                <option value="medio">Medio / Proporcionado</option>
+                <option value="ancho">Ancho / Robusto</option>
+              </select>
+              <p className="text-xs text-slate-500 mt-2">
+                Este perfil se utilizará para adaptar tu avatar en el probador 3D.
+              </p>
             </div>
           </div>
 

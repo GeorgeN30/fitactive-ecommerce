@@ -19,7 +19,7 @@ function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   return 'Hombre';
 }
 
-const STANDARD_SIZES = ['S', 'M', 'L', 'XS', 'XL', 'XXL'];
+const STANDARD_SIZES = ['S', 'M', 'L'];
 
 export default function ProbadorVirtual() {
   const { user } = useAuth();
@@ -50,23 +50,47 @@ export default function ProbadorVirtual() {
 
   const catalog = useCatalog();
   const productos = useMemo(() => {
-    return catalog.products
-      .filter((item) => {
-        const gen = (item.genero || '').trim().toLowerCase();
-        return !gen || gen === 'hombre' || gen === 'mujer' || gen === 'male' || gen === 'female' || gen === 'unisex';
-      })
-      .map((item) => ({
-        ...item,
-        imagen_url: item.imagenUrl || (item as any).imagen_url || (item as any).img,
-        genero: normalizeGender(item.genero),
-        categoria: item.categoria || 'General',
-        producto_tallas: (item.tallas || (item as any).producto_tallas || []).map((size: any) => ({
-          ...size,
-          rango_cm_min: size.rangoCmMin,
-          rango_cm_max: size.rangoCmMax,
-        })),
-      }));
-  }, [catalog.products]);
+  const normalizados = catalog.products
+    .filter((item) => {
+      const gen = (item.genero || '').trim().toLowerCase();
+      return [
+        'hombre',
+        'mujer',
+        'male',
+        'female',
+        'unisex',
+      ].includes(gen);
+    })
+    .map((item) => ({
+      ...item,
+      imagen_url:
+        item.imagenUrl ||
+        (item as any).imagen_url ||
+        (item as any).img,
+      genero: normalizeGender(item.genero),
+      categoria: item.categoria || 'General',
+      producto_tallas: (
+        item.tallas ||
+        (item as any).producto_tallas ||
+        []
+      ).map((size: any) => ({
+        ...size,
+        rango_cm_min: size.rangoCmMin,
+        rango_cm_max: size.rangoCmMax,
+      })),
+    }));
+
+  const hombres = normalizados
+    .filter((item) => item.genero === 'Hombre')
+    .slice(0, 5);
+
+  const mujeres = normalizados
+    .filter((item) => item.genero === 'Mujer')
+    .slice(0, 5);
+
+  return [...hombres, ...mujeres];
+}, [catalog.products]);
+
 
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 

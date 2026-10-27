@@ -30,6 +30,7 @@ const createNikeMatteBlackMaterial = () =>
 
 
 type GarmentType = 'polo' | 'top' | 'top_bra' | 'top_tank' | 'short' | 'legging';
+type GarmentSize = 'S' | 'M' | 'L';
 
 // Generador procedural de micro-tejido atlético (Dri-FIT / pique knit weave)
 let sharedFabricBumpMap: THREE.CanvasTexture | null = null;
@@ -1125,17 +1126,17 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
     for (let k = 0; k < 3; k++) {
       const v = tri[k];
 
-      basePositions[vertIdx * 3]     = v.x;
+      basePositions[vertIdx * 3] = v.x;
       basePositions[vertIdx * 3 + 1] = v.y;
       basePositions[vertIdx * 3 + 2] = v.z;
-      baseNormals[vertIdx * 3]       = v.nx;
-      baseNormals[vertIdx * 3 + 1]   = v.ny;
-      baseNormals[vertIdx * 3 + 2]   = v.nz;
+      baseNormals[vertIdx * 3] = v.nx;
+      baseNormals[vertIdx * 3 + 1] = v.ny;
+      baseNormals[vertIdx * 3 + 2] = v.nz;
 
-      gPos[vertIdx * 3]     = v.x + v.nx * defaultOffset;
+      gPos[vertIdx * 3] = v.x + v.nx * defaultOffset;
       gPos[vertIdx * 3 + 1] = v.y + v.ny * defaultOffset;
       gPos[vertIdx * 3 + 2] = v.z + v.nz * defaultOffset;
-      gNorm[vertIdx * 3]     = v.nx;
+      gNorm[vertIdx * 3] = v.nx;
       gNorm[vertIdx * 3 + 1] = v.ny;
       gNorm[vertIdx * 3 + 2] = v.nz;
 
@@ -1153,15 +1154,15 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
         u = (v.x / (effMaxX * 2.2)) + 0.5;
         vCoord = (v.y - effMinY) / (effMaxY - effMinY);
       }
-      gUv[vertIdx * 2]     = Math.max(0, Math.min(1, u));
+      gUv[vertIdx * 2] = Math.max(0, Math.min(1, u));
       gUv[vertIdx * 2 + 1] = Math.max(0, Math.min(1, vCoord));
 
       if (gIdx && gWt && v.sIdx && v.sWt) {
-        gIdx[vertIdx * 4]     = v.sIdx[0];
+        gIdx[vertIdx * 4] = v.sIdx[0];
         gIdx[vertIdx * 4 + 1] = v.sIdx[1];
         gIdx[vertIdx * 4 + 2] = v.sIdx[2];
         gIdx[vertIdx * 4 + 3] = v.sIdx[3];
-        gWt[vertIdx * 4]     = v.sWt[0];
+        gWt[vertIdx * 4] = v.sWt[0];
         gWt[vertIdx * 4 + 1] = v.sWt[1];
         gWt[vertIdx * 4 + 2] = v.sWt[2];
         gWt[vertIdx * 4 + 3] = v.sWt[3];
@@ -1170,7 +1171,7 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
       if (v.morphs) {
         for (let m = 0; m < morphCount; m++) {
           const ma = v.morphs[m];
-          gMorphs[m][vertIdx * 3]     = ma[0];
+          gMorphs[m][vertIdx * 3] = ma[0];
           gMorphs[m][vertIdx * 3 + 1] = ma[1];
           gMorphs[m][vertIdx * 3 + 2] = ma[2];
         }
@@ -1231,7 +1232,8 @@ function updateGarmentEase(
   fitStatus: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto',
   fitDelta: number = 0,
   isFemale: boolean,
-  isCasaca: boolean = false
+  isCasaca: boolean = false,
+  activeSize: GarmentSize = 'M'
 ) {
   if (!mesh || !mesh.geometry) return;
   const geom = mesh.geometry;
@@ -1276,6 +1278,13 @@ function updateGarmentEase(
     const deltaEffect = Math.min(fitDelta, 20) * 0.008;
     easeCm = Math.max(0.10, easeCm * 0.45 - deltaEffect);
   }
+  const sizeFactor: Record<GarmentSize, number> = {
+    S: 0.90,
+    M: 1.00,
+    L: 1.12,
+  };
+
+  easeCm *= sizeFactor[activeSize];
 
   const effOffset = easeCm * factor;
 
@@ -1299,8 +1308,8 @@ function updateGarmentEase(
       // Pretina elástica ceñida en la cadera/cintura (yProgress ≈ 0)
       // Apertura cónica/campana holgada hacia la basta (yProgress -> 1)
       const flareCurve = Math.pow(yProgress, 1.35);
-      const flareMultiplier = isHolgado 
-        ? Math.min(3.4, 2.0 + Math.min(fitDelta, 30) * 0.05) 
+      const flareMultiplier = isHolgado
+        ? Math.min(3.4, 2.0 + Math.min(fitDelta, 30) * 0.05)
         : (isAjustado ? Math.max(0.35, 0.7 - Math.min(fitDelta, 15) * 0.02) : 1.5);
       flare = flareCurve * flareMultiplier * factor;
 
@@ -1329,8 +1338,8 @@ function updateGarmentEase(
       }
 
       // 3. Micro-arrugas y ondas naturales de tela
-      const fabricWave = Math.sin(by * (isFemale ? 45 : 4.5) + bx * (isFemale ? 25 : 2.5)) * 
-                         Math.cos(bz * (isFemale ? 35 : 3.5));
+      const fabricWave = Math.sin(by * (isFemale ? 45 : 4.5) + bx * (isFemale ? 25 : 2.5)) *
+        Math.cos(bz * (isFemale ? 35 : 3.5));
       ripple = fabricWave * (isCasaca ? 0.16 : 0.08) * factor * Math.sin(yProgress * Math.PI);
 
       if (isHolgado) {
@@ -1369,7 +1378,7 @@ function updateGarmentEase(
       }
     }
 
-    posArr[j * 3]     = bx + nx * (effOffset + flare + ripple);
+    posArr[j * 3] = bx + nx * (effOffset + flare + ripple);
     posArr[j * 3 + 1] = by + ny * effOffset - dropY;
     posArr[j * 3 + 2] = bz + nz * (effOffset + flare + ripple) + forwardBridge;
   }
@@ -1385,7 +1394,8 @@ function useGarments(
   selectedProduct?: any,
   fitStatus: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto' = 'perfecto',
   fitDelta: number = 0,
-  customColor?: string
+  customColor?: string,
+  activeSize: GarmentSize = 'M'
 ) {
   const garmentsRef = useRef<{
     polo?: THREE.SkinnedMesh;
@@ -1583,7 +1593,7 @@ function useGarments(
     }
 
     if (activeMesh) {
-      updateGarmentEase(activeMesh, fitStatus, fitDelta, isFemale, isCasaca);
+      updateGarmentEase(activeMesh, fitStatus, fitDelta, isFemale, isCasaca, activeSize);
 
       const activeMat = activeMesh.material as THREE.MeshStandardMaterial;
       const prodName = selectedProduct.nombre || '';
@@ -1605,7 +1615,7 @@ function useGarments(
     }
 
     if (secondaryMesh && secondaryMesh.visible) {
-      updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, false);
+      updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, false, activeSize);
 
       const secMat = secondaryMesh.material as THREE.MeshStandardMaterial;
       if (isFemale && secondaryType === 'legging') {
@@ -1625,7 +1635,7 @@ function useGarments(
       secMat.emissive = new THREE.Color('#000000');
       secMat.needsUpdate = true;
     }
-  }, [selectedProduct, isFemale, fitStatus, fitDelta, garmentColor]);
+  }, [selectedProduct, isFemale, fitStatus, fitDelta, garmentColor, activeSize]);
 
   return garmentsRef;
 }
@@ -1640,12 +1650,14 @@ function HombreModel({
   fitStatus = 'perfecto',
   fitDelta = 0,
   customColor,
+  activeSize = 'M',
 }: {
   scales: BodyScales;
   selectedProduct?: any;
   fitStatus?: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto';
   fitDelta?: number;
   customColor?: string;
+  activeSize?: 'S' | 'M' | 'L';
 }) {
   const { scene } = useGLTF('/avatar/hombre_morph.glb?v=5');
   const groupRef = useRef<THREE.Group>(null);
@@ -1678,7 +1690,7 @@ function HombreModel({
   }, [clonedScene]);
 
   // Indumentaria deportiva 3D sincronizada con drape y holgura dinámica
-  const garmentsRef = useGarments(clonedScene, bodyMesh, false, selectedProduct, fitStatus, fitDelta, customColor);
+  const garmentsRef = useGarments(clonedScene, bodyMesh, false, selectedProduct, fitStatus, fitDelta, customColor, activeSize);
 
   // Configuración de materiales y postura atlética en A-Pose sin torsión
   useEffect(() => {
@@ -1768,7 +1780,7 @@ function HombreModel({
       if (idxBrazo !== undefined) {
         inf[idxBrazo] = Math.min(Math.max(extraBrazo * 2.5, 0), 1.0);
       }
-// Sincronización instantánea de morphs anatómicos con las prendas 3D
+      // Sincronización instantánea de morphs anatómicos con las prendas 3D
       const gObj = garmentsRef.current;
       if (gObj) {
         [gObj.polo, gObj.topBra, gObj.topTank, gObj.short, gObj.legging].forEach((gm) => {
@@ -1812,12 +1824,14 @@ function MujerModel({
   fitStatus = 'perfecto',
   fitDelta = 0,
   customColor,
+  activeSize = 'M',
 }: {
   scales: BodyScales;
   selectedProduct?: any;
   fitStatus?: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto';
   fitDelta?: number;
   customColor?: string;
+  activeSize?: 'S' | 'M' | 'L';
 }) {
   const { scene } = useGLTF('/avatar/mujer_morph.glb?v=13');
   const groupRef = useRef<THREE.Group>(null);
@@ -1850,7 +1864,7 @@ function MujerModel({
   }, [clonedScene]);
 
   // Indumentaria deportiva 3D de mujer sincronizada con drape y holgura dinámica
-  const garmentsRef = useGarments(clonedScene, bodyMesh, true, selectedProduct, fitStatus, fitDelta, customColor);
+  const garmentsRef = useGarments(clonedScene, bodyMesh, true, selectedProduct, fitStatus, fitDelta, customColor, activeSize);
 
   // Configuración de materiales y postura atlética inicial (A-pose)
   useEffect(() => {
@@ -1938,7 +1952,7 @@ function MujerModel({
       if (idxBrazo !== undefined) {
         inf[idxBrazo] = sBrazo > 1.0 ? Math.min(Math.max((sBrazo - 1.0) * 1.8, 0), 1.0) : 0.0;
       }
-// Sincronización instantánea de morphs con las prendas 3D de mujer
+      // Sincronización instantánea de morphs con las prendas 3D de mujer
       const gObj = garmentsRef.current;
       if (gObj) {
         [gObj.polo, gObj.topBra, gObj.topTank, gObj.short, gObj.legging].forEach((gm) => {
@@ -2038,6 +2052,7 @@ interface Avatar3DProps {
   fitStatus?: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto';
   fitDelta?: number;
   customColor?: string;
+  activeSize?: 'S' | 'M' | 'L';
   cameraAction?: { type: 'reset' | 'zoom-in' | 'zoom-out' | 'rotate-left' | 'rotate-right'; id: number } | null;
 }
 
@@ -2050,6 +2065,7 @@ export default function Avatar3D({
   fitStatus = 'perfecto',
   fitDelta = 0,
   customColor,
+  activeSize = 'M',
   cameraAction,
 }: Avatar3DProps) {
   const settings = useStoreSettings();
@@ -2091,6 +2107,7 @@ export default function Avatar3D({
             fitStatus={fitStatus}
             fitDelta={fitDelta}
             customColor={customColor}
+            activeSize={activeSize}
           />
         ) : (
           <MujerModel
@@ -2099,6 +2116,7 @@ export default function Avatar3D({
             fitStatus={fitStatus}
             fitDelta={fitDelta}
             customColor={customColor}
+            activeSize={activeSize}
           />
         )}
 
