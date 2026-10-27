@@ -173,7 +173,8 @@ export default function AvatarStage({
     // Se mantiene la sincronización con el ID del producto.
   }, [selectedProduct?.id]);
 
-  const normSize = (activeSize || 'M').trim().toUpperCase();
+  const normSize: 'S' | 'M' | 'L' = activeSize.trim().toUpperCase() === 'S' ? 'S'
+  : activeSize.trim().toUpperCase() === 'L'? 'L': 'M';
 
   // La talla seleccionada no cambia las dimensiones corporales.
   const currentScales = BASE_BODY_SCALES;
