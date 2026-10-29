@@ -52,4 +52,15 @@ describe("virtual try-on analytics and event validation", () => {
     expect(summary.testsGrowth).toBe(100);
     expect(summary.avgTimeMinutes).toBe(1);
   });
+
+  it("retrieves try-on history for a specific user ordered by creation", async () => {
+    vi.mocked(prisma.virtual_tryon_events.findMany).mockResolvedValueOnce([
+      { id: "event-1", usuario_id: "user-1", tipo: "try_on", talla: "M", productos: { nombre: "Polo Nike", categoria: "Polos" } },
+    ] as never);
+    const history = await virtualTryOnService.getMyHistory("user-1");
+    expect(history).toHaveLength(1);
+    expect(prisma.virtual_tryon_events.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { usuario_id: "user-1", tipo: "try_on" } })
+    );
+  });
 });

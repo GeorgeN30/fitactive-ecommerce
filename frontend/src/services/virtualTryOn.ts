@@ -100,3 +100,33 @@ export async function fetchVirtualTryOnSummary(
   });
   return data.summary as VirtualTryOnSummary;
 }
+
+
+export interface UserTryOnHistoryItem {
+  id: string;
+  usuario_id: string;
+  producto_id: string;
+  tipo: string;
+  talla: string;
+  genero: string;
+  compatibilidad: number | null;
+  duracion_segundos: number | null;
+  creado_en: string;
+  productos?: {
+    id: string;
+    nombre: string;
+    categoria: string;
+    precio: number;
+    imagen_url: string;
+    genero: string;
+  };
+}
+
+export async function fetchMyTryOnHistory(): Promise<UserTryOnHistoryItem[]> {
+  try {
+    const { data } = await api.get("/virtual-tryon/my-history");
+    return (data.history || []) as UserTryOnHistoryItem[];
+  } catch {
+    return [];
+  }
+}
