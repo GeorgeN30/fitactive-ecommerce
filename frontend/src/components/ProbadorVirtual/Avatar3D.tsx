@@ -4,6 +4,7 @@ import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-thre
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
+import { classifyGarment } from '../../utils/garmentProfile';
 
 // Precarga de los modelos humanos atléticos reales (Hombre morph MakeHuman y Mujer morph MakeHuman)
 useGLTF.preload('/avatar/hombre_morph.glb?v=5');
@@ -29,7 +30,7 @@ const createNikeMatteBlackMaterial = () =>
   });
 
 
-type GarmentType = 'polo' | 'top' | 'top_bra' | 'top_tank' | 'short' | 'legging';
+type GarmentType = 'polo' | 'jacket' | 'pant' | 'top' | 'top_bra' | 'top_tank' | 'short' | 'legging';
 type GarmentSize = 'S' | 'M' | 'L';
 
 // Generador procedural de micro-tejido atlético (Dri-FIT / pique knit weave)
@@ -274,7 +275,7 @@ function createBrandLogoTexture(
   // =========================================================================
   // DISEÑO 1: REEBOK CLASSICS VECTOR (Casaca con Chevron Blanco Gigante)
   // =========================================================================
-  if (isReebokVector && (garmentType === 'polo' || garmentType === 'top')) {
+  if (isReebokVector && garmentType === 'jacket') {
     // Chevron Blanco Gigante que cruza diagonalmente el pecho
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
@@ -488,7 +489,7 @@ function createBrandLogoTexture(
   // =========================================================================
   // DISEÑO 6: UNDER ARMOUR UNSTOPPABLE (Buzo con Bolsillo Diagonal y Puños)
   // =========================================================================
-  if (isUAUnstoppable && garmentType === 'legging') {
+  if (isUAUnstoppable && garmentType === 'pant') {
     // Pretina elástica con cordón
     ctx.fillStyle = 'rgba(0, 0, 0, 0.40)';
     ctx.fillRect(0, 0, 512, 38);
@@ -592,7 +593,7 @@ function createBrandLogoTexture(
   // =========================================================================
   // DISEÑO 8: PUMA POWER COLORBLOCK (Buzo Deportivo Mujer con Paneles y Cat)
   // =========================================================================
-  if (isPumaColorblock && garmentType === 'legging') {
+  if (isPumaColorblock && garmentType === 'pant') {
     // 1. Paneles laterales atléticos contrastantes en blanco
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, 52, 512);
@@ -655,7 +656,7 @@ function createBrandLogoTexture(
   // =========================================================================
   // DISEÑO 9: REEBOK LUX JOGGER (Buzo Deportivo Mujer con Cordón y Vector)
   // =========================================================================
-  if (isReebokLux && garmentType === 'legging') {
+  if (isReebokLux && garmentType === 'pant') {
     // 1. Pretina alta elástica acanalada
     ctx.fillStyle = '#111216';
     ctx.fillRect(0, 0, 512, 44);
@@ -735,7 +736,7 @@ function createBrandLogoTexture(
   const isPuma = nameUpper.includes('PUMA');
   const isUnderArmour = nameUpper.includes('ARMOUR') || nameUpper.includes('UA') || nameUpper.includes('UNDER');
 
-  if (garmentType === 'polo' || garmentType === 'top' || garmentType === 'top_bra' || garmentType === 'top_tank') {
+  if (garmentType === 'jacket' || garmentType === 'polo' || garmentType === 'top' || garmentType === 'top_bra' || garmentType === 'top_tank') {
     // Cuello redondo acanalado fino (ribbed collar trim sin bib)
     if (garmentType === 'polo') {
       ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)';
@@ -1006,7 +1007,11 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
   const factor = isFemale ? 0.1 : 1.0;
 
   let minY = 82, maxY = 142, maxX = 38;
-  if (type === 'polo') {
+  if (type === 'jacket') {
+    minY = 82;
+    maxY = isFemale ? 140 : 142;
+    maxX = 65;
+  } else if (type === 'polo') {
     minY = isFemale ? 8.2 / 0.1 : 82;
     maxY = isFemale ? 14.0 / 0.1 : 142;
     maxX = isFemale ? 3.0 / 0.1 : 38;
@@ -1026,8 +1031,8 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
     minY = isFemale ? 5.2 / 0.1 : 50;
     maxY = isFemale ? 9.8 / 0.1 : 93;
     maxX = 26;
-  } else if (type === 'legging') {
-    minY = isFemale ? 1.2 / 0.1 : 12;
+  } else if (type === 'legging' || type === 'pant') {
+    minY = type === 'pant' ? 10 : (isFemale ? 1.2 / 0.1 : 12);
     maxY = isFemale ? 9.8 / 0.1 : 93;
     maxX = 26;
   }
@@ -1042,6 +1047,23 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
   const morphAttrs = geom.morphAttributes?.position;
 
   for (let i = 0; i < pos.length; i += 9) {
+    // Keep forearms below the torso hem, but exclude hands from long sleeves.
+    let sleeve = false;
+    if (type === 'jacket' && sIdxArr && sWtArr) {
+      let armWeight = 0;
+      let handWeight = 0;
+      for (let v = i / 3; v < i / 3 + 3; v++) {
+        for (let w = 0; w < 4; w++) {
+          const bone = bodyMesh.skeleton.bones[sIdxArr[v * 4 + w]];
+          const weight = sWtArr[v * 4 + w];
+          if (/upperarm|lowerarm|forearm/i.test(bone?.name || '')) armWeight += weight;
+          if (/hand|wrist|finger|thumb/i.test(bone?.name || '')) handWeight += weight;
+        }
+      }
+      if (handWeight > armWeight && handWeight > 0.5) continue;
+      sleeve = armWeight > 0.5;
+    }
+    const triangleMinY = sleeve ? 58 * factor : effMinY;
     const y0 = pos[i + 1], y1 = pos[i + 4], y2 = pos[i + 7];
     const minY_t = Math.min(y0, y1, y2);
     const maxY_t = Math.max(y0, y1, y2);
@@ -1049,7 +1071,7 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
     const maxX_t = Math.max(x0, x1, x2);
 
     // Broadphase rejection
-    if (maxY_t < effMinY - 0.5 * factor || minY_t > effMaxY + 0.5 * factor || maxX_t > effMaxX * 1.6) {
+    if (maxY_t < triangleMinY - 0.5 * factor || minY_t > effMaxY + 0.5 * factor || maxX_t > effMaxX * 1.6) {
       continue;
     }
 
@@ -1083,17 +1105,18 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
       };
     }
 
-    candidateTris.push([makeVert(i / 3), makeVert(i / 3 + 1), makeVert(i / 3 + 2)]);
+    const tri: GarmentTriangle = [makeVert(i / 3), makeVert(i / 3 + 1), makeVert(i / 3 + 2)];
+    candidateTris.push(...clipTriangleAgainstPlane(tri, 0, 1, 0, -triangleMinY));
   }
 
   // 1. Corte planar horizontal inferior: Y >= effMinY
-  let clippedTris = clipTrianglesPlaneList(candidateTris, 0, 1, 0, -effMinY);
+  let clippedTris = candidateTris;
 
   // 2. Corte planar horizontal superior: Y <= effMaxY
   clippedTris = clipTrianglesPlaneList(clippedTris, 0, -1, 0, effMaxY);
 
   // 3. Corte planar de mangas y sisas
-  if (type === 'polo') {
+  if (type === 'polo' || type === 'jacket') {
     clippedTris = clipTrianglesPlaneList(clippedTris, -1, 0, 0, effMaxX);
     clippedTris = clipTrianglesPlaneList(clippedTris, 1, 0, 0, effMaxX);
   } else if (type === 'top_bra' || type === 'top_tank') {
@@ -1142,12 +1165,12 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
 
       let u = 0.5;
       let vCoord = 0.5;
-      if (type === 'polo') {
+      if (type === 'polo' || type === 'jacket') {
         const halfW = (isFemale ? 2.4 : 24.0);
         u = (v.x / (halfW * 2.0)) + 0.5;
         vCoord = (v.y - effMinY) / (effMaxY - effMinY);
       } else if (type === 'top_bra' || type === 'top_tank' || type === 'top') {
-        const halfW = 2.0;
+        const halfW = 20 * factor;
         u = (v.x / (halfW * 2.0)) + 0.5;
         vCoord = (v.y - effMinY) / (effMaxY - effMinY);
       } else {
@@ -1192,6 +1215,8 @@ function buildGarment(bodyMesh: THREE.SkinnedMesh, type: GarmentType, isFemale: 
   }
 
   if (morphCount > 0) {
+    // Both shipped GLBs already use relative morphs; preserve their source convention.
+    gGeom.morphTargetsRelative = geom.morphTargetsRelative;
     gGeom.morphAttributes.position = [];
     for (let m = 0; m < morphCount; m++) {
       gGeom.morphAttributes.position.push(new THREE.BufferAttribute(gMorphs[m], 3));
@@ -1232,7 +1257,6 @@ function updateGarmentEase(
   fitStatus: 'demasiado_ajustado' | 'demasiado_holgado' | 'perfecto',
   fitDelta: number = 0,
   isFemale: boolean,
-  isCasaca: boolean = false,
   activeSize: GarmentSize = 'M'
 ) {
   if (!mesh || !mesh.geometry) return;
@@ -1248,8 +1272,9 @@ function updateGarmentEase(
   const effMinY = (data.effMinY as number) || (isFemale ? 5.0 : 50);
   const effMaxY = (data.effMaxY as number) || (isFemale ? 9.3 : 93);
   const type = (data.type as GarmentType) || 'polo';
+  const isCasaca = type === 'jacket';
 
-  // Holgura de confección textil real (CERO efecto bodypaint / pintura sobre piel)
+  // Approximate spacing in model units, not measured textile ease.
   let easeCm = 0.68; // Polo estándar tiene holgura y separación de tela natural
   if (type === 'top_bra') {
     easeCm = 0.32; // Sports bra de compresión
@@ -1262,8 +1287,8 @@ function updateGarmentEase(
   }
 
   // Casaca windbreaker tiene mayor volumen textil
-  if (isCasaca && type === 'polo') {
-    easeCm = 1.15;
+  if (isCasaca || type === 'pant') {
+    easeCm = type === 'pant' ? 2.0 : 1.8;
   }
 
   let isHolgado = false;
@@ -1284,6 +1309,7 @@ function updateGarmentEase(
     L: 1.12,
   };
 
+  if (type === 'pant' || isCasaca) easeCm = Math.max(0.9, easeCm);
   easeCm *= sizeFactor[activeSize];
 
   const effOffset = easeCm * factor;
@@ -1295,6 +1321,15 @@ function updateGarmentEase(
     const nx = baseNormals[j * 3];
     const ny = baseNormals[j * 3 + 1];
     const nz = baseNormals[j * 3 + 2];
+
+    if (type === 'pant' || isCasaca) {
+      // Keep source normals and a bounded, uniform shell: no assumed leg centers or section seams.
+      const safeOffset = Math.min(2.5 * factor, effOffset);
+      posArr[j * 3] = bx + nx * safeOffset;
+      posArr[j * 3 + 1] = by + ny * safeOffset;
+      posArr[j * 3 + 2] = bz + nz * safeOffset;
+      continue;
+    }
 
     const yProgress = Math.max(0, Math.min(1, (effMaxY - by) / (effMaxY - effMinY)));
 
@@ -1399,6 +1434,8 @@ function useGarments(
 ) {
   const garmentsRef = useRef<{
     polo?: THREE.SkinnedMesh;
+    jacket?: THREE.SkinnedMesh;
+    pant?: THREE.SkinnedMesh;
     topBra?: THREE.SkinnedMesh;
     topTank?: THREE.SkinnedMesh;
     short?: THREE.SkinnedMesh;
@@ -1411,12 +1448,16 @@ function useGarments(
     if (!bodyMesh || !bodyMesh.geometry) return;
 
     const polo = buildGarment(bodyMesh, 'polo', isFemale);
+    const jacket = buildGarment(bodyMesh, 'jacket', isFemale);
+    const pant = buildGarment(bodyMesh, 'pant', isFemale);
     const topBra = buildGarment(bodyMesh, 'top_bra', isFemale);
     const topTank = buildGarment(bodyMesh, 'top_tank', isFemale);
     const short = buildGarment(bodyMesh, 'short', isFemale);
     const legging = buildGarment(bodyMesh, 'legging', isFemale);
 
     polo.visible = false;
+    jacket.visible = false;
+    pant.visible = false;
     topBra.visible = false;
     topTank.visible = false;
     short.visible = false;
@@ -1424,24 +1465,23 @@ function useGarments(
 
     const garmentParent = bodyMesh.parent || clonedScene;
     garmentParent.add(polo);
+    garmentParent.add(jacket, pant);
     garmentParent.add(topBra);
     garmentParent.add(topTank);
     garmentParent.add(short);
     garmentParent.add(legging);
 
-    garmentsRef.current = { polo, topBra, topTank, short, legging };
+    garmentsRef.current = { polo, jacket, pant, topBra, topTank, short, legging };
 
     return () => {
-      garmentParent.remove(polo);
-      garmentParent.remove(topBra);
-      garmentParent.remove(topTank);
-      garmentParent.remove(short);
-      garmentParent.remove(legging);
-      polo.geometry.dispose();
-      topBra.geometry.dispose();
-      topTank.geometry.dispose();
-      short.geometry.dispose();
-      legging.geometry.dispose();
+      for (const mesh of Object.values(garmentsRef.current)) {
+        garmentParent.remove(mesh);
+        mesh.geometry.dispose();
+        const material = mesh.material as THREE.MeshStandardMaterial;
+        material.map?.dispose();
+        material.dispose();
+      }
+      garmentsRef.current = {};
     };
   }, [bodyMesh, clonedScene, isFemale]);
 
@@ -1452,15 +1492,20 @@ function useGarments(
       return;
     }
     const fallback = getFallbackGarmentColor(selectedProduct);
+    let cancelled = false;
+    setGarmentColor(fallback);
     const imgUrl = selectedProduct?.imagen_url || selectedProduct?.imagenUrl || selectedProduct?.img;
     extractDominantColor(imgUrl, fallback, (extractedHex) => {
-      setGarmentColor(extractedHex);
+      if (!cancelled) setGarmentColor(extractedHex);
     });
+    return () => { cancelled = true; };
   }, [selectedProduct, customColor]);
 
   useEffect(() => {
-    const { polo, topBra, topTank, short, legging } = garmentsRef.current;
-    if (!polo || !topBra || !topTank || !short || !legging) return;
+    const { polo, jacket, pant, topBra, topTank, short, legging } = garmentsRef.current;
+    if (!polo || !jacket || !pant || !topBra || !topTank || !short || !legging) return;
+    // Unknown products deliberately show the bare mannequin, never the previous outfit.
+    Object.values(garmentsRef.current).forEach(mesh => { mesh.visible = false; });
 
     if (!selectedProduct) {
       polo.visible = false;
@@ -1471,141 +1516,32 @@ function useGarments(
       return;
     }
 
-    const cat = (selectedProduct.categoria || '').toLowerCase();
-    const nameLower = (selectedProduct.nombre || '').toLowerCase();
-
-    const isCasaca = cat.includes('casaca') || cat.includes('polera') || nameLower.includes('vector');
-    const isPolo = cat.includes('polo') || isCasaca;
-    const isBra = nameLower.includes('alate') || nameLower.includes('minimalist') || nameLower.includes('bra');
-    const isTank = nameLower.includes('yoga') || nameLower.includes('tank');
-    const isTop = cat.includes('top') || isBra || isTank;
-    const isShort = cat.includes('short');
-    const isLegging = cat.includes('legging') || cat.includes('buzo') || cat.includes('pantalón') || cat.includes('pantalon');
-
-    let activeMesh: THREE.SkinnedMesh | null = null;
-    let activeGarmentType: GarmentType = 'polo';
-    let secondaryMesh: THREE.SkinnedMesh | null = null;
-    let secondaryType: GarmentType | null = null;
-
-    if (isFemale) {
-      if (isBra) {
-        topBra.visible = true;
-        topTank.visible = false;
-        polo.visible = false;
-        short.visible = false;
-        legging.visible = true;
-        activeMesh = topBra;
-        activeGarmentType = 'top_bra';
-        secondaryMesh = legging;
-        secondaryType = 'legging';
-      } else if (isTank) {
-        topTank.visible = true;
-        topBra.visible = false;
-        polo.visible = false;
-        short.visible = false;
-        legging.visible = true;
-        activeMesh = topTank;
-        activeGarmentType = 'top_tank';
-        secondaryMesh = legging;
-        secondaryType = 'legging';
-      } else if (isTop) {
-        topBra.visible = true;
-        topTank.visible = false;
-        polo.visible = false;
-        short.visible = false;
-        legging.visible = true;
-        activeMesh = topBra;
-        activeGarmentType = 'top_bra';
-        secondaryMesh = legging;
-        secondaryType = 'legging';
-      } else if (isShort) {
-        short.visible = true;
-        legging.visible = false;
-        polo.visible = false;
-        topBra.visible = true;
-        topTank.visible = false;
-        activeMesh = short;
-        activeGarmentType = 'short';
-        secondaryMesh = topBra;
-        secondaryType = 'top_bra';
-      } else if (isLegging) {
-        legging.visible = true;
-        short.visible = false;
-        polo.visible = false;
-        topBra.visible = true;
-        topTank.visible = false;
-        activeMesh = legging;
-        activeGarmentType = 'legging';
-        secondaryMesh = topBra;
-        secondaryType = 'top_bra';
-      } else if (isPolo) {
-        polo.visible = true;
-        topBra.visible = false;
-        topTank.visible = false;
-        short.visible = false;
-        legging.visible = true;
-        activeMesh = polo;
-        activeGarmentType = 'polo';
-        secondaryMesh = legging;
-        secondaryType = 'legging';
-      }
-    } else {
-      // Hombre
-      if (isCasaca) {
-        polo.visible = true;
-        topBra.visible = false;
-        topTank.visible = false;
-        short.visible = false;
-        legging.visible = true; // Casaca + track pant a juego
-        activeMesh = polo;
-        activeGarmentType = 'polo';
-        secondaryMesh = legging;
-        secondaryType = 'legging';
-      } else if (isPolo) {
-        polo.visible = true;
-        topBra.visible = false;
-        topTank.visible = false;
-        short.visible = true;
-        legging.visible = false;
-        activeMesh = polo;
-        activeGarmentType = 'polo';
-        secondaryMesh = short;
-        secondaryType = 'short';
-      } else if (isShort) {
-        short.visible = true;
-        polo.visible = false;
-        topBra.visible = false;
-        topTank.visible = false;
-        legging.visible = false;
-        activeMesh = short;
-        activeGarmentType = 'short';
-        secondaryMesh = null;
-      } else if (isLegging) {
-        legging.visible = true;
-        short.visible = false;
-        polo.visible = false;
-        topBra.visible = false;
-        topTank.visible = false;
-        activeMesh = legging;
-        activeGarmentType = 'legging';
-        secondaryMesh = null;
-      }
-    }
+    const profile = classifyGarment(selectedProduct);
+    if (profile === 'unknown') return;
+    const types = { jacket: 'jacket', shirt: 'polo', pant: 'pant', legging: 'legging', bra: 'top_bra', tank: 'top_tank', shorts: 'short' } as const;
+    const meshes = { jacket, shirt: polo, pant, legging, bra: topBra, tank: topTank, shorts: short };
+    const activeMesh = meshes[profile];
+    const activeGarmentType = types[profile];
+    const upper = profile === 'jacket' || profile === 'shirt' || profile === 'bra' || profile === 'tank';
+    const secondaryMesh = upper ? pant : polo;
+    activeMesh.visible = true;
+    secondaryMesh.visible = true;
 
     if (activeMesh) {
-      updateGarmentEase(activeMesh, fitStatus, fitDelta, isFemale, isCasaca, activeSize);
+      updateGarmentEase(activeMesh, fitStatus, fitDelta, isFemale, activeSize);
 
       const activeMat = activeMesh.material as THREE.MeshStandardMaterial;
       const prodName = selectedProduct.nombre || '';
       const brandName = selectedProduct.marca || '';
 
       const brandTex = createBrandLogoTexture(prodName, brandName, activeGarmentType, garmentColor);
+      activeMat.map?.dispose();
       activeMat.map = brandTex;
       activeMat.color = new THREE.Color('#ffffff');
       activeMat.bumpMap = getAthleticFabricBumpMap();
       activeMat.bumpScale = 0.02;
-      activeMat.roughness = 0.65;
-      activeMat.metalness = 0.04;
+      activeMat.roughness = activeGarmentType === 'jacket' || activeGarmentType === 'pant' ? 0.92 : 0.8;
+      activeMat.metalness = 0;
       if (fitStatus === 'demasiado_ajustado') {
         activeMat.emissive = new THREE.Color('#380808');
       } else {
@@ -1615,27 +1551,20 @@ function useGarments(
     }
 
     if (secondaryMesh && secondaryMesh.visible) {
-      updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, false, activeSize);
+      updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, 'M');
 
       const secMat = secondaryMesh.material as THREE.MeshStandardMaterial;
-      if (isFemale && secondaryType === 'legging') {
-        secMat.map = createBrandLogoTexture('Nike Pro 365', 'Nike', 'legging', '#111215');
-        secMat.color = new THREE.Color('#ffffff');
-      } else if (isFemale && secondaryType === 'top_bra') {
-        secMat.map = createBrandLogoTexture('Studio Sports Bra', 'Studio', 'top_bra', '#181a20');
-        secMat.color = new THREE.Color('#ffffff');
-      } else {
-        secMat.map = null;
-        secMat.color = new THREE.Color('#141518');
-      }
+      secMat.map?.dispose();
+      secMat.map = null;
+      secMat.color = new THREE.Color('#141518');
       secMat.bumpMap = getAthleticFabricBumpMap();
       secMat.bumpScale = 0.015;
-      secMat.roughness = 0.70;
-      secMat.metalness = 0.04;
+      secMat.roughness = 0.92;
+      secMat.metalness = 0;
       secMat.emissive = new THREE.Color('#000000');
       secMat.needsUpdate = true;
     }
-  }, [selectedProduct, isFemale, fitStatus, fitDelta, garmentColor, activeSize]);
+  }, [bodyMesh, clonedScene, selectedProduct, isFemale, fitStatus, fitDelta, garmentColor, activeSize]);
 
   return garmentsRef;
 }
@@ -1783,7 +1712,7 @@ function HombreModel({
       // Sincronización instantánea de morphs anatómicos con las prendas 3D
       const gObj = garmentsRef.current;
       if (gObj) {
-        [gObj.polo, gObj.topBra, gObj.topTank, gObj.short, gObj.legging].forEach((gm) => {
+        Object.values(gObj).forEach((gm) => {
           if (gm && gm.morphTargetInfluences && inf) {
             for (let k = 0; k < inf.length; k++) {
               gm.morphTargetInfluences[k] = inf[k];
@@ -1955,7 +1884,7 @@ function MujerModel({
       // Sincronización instantánea de morphs con las prendas 3D de mujer
       const gObj = garmentsRef.current;
       if (gObj) {
-        [gObj.polo, gObj.topBra, gObj.topTank, gObj.short, gObj.legging].forEach((gm) => {
+        Object.values(gObj).forEach((gm) => {
           if (gm && gm.morphTargetInfluences && inf) {
             for (let k = 0; k < inf.length; k++) {
               gm.morphTargetInfluences[k] = inf[k];

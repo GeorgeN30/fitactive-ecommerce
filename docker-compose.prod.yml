@@ -1,5 +1,8 @@
 name: fitactive-ecommerce-prod
 
+# Start with: podman compose -f docker-compose.prod.yml up --build -d
+# Backend startup applies pending migrations to the database in the root .env.
+
 services:
   backend:
     build:
@@ -31,6 +34,12 @@ services:
       APP_URL: ${APP_URL:?APP_URL is required}
       MP_WEBHOOK_URL: ${MP_WEBHOOK_URL:-}
       MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
     restart: unless-stopped
 
   frontend:
@@ -43,9 +52,10 @@ services:
         VITE_JWT_APP_ID: ${VITE_JWT_APP_ID:-integrador2_web}
         VITE_MP_PUBLIC_KEY: ${VITE_MP_PUBLIC_KEY:?VITE_MP_PUBLIC_KEY is required}
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

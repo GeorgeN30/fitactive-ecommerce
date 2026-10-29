@@ -1,5 +1,8 @@
 name: fitactive-ecommerce-local
 
+# Start with: podman compose up --build -d
+# This stack uses its own PostgreSQL database; startup applies migrations.
+
 services:
   db:
     image: postgres:17
@@ -31,12 +34,12 @@ services:
       - product-uploads:/app/uploads
     environment:
       - PORT=4000
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/fitactive
-      - DIRECT_URL=postgresql://postgres:postgres@db:5432/fitactive
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-fitactive}
+      - DIRECT_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-fitactive}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SEED_ON_START=${SEED_ON_START:-false}
-      - CLIENT_URL=${CLIENT_URL:-http://localhost}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:${FRONTEND_PORT:-8080}}
       - EXTERNAL_BAAS_URL=${EXTERNAL_BAAS_URL:-https://core.geozns.com}
       - EXTERNAL_BAAS_API_KEY=${EXTERNAL_BAAS_API_KEY}
       - JWT_APP_ID=${JWT_APP_ID:-integrador2_web}
@@ -48,8 +51,14 @@ services:
       - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
       - MP_CURRENCY_ID=${MP_CURRENCY_ID:-PEN}
       - MP_TEST_BUYER_EMAIL=${MP_TEST_BUYER_EMAIL:-}
-      - APP_URL=${APP_URL:-http://localhost}
+      - APP_URL=${APP_URL:-http://localhost:${FRONTEND_PORT:-8080}}
       - MP_WEBHOOK_URL=${MP_WEBHOOK_URL}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
     restart: unless-stopped
 
   frontend:
@@ -62,9 +71,10 @@ services:
         - VITE_JWT_APP_ID=${VITE_JWT_APP_ID:-integrador2_web}
         - VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
