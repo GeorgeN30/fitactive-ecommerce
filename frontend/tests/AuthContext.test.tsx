@@ -4,6 +4,7 @@ vi.mock("../src/services/api", () => ({
   default: {
     post: vi.fn(),
     get: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -395,5 +396,35 @@ describe("AuthContext", () => {
 
     expect(result.current.user?.name).toBe("New Name");
     expect(result.current.user?.email).toBe("test@example.com");
+  });
+
+  it("uses the confirmed server profile and keeps it after restoring the session", async () => {
+    const savedUser = { id: "u1", email: "test@example.com", name: "Ana", role: "customer", picture: null, bodyType: "broad" };
+    localStorage.setItem("token", "stored-token");
+    localStorage.setItem("user", JSON.stringify({ ...savedUser, bodyType: null }));
+    mockApi.put.mockResolvedValue({ data: { user: savedUser } });
+    const { result, unmount } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.updateProfile({ bodyType: "broad" }); });
+    expect(mockApi.put).toHaveBeenCalledWith("/auth/me", { bodyType: "broad" });
+    expect(result.current.user).toEqual(savedUser);
+    unmount();
+    const restored = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(restored.result.current.loading).toBe(false));
+    expect(restored.result.current.user?.bodyType).toBe("broad");
+  });
+
+  it("does not change the confirmed profile if saving fails", async () => {
+    const savedUser = { id: "u1", email: "test@example.com", name: "Ana", role: "customer", picture: null, bodyType: "average" };
+    localStorage.setItem("token", "stored-token");
+    localStorage.setItem("user", JSON.stringify(savedUser));
+    mockApi.put.mockRejectedValue(new Error("offline"));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await expect(result.current.updateProfile({ bodyType: "slim" })).rejects.toThrow("offline");
+    });
+    expect(result.current.user).toEqual(savedUser);
+    expect(JSON.parse(localStorage.getItem("user")!)).toEqual(savedUser);
   });
 });

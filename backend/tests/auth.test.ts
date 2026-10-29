@@ -76,8 +76,25 @@ describe("authService.register", () => {
     expect(result.token).toBe("mock-jwt-token");
     expect(result.user.email).toBe("test@example.com");
     expect(result.user.hasPassword).toBe(true);
+    expect(result.user.bodyType).toBeNull();
     expect(mockPrisma.usuarios.create).toHaveBeenCalledOnce();
   });
+
+  it.each([null, "slim", "average", "broad"] as const)(
+    "includes bodyType %s in the sanitized user",
+    async (bodyType) => {
+      mockPrisma.usuarios.findUnique.mockResolvedValue(null);
+      mockPrisma.usuarios.create.mockResolvedValue({
+        id: "user-1",
+        email: "test@example.com",
+        bodyType,
+      } as never);
+
+      const result = await authService.register("test@example.com", "password123");
+
+      expect(result.user.bodyType).toBe(bodyType);
+    },
+  );
 
   it("should throw INVALID_EMAIL for invalid email", async () => {
     await expect(

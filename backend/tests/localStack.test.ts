@@ -3,7 +3,7 @@ import { config } from "../src/config/env";
 
 const RUN_LOCAL_STACK_TESTS = process.env.RUN_LOCAL_STACK_TESTS === "1";
 const BACKEND_URL = "http://127.0.0.1:4000/api";
-const FRONTEND_URL = "http://127.0.0.1";
+const FRONTEND_URL = `http://127.0.0.1:${process.env.FRONTEND_PORT || "8080"}`;
 
 async function login(email: string, password: string) {
   const response = await fetch(`${BACKEND_URL}/auth/login-password`, {

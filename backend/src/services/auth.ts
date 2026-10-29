@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import type { BodyType } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { baas } from "./baas";
 import { config } from "../config/env";
@@ -131,6 +132,7 @@ function sanitizeUser(user: {
   provider: string | null;
 
   genero: string | null;
+  bodyType?: BodyType | null;
   altura: MeasurementValue;
   medida_pecho: MeasurementValue;
   medida_cintura: MeasurementValue;
@@ -152,6 +154,7 @@ function sanitizeUser(user: {
     points: user.points,
 
     genero: user.genero,
+    bodyType: user.bodyType ?? null,
 
     altura: serializeMeasurement(user.altura),
     medida_pecho: serializeMeasurement(user.medida_pecho),

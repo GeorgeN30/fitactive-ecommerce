@@ -5,6 +5,7 @@ import { fetchMyOrders } from "../services/orders";
 import { useFavorites } from "../context/FavoritesContext";
 import { fetchMyTryOnHistory, type UserTryOnHistoryItem } from "../services/virtualTryOn";
 import { formatSoles } from "../utils/money";
+import { getInitialBodyType, type BodyType } from "../utils/bodyType";
 
 function profileGender(value?: string | null) {
   const normalized = value?.toLowerCase();
@@ -23,9 +24,10 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.name || "");
   const [genero, setGenero] = useState(profileGender(user?.genero));
-  const [tipoCuerpo, setTipoCuerpo] = useState("medio");
+  const [bodyType, setBodyType] = useState<BodyType>(() => getInitialBodyType(user));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [saveFailed, setSaveFailed] = useState(false);
   const [statsError, setStatsError] = useState("");
 
   const [stats, setStats] = useState({
@@ -38,18 +40,8 @@ export default function ProfilePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
-
-    const savedType = localStorage.getItem(
-      `fitlook_tipo_cuerpo_${user.id}`
-    );
-
-    if (savedType && ["delgado", "medio", "ancho"].includes(savedType)) {
-      setTipoCuerpo(savedType);
-    } else {
-      setTipoCuerpo("medio");
-    }
-  }, [user?.id]);
+    setBodyType(getInitialBodyType(user));
+  }, [user?.id, user?.bodyType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,25 +83,31 @@ export default function ProfilePage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setMsg("");
+    setSaveFailed(false);
     if (name.trim().length < 2) {
+      setSaveFailed(true);
       setMsg("Ingresa un nombre de al menos 2 caracteres.");
       return;
     }
     setSaving(true);
     try {
-      localStorage.setItem(
-        `fitlook_tipo_cuerpo_${user?.id ?? "anonimo"}`,
-        tipoCuerpo
-      );
-      if (updateProfile) {
-        await updateProfile({
-          name: name.trim() || undefined,
-          genero: genero || undefined,
-        });
+      await updateProfile({
+        name: name.trim(),
+        genero: genero || undefined,
+        bodyType,
+      });
+      if (user?.id) {
+        try {
+          localStorage.removeItem(`fitlook_tipo_cuerpo_${user.id}`);
+        } catch {
+          // Saving the server preference must not depend on browser storage.
+        }
       }
       setMsg("Perfil guardado con éxito");
       setTimeout(() => setMsg(""), 3000);
     } catch {
+      setSaveFailed(true);
       setMsg("Error al guardar perfil");
     } finally {
       setSaving(false);
@@ -135,8 +133,8 @@ export default function ProfilePage() {
           </div>
 
           {msg && (
-            <div className="mb-6 p-4 bg-brand-green/20 text-black dark:text-brand-green rounded-xl font-bold flex items-center gap-3">
-              <i className="fa-solid fa-check-circle"></i>
+            <div role={saveFailed ? "alert" : "status"} className={`mb-6 p-4 rounded-xl font-bold flex items-center gap-3 ${saveFailed ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400" : "bg-brand-green/20 text-black dark:text-brand-green"}`}>
+              <i aria-hidden="true" className={`fa-solid ${saveFailed ? "fa-circle-exclamation" : "fa-check-circle"}`}></i>
               {msg}
             </div>
           )}
@@ -200,13 +198,13 @@ export default function ProfilePage() {
               </label>
               <select
                 id="profile-body-type"
-                value={tipoCuerpo}
-                onChange={(e) => setTipoCuerpo(e.target.value)}
+                value={bodyType}
+                onChange={(e) => setBodyType(e.target.value as BodyType)}
                 className="w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 border border-slate-200 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:border-brand-green font-medium"
               >
-                <option value="delgado">Delgado</option>
-                <option value="medio">Medio / Proporcionado</option>
-                <option value="ancho">Ancho / Robusto</option>
+                <option value="slim">Delgado</option>
+                <option value="average">Medio / Proporcionado</option>
+                <option value="broad">Ancho / Robusto</option>
               </select>
               <p className="text-xs text-slate-500 mt-2">
                 Este perfil se utilizará para adaptar tu avatar en el probador 3D.

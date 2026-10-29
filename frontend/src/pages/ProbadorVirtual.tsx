@@ -12,6 +12,7 @@ import { getVirtualTryOnSessionId, markVirtualTryOnProduct, trackVirtualTryOnEve
 import ProductSelector from '../components/ProbadorVirtual/ProductSelector';
 
 import AvatarStage from '../components/ProbadorVirtual/AvatarStage';
+import GarmentColorPicker from '../components/ProbadorVirtual/GarmentColorPicker';
 
 function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   const normalized = value?.trim().toLowerCase();
@@ -93,6 +94,10 @@ export default function ProbadorVirtual() {
 
 
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  useEffect(() => {
+    setCustomColor(null);
+  }, [selectedProduct?.id]);
 
   // Carga inicial o cambio de producto vía URL
   const lastUrl = useRef<string | null>(null);
@@ -217,7 +222,7 @@ export default function ProbadorVirtual() {
       img: selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || '',
       quantity: 1,
       size: selectedSize,
-      color: customColor || selectedProduct.color || 'Original',
+      color: selectedProduct.color || 'Original',
       stock: activeStock,
       tallaId: String(activeVariant.id),
     });
@@ -364,24 +369,22 @@ export default function ProbadorVirtual() {
             </div>
 
             {/* Columna Central: Escenario 3D con Avatar Centrado Horizontalmente */}
-            <div className="lg:col-span-6 flex flex-col h-[520px] lg:h-[720px] relative">
+            <div className="lg:col-span-6 flex min-w-0 flex-col h-[520px] lg:h-[720px] relative">
               
                 <AvatarStage
                   selectedProduct={selectedProduct}
                   genero={genero}
                   activeSize={selectedSize}
-                  onSelectSize={handleSelectSize}
                   customColor={customColor}
-                  onSelectColor={setCustomColor}
                 />
             </div>
 
             {/* Columna Derecha: Ficha de Acción, Tallas, Stock y Compra Directa */}
-            <div className="lg:col-span-3 bg-white dark:bg-white/[0.02] p-5 lg:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-gray-100 dark:border-white/5 flex flex-col justify-between min-h-[420px] lg:h-[720px] overflow-y-auto">
+            <aside aria-label="Opciones de la prenda" className="lg:col-span-3 min-w-0 bg-white dark:bg-white/[0.02] p-5 lg:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-gray-100 dark:border-white/5 flex flex-col min-h-[420px] lg:h-[720px] overflow-hidden">
               {selectedProduct ? (
-                <div className="flex flex-col h-full justify-between gap-4">
+                <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-4">
                   {/* Ficha de la Prenda */}
-                  <div className="space-y-4">
+                  <div role="region" aria-label="Detalles y ajuste de la prenda" tabIndex={0} className="min-h-0 min-w-0 space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green lg:flex-1 lg:overflow-y-auto lg:pr-1">
                     <div className="relative rounded-2xl bg-[#f4f5f7] dark:bg-gray-800/60 p-4 aspect-[4/3] flex items-center justify-center overflow-hidden border border-gray-100 dark:border-white/5">
                       <img
                         src={selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || 'https://placehold.co/400x400'}
@@ -401,13 +404,13 @@ export default function ProbadorVirtual() {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-gray-400">
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wider text-gray-400">
                         <span>{selectedProduct.marca || 'Marca Oficial'}</span>
-                        <span className="bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
+                        <span className="max-w-full break-words bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
                           {selectedProduct.categoria}
                         </span>
                       </div>
-                      <h2 className="text-base font-black text-gray-900 dark:text-white mt-1">
+                      <h2 className="break-words text-base font-black text-gray-900 dark:text-white mt-1">
                         {selectedProduct.nombre}
                       </h2>
                     </div>
@@ -419,7 +422,7 @@ export default function ProbadorVirtual() {
 
                     {/* Selector y Estado de Tallas */}
                     <div>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
                           Talla Seleccionada:
                         </span>
@@ -428,7 +431,7 @@ export default function ProbadorVirtual() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-6 gap-1.5">
+                      <div role="group" aria-label="Tallas de la prenda" className="grid grid-cols-3 gap-2">
                         {STANDARD_SIZES.map((sz) => {
                           const isSelected = sz === selectedSize;
                           const variant = productSizes.find((v: any) => String(v.talla).trim().toUpperCase() === sz);
@@ -438,6 +441,8 @@ export default function ProbadorVirtual() {
                             <button
                               key={sz}
                               type="button"
+                              aria-label={`Probar talla ${sz}`}
+                              aria-pressed={isSelected}
                               onClick={() => handleSelectSize(sz)}
                               className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer text-center relative ${
                                 isSelected
@@ -448,7 +453,7 @@ export default function ProbadorVirtual() {
                               {sz}
                               {!hasStock && (
                                 <span className="block text-[8px] font-normal text-red-500 leading-none">
-                                  0
+                                  Sin stock
                                 </span>
                               )}
                             </button>
@@ -459,22 +464,32 @@ export default function ProbadorVirtual() {
                       {/* Mensaje de Stock en Tiempo Real */}
                       <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/5 text-xs">
                         {isOutOfStock ? (
-                          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold">
-                            <i className="fa-solid fa-circle-xmark text-red-500"></i>
+                          <div className="flex items-start gap-2 text-red-600 dark:text-red-400 font-bold">
+                            <i aria-hidden="true" className="fa-solid fa-circle-xmark mt-0.5 shrink-0 text-red-500"></i>
                             <span>Agotado en Talla {selectedSize}</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                            <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
                             <span>{activeStock} unidades disponibles en Talla {selectedSize}</span>
                           </div>
                         )}
                       </div>
                     </div>
+                    <GarmentColorPicker product={selectedProduct} value={customColor} onChange={setCustomColor} />
+                    <section aria-labelledby="try-on-fit-heading" className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="mb-2 flex items-start gap-2">
+                        <i aria-hidden="true" className="fa-solid fa-circle-info mt-0.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                        <h3 id="try-on-fit-heading" className="min-w-0 break-words text-xs font-bold text-slate-800 dark:text-slate-200">Sobre el ajuste</h3>
+                      </div>
+                      <p className="break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                        Previsualización 3D aproximada. El tipo de cuerpo adapta el avatar, pero no permite confirmar la compatibilidad ni recomendar una talla sin comparar medidas reales de la prenda y del cuerpo.
+                      </p>
+                    </section>
                   </div>
 
                   {/* Acciones de Compra y Detalle */}
-                  <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-white/5">
+                  <div className="shrink-0 space-y-2 pt-3 border-t border-gray-100 dark:border-white/5">
                     <button
                       type="button"
                       disabled={isOutOfStock}
@@ -500,7 +515,7 @@ export default function ProbadorVirtual() {
                   <p className="text-xs font-bold">Selecciona una prenda del catálogo para ver su información y probarla.</p>
                 </div>
               )}
-            </div>
+            </aside>
           </div>
         </div>
       </div>
