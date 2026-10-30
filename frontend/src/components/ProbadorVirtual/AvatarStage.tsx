@@ -43,6 +43,12 @@ const BODY_TYPE_SCALES: Record<BodyType, BodyScales> = {
   },
 };
 
+const BODY_TYPE_LABELS: Record<BodyType, string> = {
+  slim: 'Delgado / Atlético',
+  average: 'Medio / Proporcionado',
+  broad: 'Robusto / Amplio',
+};
+
 type CameraAction = 'reset' | 'zoom-in' | 'zoom-out' | 'rotate-left' | 'rotate-right';
 
 const CAMERA_CONTROLS: { action: CameraAction; label: string; icon: string }[] = [
@@ -63,13 +69,21 @@ export default function AvatarStage({
   const [cameraAction, setCameraAction] = useState<{ type: CameraAction; id: number } | null>(null);
   const normalizedSize = activeSize.trim().toUpperCase();
   const size = normalizedSize === 'S' || normalizedSize === 'L' ? normalizedSize : 'M';
-  const scales = BODY_TYPE_SCALES[user?.bodyType || 'average'] || BASE_BODY_SCALES;
+  const currentBodyType: BodyType = user?.bodyType || 'average';
+  const scales = BODY_TYPE_SCALES[currentBodyType] || BASE_BODY_SCALES;
+  const bodyTypeLabel = BODY_TYPE_LABELS[currentBodyType] || BODY_TYPE_LABELS.average;
 
   return (
     <section
       aria-label="Vista previa del avatar"
       className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-[2rem] border border-gray-200/70 bg-gradient-to-b from-white/60 to-brand-green/5 dark:border-white/10 dark:from-white/[0.02]"
     >
+      {/* Indicador de tipo de cuerpo actualizado de la cuenta */}
+      <div className="pointer-events-none absolute top-4 left-4 z-10 flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white/85 px-3 py-1.5 text-xs shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/75">
+        <span className="font-medium text-gray-500 dark:text-gray-400">Tipo de cuerpo:</span>
+        <span className="font-semibold text-brand-green">{bodyTypeLabel}</span>
+      </div>
+
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <div className="h-80 w-56 rounded-full bg-brand-green/10 blur-3xl" />
       </div>
