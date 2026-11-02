@@ -94,6 +94,12 @@ model producto_imagenes {
   @@index([producto_id, orden])
 }
 
+enum BodyType {
+  slim
+  average
+  broad
+}
+
 model usuarios {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email            String    @unique @db.VarChar(255)
@@ -106,6 +112,7 @@ model usuarios {
 
   // Datos biométricos
   genero           String?   @db.VarChar(50)
+  bodyType         BodyType? @map("body_type")
   altura           Decimal?  @db.Decimal(5, 2)
   medida_muslo     Decimal?  @db.Decimal(5, 2)
   medida_pecho     Decimal?  @db.Decimal(5, 2)

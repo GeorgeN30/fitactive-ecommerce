@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../services/api";
+import type { BodyType } from "../utils/bodyType";
 import { useStoreSettings } from "./StoreSettingsContext";
 import {
   SESSION_CLEARED_EVENT,
@@ -21,6 +22,7 @@ export interface User {
   points?: number;
 
   genero?: string | null;
+  bodyType?: BodyType | null;
 
   altura?: number | null;
   medida_pecho?: number | null;
@@ -263,8 +265,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function updateProfile(partial: Partial<User>) {
-    await api.put("/auth/me", partial);
-    updateUser(partial);
+    const { data } = await api.put("/auth/me", partial);
+    updateUser(normalizeUser(data.user as User));
   }
 
   async function refreshUser() {

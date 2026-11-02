@@ -769,6 +769,7 @@ export const authController = {
             provider: true,
             passwordHash: true,
             fecha_creacion: true,
+            bodyType: true,
               genero: true,
               altura: true,
               medida_pecho: true,
@@ -853,6 +854,15 @@ export const authController = {
         hasUpdate = true;
       }
 
+      if (body.bodyType !== undefined) {
+        if (body.bodyType !== "slim" && body.bodyType !== "average" && body.bodyType !== "broad") {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_BODY_TYPE" });
+          return;
+        }
+        dataToUpdate.bodyType = body.bodyType;
+        hasUpdate = true;
+      }
+
       const measurementFields = [
         ["altura", 100, 250],
         ["medida_pecho", 30, 250],
@@ -925,6 +935,7 @@ export const authController = {
           points: true,
           provider: true,
           genero: true,
+          bodyType: true,
           altura: true,
           medida_pecho: true,
           medida_cintura: true,
@@ -948,6 +959,7 @@ export const authController = {
           points: updatedUser.points,
           provider: updatedUser.provider || "LOCAL",
           genero: updatedUser.genero,
+          bodyType: updatedUser.bodyType,
           altura: updatedUser.altura === null ? null : Number(updatedUser.altura),
           medida_pecho: updatedUser.medida_pecho === null ? null : Number(updatedUser.medida_pecho),
           medida_cintura: updatedUser.medida_cintura === null ? null : Number(updatedUser.medida_cintura),
