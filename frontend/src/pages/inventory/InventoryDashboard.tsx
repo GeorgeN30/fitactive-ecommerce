@@ -1,4 +1,5 @@
 import InventoryHomeView from "../../components/inventory/views/InventoryHomeView";
+import "../../components/admin/fonts.css";
 import InventoryStockView from "../../components/inventory/views/InventoryStockView";
 import InventoryAuditView from "../../components/inventory/views/InventoryAuditView";
 import InventoryAlertsView from "../../components/inventory/views/InventoryAlertsView";

@@ -1,10 +1,17 @@
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
+
+@font-face {
+  font-family: "Plus Jakarta Sans Variable";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2") format("woff2");
+}
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, sans-serif;
 
   --color-brand-green: #00e676;
   --color-brand-green-hover: #00c853;
@@ -17,7 +24,7 @@
 }
 
 body {
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif;
 }
 
 .admin-shell,
@@ -25,7 +32,7 @@ body {
 .admin-shell input,
 .admin-shell select,
 .admin-shell textarea {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Inter Variable", system-ui, sans-serif;
 }
 
 .admin-shell h1,
