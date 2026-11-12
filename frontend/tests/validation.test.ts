@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getEmailValidationMessage,
+  getRegistrationEmailValidationMessage,
   getPasswordRequirements,
   isStrongPassword,
 } from "../src/utils/validation";
@@ -15,6 +16,10 @@ describe("form validation helpers", () => {
       "Agrega una extensión, por ejemplo .com.",
     );
     expect(getEmailValidationMessage("usuario@dominio.com")).toBeNull();
+    expect(getRegistrationEmailValidationMessage("usuario@iconcubic.com")).toBe(
+      "Utiliza un correo personal de un proveedor admitido.",
+    );
+    expect(getRegistrationEmailValidationMessage("usuario@gmail.com")).toBeNull();
   });
 
   it("checks all registration password requirements", () => {

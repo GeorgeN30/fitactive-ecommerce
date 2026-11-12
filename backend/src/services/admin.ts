@@ -5,14 +5,18 @@ import {
   ALLOWED_ORDER_STATUSES,
   LOW_STOCK_THRESHOLD,
   MOVEMENT_TYPE,
+  ORDER_STATUS,
   ROLES,
 } from "../constants";
-import { calculateDiscountedPrice, roundToCents } from "../utils/pricing";
+import { resolveVariantPrice, roundToCents } from "../utils/pricing";
 import { deleteProductImages, prepareProductImages } from "./productImages";
+const REVENUE_STATUSES = [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.SHIPPED, ORDER_STATUS.DELIVERED];
 
 export interface ProductTallaInput {
   talla: string;
   stock?: number;
+  rangoCmMin?: number | null;
+  rangoCmMax?: number | null;
 }
 
 export interface ProductInput {
@@ -44,6 +48,8 @@ export interface ProductResult {
     stock: number;
     discountPercent: number;
     salePrice: number;
+    discountStartsAt: Date | null;
+    discountEndsAt: Date | null;
     rangoCmMin: number | null;
     rangoCmMax: number | null;
   }[];
@@ -57,6 +63,10 @@ export interface OrderResult {
   total: number;
   fechaOrden: Date | null;
   customer: { id: string; email: string; name: string | null };
+  customerPhone: string | null;
+  shippingAddress: string | null;
+  shippingDistrict: string | null;
+  shippingCity: string | null;
   items: {
     productoId: string;
     nombre: string;
@@ -104,6 +114,7 @@ export interface MovementInput {
 }
 
 export type FinancePeriod = "week" | "month" | "quarter" | "year";
+export const FINANCE_PERIODS: readonly FinancePeriod[] = ["week", "month", "quarter", "year"];
 
 export interface FinanceSummaryResult {
   period: FinancePeriod;
@@ -118,10 +129,11 @@ export interface FinanceSummaryResult {
     description: string;
     date: string;
     amount: number;
-    type: "Ingreso" | "Devolución";
+    type: "Ingreso" | "Devolución" | "Gasto";
   }[];
-  expenses: null;
-  paymentMethods: never[];
+  expenses: { id: string; category: string; description: string; amount: number; spentAt: Date }[];
+  expenseTotal: number;
+  paymentMethods: { name: string; transactions: number; amount: number; percentage: number }[];
 }
 
 const FINANCE_PERIOD_LABELS: Record<FinancePeriod, string> = {
@@ -196,6 +208,8 @@ function mapProduct(prod: {
     talla: string;
     stock: number | null;
     descuento_porcentaje?: number | null;
+    descuento_inicio?: Date | null;
+    descuento_fin?: Date | null;
     rango_cm_min?: { toNumber: () => number } | null;
     rango_cm_max?: { toNumber: () => number } | null;
   }[];
@@ -205,8 +219,7 @@ function mapProduct(prod: {
     id: t.id,
     talla: t.talla,
     stock: t.stock ?? 0,
-    discountPercent: t.descuento_porcentaje ?? 0,
-    salePrice: calculateDiscountedPrice(basePrice, t.descuento_porcentaje ?? 0),
+    ...resolveVariantPrice(basePrice, t),
     rangoCmMin: t.rango_cm_min?.toNumber() ?? null,
     rangoCmMax: t.rango_cm_max?.toNumber() ?? null,
   }));
@@ -251,6 +264,15 @@ function validateProductTallas(tallas: ProductTallaInput[]): void {
     ) {
       throw new Error("INVALID_QUANTITY");
     }
+    if (talla.rangoCmMin !== undefined && talla.rangoCmMin !== null && (!Number.isFinite(talla.rangoCmMin) || talla.rangoCmMin < 0)) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
+    if (talla.rangoCmMax !== undefined && talla.rangoCmMax !== null && (!Number.isFinite(talla.rangoCmMax) || talla.rangoCmMax < 0)) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
+    if (talla.rangoCmMin != null && talla.rangoCmMax != null && talla.rangoCmMin > talla.rangoCmMax) {
+      throw new Error("INVALID_MEASUREMENT_RANGE");
+    }
   }
 }
 
@@ -272,6 +294,9 @@ function validateProductInput(data: ProductInput | Partial<ProductInput>): void 
   }
   if (data.tallas !== undefined) {
     if (!Array.isArray(data.tallas)) {
+      throw new Error("SIZE_REQUIRED");
+    }
+    if (data.tallas.length === 0) {
       throw new Error("SIZE_REQUIRED");
     }
     validateProductTallas(data.tallas);
@@ -329,6 +354,8 @@ export const adminService = {
             create: (data.tallas || []).map((t) => ({
               talla: t.talla.trim(),
               stock: t.stock ?? 0,
+              rango_cm_min: t.rangoCmMin ?? null,
+              rango_cm_max: t.rangoCmMax ?? null,
             })),
           },
           producto_imagenes: {
@@ -390,6 +417,9 @@ export const adminService = {
         }
 
         if (data.tallas !== undefined) {
+          const requestedSizeNames = new Set(
+            data.tallas.map((tallaInput) => tallaInput.talla.trim()),
+          );
           for (const tallaInput of data.tallas) {
             const normalizedSize = tallaInput.talla.trim();
             const match = existing.producto_tallas.find(
@@ -398,14 +428,58 @@ export const adminService = {
             if (match) {
               const updatedStock = await tx.producto_tallas.updateMany({
                 where: { id: match.id, stock: match.stock },
-                data: { stock: tallaInput.stock ?? match.stock },
+                data: {
+                  stock: tallaInput.stock ?? match.stock,
+                  rango_cm_min: tallaInput.rangoCmMin !== undefined ? tallaInput.rangoCmMin : match.rango_cm_min,
+                  rango_cm_max: tallaInput.rangoCmMax !== undefined ? tallaInput.rangoCmMax : match.rango_cm_max,
+                },
               });
               if (updatedStock.count !== 1) {
                 throw new Error("STOCK_CONFLICT");
               }
             } else {
               await tx.producto_tallas.create({
-                data: { producto_id: id, talla: normalizedSize, stock: tallaInput.stock ?? 0 },
+                data: {
+                  producto_id: id,
+                  talla: normalizedSize,
+                  stock: tallaInput.stock ?? 0,
+                  rango_cm_min: tallaInput.rangoCmMin ?? null,
+                  rango_cm_max: tallaInput.rangoCmMax ?? null,
+                },
+              });
+            }
+          }
+
+          const removedSizes = existing.producto_tallas.filter(
+            (talla) => !requestedSizeNames.has(talla.talla),
+          );
+          if (removedSizes.length > 0) {
+            const removedIds = removedSizes.map((talla) => talla.id);
+            const [ordersUsingSize, discountsUsingSize] = await Promise.all([
+              tx.orden_detalles.findMany({
+                where: { producto_talla_id: { in: removedIds } },
+                select: { producto_talla_id: true },
+              }),
+              tx.discount_requests.findMany({
+                where: { producto_talla_id: { in: removedIds } },
+                select: { producto_talla_id: true },
+              }),
+            ]);
+            const protectedIds = new Set([
+              ...ordersUsingSize.map((item) => item.producto_talla_id),
+              ...discountsUsingSize.map((item) => item.producto_talla_id),
+            ]);
+            const deletableIds = removedIds.filter((id) => !protectedIds.has(id));
+            if (deletableIds.length > 0) {
+              await tx.producto_tallas.deleteMany({ where: { id: { in: deletableIds } } });
+            }
+            const protectedRemovedIds = removedIds.filter((id) => protectedIds.has(id));
+            if (protectedRemovedIds.length > 0) {
+              // An order or discount keeps the variant for referential integrity;
+              // setting it to zero hides it from the customer without deleting history.
+              await tx.producto_tallas.updateMany({
+                where: { id: { in: protectedRemovedIds } },
+                data: { stock: 0 },
               });
             }
           }
@@ -478,10 +552,14 @@ export const adminService = {
       estado: order.estado || "pending",
       total: order.total.toNumber(),
       fechaOrden: order.fecha_orden,
+      customerPhone: order.customer_phone,
+      shippingAddress: order.shipping_address,
+      shippingDistrict: order.shipping_district,
+      shippingCity: order.shipping_city,
       customer: {
         id: order.usuarios.id,
-        email: order.usuarios.email,
-        name: order.usuarios.name,
+        email: order.customer_email || order.usuarios.email,
+        name: order.customer_name || order.usuarios.name,
       },
       items: order.orden_detalles.map((detail) => {
         const precioUnitario = detail.precio_unitario.toNumber();
@@ -510,6 +588,61 @@ export const adminService = {
     const existing = await prisma.ordenes.findUnique({ where: { id } });
     if (!existing) {
       throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const currentStatus = (existing.estado || ORDER_STATUS.PENDING).toLowerCase();
+    if (estado === ORDER_STATUS.RETURNED) throw new Error("RETURN_WORKFLOW_REQUIRED");
+    if (estado === ORDER_STATUS.CONFIRMED && existing.mp_status !== "approved") throw new Error("PAYMENT_NOT_CONFIRMED");
+    if (estado === ORDER_STATUS.CANCELLED && existing.mp_status === "approved") throw new Error("PAID_ORDER_CANNOT_CANCEL");
+    const allowedTransitions: Record<string, string[]> = {
+      [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.PREPARING]: [ORDER_STATUS.SHIPPED, ORDER_STATUS.CANCELLED],
+      [ORDER_STATUS.SHIPPED]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED],
+      [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED],
+      [ORDER_STATUS.CANCELLED]: [],
+      [ORDER_STATUS.RETURNED]: [],
+    };
+
+    if (!allowedTransitions[currentStatus]?.includes(estado)) {
+      throw new Error("INVALID_STATUS_TRANSITION");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.ordenes.updateMany({ where: { id, estado: existing.estado }, data: { estado, ...(estado === ORDER_STATUS.DELIVERED ? { delivered_at: new Date() } : {}) } });
+      if (updated.count !== 1) throw new Error("INVALID_STATUS_TRANSITION");
+      if (estado === ORDER_STATUS.CANCELLED && currentStatus === ORDER_STATUS.PENDING) {
+        const details = await tx.orden_detalles.findMany({ where: { orden_id: id } });
+        for (const detail of details) await tx.producto_tallas.update({ where: { id: detail.producto_talla_id }, data: { stock: { increment: detail.cantidad } } });
+      }
+    });
+
+    const orders = await this.listOrders();
+    const updated = orders.find((order) => order.id === id);
+    if (!updated) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+    return updated;
+  },
+
+  async updateInventoryOrderStatus(id: string, estado: string): Promise<OrderResult> {
+    const allowedTransitions: Record<string, string[]> = {
+      [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PREPARING],
+      [ORDER_STATUS.PREPARING]: [ORDER_STATUS.SHIPPED],
+    };
+
+    if (!estado || !Object.values(allowedTransitions).flat().includes(estado)) {
+      throw new Error("INVENTORY_STATUS_FORBIDDEN");
+    }
+
+    const existing = await prisma.ordenes.findUnique({ where: { id } });
+    if (!existing) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const currentStatus = (existing.estado || ORDER_STATUS.PENDING).toLowerCase();
+    if (!allowedTransitions[currentStatus]?.includes(estado)) {
+      throw new Error("INVALID_INVENTORY_STATUS_TRANSITION");
     }
 
     await prisma.ordenes.update({
@@ -735,24 +868,28 @@ export const adminService = {
   },
 
   async getDashboardStats(): Promise<Record<string, unknown>> {
-    const [totalOrders, revenueAgg, totalCustomers, totalProducts, lowStockCount, pendingOrders, soldAgg, totalReturns] =
+    const [totalOrders, revenueAgg, totalCustomers, totalProducts, pendingOrders, soldAgg, totalReturns, lowStockVariants] =
       await Promise.all([
         prisma.ordenes.count(),
-        prisma.ordenes.aggregate({ _sum: { total: true } }),
+        prisma.ordenes.aggregate({ where: { estado: { in: REVENUE_STATUSES } }, _sum: { total: true, refunded_amount: true } }),
         prisma.usuarios.count({ where: { role: ROLES.CUSTOMER } }),
         prisma.productos.count(),
-        prisma.producto_tallas.count({ where: { stock: { lte: LOW_STOCK_THRESHOLD } } }),
         prisma.ordenes.count({ where: { estado: "pending" } }),
-        prisma.orden_detalles.aggregate({ _sum: { cantidad: true } }),
+        prisma.orden_detalles.aggregate({ where: { ordenes: { estado: { in: REVENUE_STATUSES } } }, _sum: { cantidad: true } }),
         prisma.ordenes.count({ where: { estado: "return" } }),
+        prisma.producto_tallas.findMany({
+          where: { stock: { lte: LOW_STOCK_THRESHOLD } },
+          select: { producto_id: true },
+          distinct: ["producto_id"],
+        }),
       ]);
 
     return {
       totalOrders,
-      revenue: revenueAgg._sum.total ? revenueAgg._sum.total.toNumber() : 0,
+      revenue: roundToCents((revenueAgg._sum.total?.toNumber() || 0) - (revenueAgg._sum.refunded_amount?.toNumber() || 0)),
       totalCustomers,
       totalProducts,
-      lowStockCount,
+      lowStockCount: lowStockVariants.length,
       pendingOrders,
       totalUnitsSold: soldAgg._sum.cantidad || 0,
       totalReturns,
@@ -764,8 +901,8 @@ export const adminService = {
     const since = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
     const orders = await prisma.ordenes.findMany({
-      where: { fecha_orden: { gte: since } },
-      select: { total: true, fecha_orden: true },
+      where: { fecha_orden: { gte: since }, estado: { in: REVENUE_STATUSES } },
+      select: { total: true, refunded_amount: true, fecha_orden: true },
     });
 
     const byMonth = new Map<string, number>();
@@ -777,7 +914,7 @@ export const adminService = {
     for (const order of orders) {
       if (!order.fecha_orden) continue;
       const key = order.fecha_orden.toLocaleDateString("en-US", { month: "short" });
-      byMonth.set(key, roundToCents((byMonth.get(key) || 0) + order.total.toNumber()));
+      byMonth.set(key, roundToCents((byMonth.get(key) || 0) + order.total.toNumber() - (order.refunded_amount?.toNumber() || 0)));
     }
 
     return Array.from(byMonth.entries()).map(([label, value]) => ({ label, value }));
@@ -794,15 +931,26 @@ export const adminService = {
         orden_detalles: {
           include: {
             producto_tallas: { include: { productos: true } },
+            return_items: { where: { request: { status: "REFUNDED" } }, select: { quantity: true } },
           },
         },
       },
     });
 
     let revenue = 0;
+    let expenseTotal = 0;
     let ordersCount = 0;
     let returnsCount = 0;
     const transactions: FinanceSummaryResult["transactions"] = [];
+    const expenses = await prisma.financial_expenses.findMany({ where: { spent_at: { gte: new Date(`${buckets[0].key}T00:00:00`), lte: now } }, orderBy: { spent_at: "desc" } });
+    for (const expense of expenses) {
+      const key = financeBucketKey(expense.spent_at, period);
+      const amount = roundToCents(expense.amount.toNumber());
+      if (!revenueByBucket.has(key)) continue;
+      expenseTotal = roundToCents(expenseTotal + amount);
+      revenueByBucket.set(key, roundToCents((revenueByBucket.get(key) || 0) - amount));
+      transactions.push({ reference: expense.id, description: expense.description, date: expense.spent_at.toISOString().slice(0, 10), amount: -amount, type: "Gasto" });
+    }
 
     for (const order of orders) {
       if (!order.fecha_orden) continue;
@@ -813,11 +961,12 @@ export const adminService = {
       const status = (order.estado || "pending").toLowerCase();
       const isReturn = status === "return" || status === "returned";
       const isCancelled = status === "cancelled";
-      const total = roundToCents(order.total.toNumber());
+      const isRevenue = (REVENUE_STATUSES as readonly string[]).includes(status);
+      const total = roundToCents(order.total.toNumber() - (order.refunded_amount?.toNumber() || 0));
 
       if (isReturn) {
         returnsCount += 1;
-      } else if (!isCancelled) {
+      } else if (isRevenue) {
         revenue = roundToCents(revenue + total);
         ordersCount += 1;
         revenueByBucket.set(bucketKey, roundToCents((revenueByBucket.get(bucketKey) || 0) + total));
@@ -825,19 +974,20 @@ export const adminService = {
         for (const detail of order.orden_detalles) {
           const name = detail.producto_tallas.productos.categoria || "Sin categoría";
           const current = categories.get(name) || { amount: 0, units: 0 };
+          const netUnits = detail.cantidad - (detail.return_items || []).reduce((sum, item) => sum + item.quantity, 0);
           categories.set(name, {
-            amount: roundToCents(current.amount + detail.precio_unitario.toNumber() * detail.cantidad),
-            units: current.units + detail.cantidad,
+            amount: roundToCents(current.amount + detail.precio_unitario.toNumber() * netUnits),
+            units: current.units + netUnits,
           });
         }
       }
 
-      if (!isCancelled) {
+      if (!isCancelled && (isReturn || isRevenue)) {
         transactions.push({
           reference: order.numero || order.id,
           description: isReturn ? "Devolución de pedido" : "Venta online",
-          date: orderDate.toLocaleDateString("es-PE"),
-          amount: isReturn ? -Math.abs(total) : total,
+          date: orderDate.toISOString().slice(0, 10),
+          amount: isReturn ? -Math.abs(order.refunded_amount?.toNumber() || order.total.toNumber()) : total,
           type: isReturn ? "Devolución" : "Ingreso",
         });
       }
@@ -859,7 +1009,7 @@ export const adminService = {
     return {
       period,
       periodLabel: FINANCE_PERIOD_LABELS[period],
-      revenue,
+      revenue: roundToCents(revenue - expenseTotal),
       ordersCount,
       returnsCount,
       monthlyRevenue: buckets.map((bucket) => ({
@@ -867,43 +1017,29 @@ export const adminService = {
         value: revenueByBucket.get(bucket.key) || 0,
       })),
       categories: categoryData,
-      transactions: transactions.slice(0, 8),
-      expenses: null,
-      paymentMethods: [],
+      transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20),
+      expenses: expenses.map((expense) => ({ id: expense.id, category: expense.category, description: expense.description, amount: expense.amount.toNumber(), spentAt: expense.spent_at })),
+      expenseTotal,
+      paymentMethods: (() => {
+        const paidOrders = orders.filter((order) => REVENUE_STATUSES.includes((order.estado || "").toLowerCase() as never) && order.mp_status === "approved");
+        const amount = roundToCents(paidOrders.reduce((sum, order) => sum + order.total.toNumber() - (order.refunded_amount?.toNumber() || 0), 0));
+        return paidOrders.length ? [{ name: "Mercado Pago", transactions: paidOrders.length, amount, percentage: revenue > 0 ? Number((amount / revenue * 100).toFixed(1)) : 0 }] : [];
+      })(),
     };
   },
 
   async getTopProducts(): Promise<{ id: string; name: string; units: number; revenue: number }[]> {
-    const grouped = await prisma.orden_detalles.groupBy({
-      by: ["producto_talla_id"],
-      _sum: { cantidad: true },
-      orderBy: { _sum: { cantidad: "desc" } },
-      take: 10,
-    });
-
-    if (grouped.length === 0) return [];
-
-    const ids = grouped.map((g) => g.producto_talla_id);
-    const tallas = await prisma.producto_tallas.findMany({
-      where: { id: { in: ids } },
-      include: { productos: true },
-    });
-
-    const tallaById = new Map(tallas.map((t) => [t.id, t]));
-
-    return grouped
-      .map((g) => {
-        const talla = tallaById.get(g.producto_talla_id);
-        if (!talla) return null;
-        const units = g._sum.cantidad || 0;
-        return {
-          id: talla.productos.id,
-          name: talla.productos.nombre,
-          units,
-          revenue: roundToCents(talla.productos.precio.toNumber() * units),
-        };
-      })
-      .filter((item): item is { id: string; name: string; units: number; revenue: number } => item !== null);
+    const details = await prisma.orden_detalles.findMany({ where: { ordenes: { estado: { in: REVENUE_STATUSES } } }, include: { producto_tallas: { include: { productos: true } }, return_items: { where: { request: { status: "REFUNDED" } }, select: { quantity: true } } } });
+    const totals = new Map<string, { id: string; name: string; units: number; revenue: number }>();
+    for (const detail of details) {
+      const product = detail.producto_tallas.productos;
+      const current = totals.get(product.id) || { id: product.id, name: product.nombre, units: 0, revenue: 0 };
+      const units = detail.cantidad - (detail.return_items || []).reduce((sum, item) => sum + item.quantity, 0);
+      current.units += units;
+      current.revenue = roundToCents(current.revenue + detail.precio_unitario.toNumber() * units);
+      totals.set(product.id, current);
+    }
+    return [...totals.values()].sort((a, b) => b.units - a.units).slice(0, 10);
   },
 
   async getCategories(): Promise<{ name: string; count: number }[]> {

@@ -8,11 +8,18 @@ node_modules/
 dist/
 build/
 .vite/
+coverage/
+test-results/
+playwright-report/
 
 # Environment files
 .env
 .env.*
 !.env.example
+
+# Personal Nix development environment
+/flake.nix
+/flake.lock
 
 # Database files
 *.db

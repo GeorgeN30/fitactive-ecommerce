@@ -75,7 +75,7 @@ function validateToken(
 
       const dbUser = await prisma.usuarios.findUnique({
         where: { id: userId },
-        select: { role: true, blocked: true },
+        select: { role: true, blocked: true, twoFactorEnabled: true },
       });
 
       if (!dbUser) {
@@ -88,9 +88,19 @@ function validateToken(
         return;
       }
 
+      if (
+        dbUser.twoFactorEnabled &&
+        !allowMfaPending &&
+        extra?.mfa_verified !== true
+      ) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "MFA_REQUIRED" });
+        return;
+      }
+
       req.user = {
         userId,
         role: dbUser.role || ROLES.CUSTOMER,
+        twoFactorEnabled: dbUser.twoFactorEnabled,
       };
 
       next();

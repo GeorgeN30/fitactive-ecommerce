@@ -1,6 +1,6 @@
 export const SESSION_CLEARED_EVENT = "fitlook:session-cleared";
 
-const SESSION_KEYS = ["token", "user", "preAuth_token"] as const;
+const SESSION_KEYS = ["token", "user", "preAuth_token", "preAuth_user_id"] as const;
 
 export type SessionPersistence = "local" | "session";
 
@@ -35,12 +35,14 @@ export function persistSession(
   secondaryStorage.removeItem("user");
 }
 
-export function persistPreAuthToken(token: string, rememberMe: boolean): void {
+export function persistPreAuthToken(token: string, userId: string, rememberMe: boolean): void {
   const primaryStorage = rememberMe ? localStorage : sessionStorage;
   const secondaryStorage = rememberMe ? sessionStorage : localStorage;
 
   primaryStorage.setItem("preAuth_token", token);
+  primaryStorage.setItem("preAuth_user_id", userId);
   secondaryStorage.removeItem("preAuth_token");
+  secondaryStorage.removeItem("preAuth_user_id");
 }
 
 export function updateStoredUser(user: unknown): void {
@@ -59,5 +61,7 @@ export function clearStoredSession(): void {
   sessionStorage.removeItem("favorites");
   localStorage.removeItem("fitactive-cart");
   sessionStorage.removeItem("fitactive-cart");
+  localStorage.removeItem("fitlook:pending-checkout");
+  sessionStorage.removeItem("fitlook:pending-checkout");
   window.dispatchEvent(new Event(SESSION_CLEARED_EVENT));
 }

@@ -1,8 +1,10 @@
 import api from "./api";
+import { getStoredSessionValue } from "../utils/session";
 
 const WS_BASE =
   import.meta.env.VITE_BAAS_WS_URL || "wss://core.geozns.com/v1/ws";
 const APP_ID = import.meta.env.VITE_JWT_APP_ID || "integrador2_web";
+export const NOTIFICATIONS_UPDATED_EVENT = "fitlook:notifications-updated";
 
 export interface AdminNotification {
   id: string;
@@ -12,6 +14,7 @@ export interface AdminNotification {
   date: string;
   read: boolean;
   priority: "high" | "medium" | "low";
+  referenceId?: string | null;
 }
 
 interface BackendNotification {
@@ -21,6 +24,7 @@ interface BackendNotification {
   message: string;
   read: boolean;
   createdAt: string;
+  referenceId?: string | null;
 }
 
 function formatNotificationDate(value: string): string {
@@ -48,7 +52,12 @@ function mapBackendNotification(notification: BackendNotification): AdminNotific
     date: formatNotificationDate(notification.createdAt),
     read: notification.read,
     priority,
+    referenceId: notification.referenceId,
   };
+}
+
+export function announceNotificationsUpdated(): void {
+  window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT));
 }
 
 export async function fetchNotifications(): Promise<AdminNotification[]> {
@@ -69,6 +78,7 @@ export async function markAllNotificationsRead(): Promise<void> {
 export type LiveEvent =
   | { type: "NEW_ORDER"; data?: Record<string, unknown> }
   | { type: "ORDER_STATUS"; data?: Record<string, unknown> }
+  | { type: "PAYMENT_STATUS"; data?: Record<string, unknown> }
   | { type: "STOCK_ALERT"; data?: Record<string, unknown> }
   | { type: "DISCOUNT_REQUESTED"; data?: Record<string, unknown> }
   | { type: "DISCOUNT_APPROVED"; data?: Record<string, unknown> }
@@ -133,6 +143,18 @@ export function mapLiveEventToAdminNotification(
         read: false,
         priority: "low",
       };
+    case "PAYMENT_STATUS":
+      return {
+        id: `live-${Date.now()}`,
+        title: "Pago actualizado",
+        message: `El pago del pedido${orderNumber ? ` ${orderNumber}` : ""} está ${(data.paymentStatus as string) || "pendiente"}.`,
+        type: "order",
+        date: "Justo ahora",
+        read: false,
+        priority: ["rejected", "cancelled", "cancelled_by_payer", "expired"].includes(
+          String(data.paymentStatus || "").toLowerCase(),
+        ) ? "high" : "medium",
+      };
     case "STOCK_ALERT":
       return {
         id: `live-${Date.now()}`,
@@ -196,6 +218,20 @@ export function mapLiveEventToAdminNotification(
   }
 }
 
+export function mapLiveEventToCustomerNotification(
+  event: LiveEvent,
+): AdminNotification {
+  const notification = mapLiveEventToAdminNotification(event);
+  if (event.type !== "NEW_ORDER") return notification;
+  const data = event.data || {};
+  const orderNumber = (data.orderNumber as string) || (data.orderId as string) || "";
+  return {
+    ...notification,
+    title: "Pedido registrado",
+    message: `Tu pedido${orderNumber ? ` ${orderNumber}` : ""} fue registrado y está pendiente de pago.`,
+  };
+}
+
 export function connectAdminSocket(
   onEvent: (event: LiveEvent) => void,
 ): () => void {
@@ -205,7 +241,7 @@ export function connectAdminSocket(
 
   const connect = () => {
     if (closed) return;
-    const token = localStorage.getItem("token");
+    const token = getStoredSessionValue("token");
     if (!token) return;
 
     const url = `${WS_BASE}?token=${encodeURIComponent(token)}&app_id=${encodeURIComponent(APP_ID)}`;

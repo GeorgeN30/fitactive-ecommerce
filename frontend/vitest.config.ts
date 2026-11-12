@@ -9,5 +9,9 @@ export default defineConfig({
     include: ["tests/**/*.test.{ts,tsx}"],
     setupFiles: ["tests/setup.ts"],
     testTimeout: 10000,
+    maxWorkers: 2,
+    coverage: {
+      thresholds: { statements: 55, branches: 45, functions: 50, lines: 55 },
+    },
   },
 });

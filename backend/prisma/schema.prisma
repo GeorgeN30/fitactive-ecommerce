@@ -16,6 +16,7 @@ model orden_detalles {
   precio_unitario   Decimal         @db.Decimal(10, 2)
   ordenes           ordenes         @relation(fields: [orden_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_orden")
   producto_tallas   producto_tallas @relation(fields: [producto_talla_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_producto_talla")
+  return_items return_items[]
 }
 
 model ordenes {
@@ -25,8 +26,29 @@ model ordenes {
   total          Decimal          @db.Decimal(10, 2)
   estado         String?          @default("PENDIENTE") @db.VarChar(50)
   fecha_orden    DateTime?        @default(now()) @db.Timestamp(6)
+  customer_name  String?          @db.VarChar(150)
+  customer_email String?          @db.VarChar(255)
+  customer_phone String?          @db.VarChar(40)
+  shipping_address String?        @db.VarChar(255)
+  shipping_district String?       @db.VarChar(120)
+  shipping_city String?            @db.VarChar(120)
+  shipping_reference String?       @db.VarChar(255)
+  reservation_expires_at DateTime? @db.Timestamp(6)
+  mp_preference_id String?         @db.VarChar(100)
+  mp_init_point    String?         @db.Text
+  mp_payment_id    String?         @db.VarChar(100)
+  mp_status        String?         @db.VarChar(50)
+  mp_status_detail String?         @db.VarChar(100)
+  mp_paid_at       DateTime?       @db.Timestamp(6)
+  refunded_amount Decimal         @default(0) @db.Decimal(10, 2)
+  delivered_at    DateTime?       @db.Timestamptz(6)
+  return_requests return_requests[]
   orden_detalles orden_detalles[]
   usuarios       usuarios         @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_usuario")
+
+  @@index([mp_preference_id])
+  @@index([mp_payment_id])
+  @@index([reservation_expires_at])
 }
 
 model producto_tallas {
@@ -35,6 +57,9 @@ model producto_tallas {
   talla              String               @db.VarChar(10)
   stock              Int?                 @default(0)
   descuento_porcentaje Int                @default(0)
+  descuento_inicio    DateTime?            @db.Timestamptz(6)
+  descuento_fin       DateTime?            @db.Timestamptz(6)
+  descuento_solicitud_id String?            @db.Uuid
   rango_cm_min       Decimal?             @db.Decimal(5, 2)
   rango_cm_max       Decimal?             @db.Decimal(5, 2)
   orden_detalles     orden_detalles[]
@@ -69,6 +94,12 @@ model producto_imagenes {
   @@index([producto_id, orden])
 }
 
+enum BodyType {
+  slim
+  average
+  broad
+}
+
 model usuarios {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email            String    @unique @db.VarChar(255)
@@ -80,6 +111,10 @@ model usuarios {
   role             String?   @default("customer") @map("rol") @db.VarChar(50)
 
   // Datos biométricos
+  genero           String?   @db.VarChar(50)
+  bodyType         BodyType? @map("body_type")
+  altura           Decimal?  @db.Decimal(5, 2)
+  medida_muslo     Decimal?  @db.Decimal(5, 2)
   medida_pecho     Decimal?  @db.Decimal(5, 2)
   medida_cintura   Decimal?  @db.Decimal(5, 2)
   medida_cadera    Decimal?  @db.Decimal(5, 2)
@@ -92,6 +127,10 @@ model usuarios {
   twoFactorEnabled Boolean   @default(false)
   totpSecret       String?
   points           Int       @default(0)
+  preferencia_ropa       String?  @db.VarChar(100)
+  preferencia_colores    String?  @db.VarChar(100)
+  preferencia_deporte    String?  @db.VarChar(100)
+  onboarding_completado Boolean  @default(false)
 
   // Relaciones
   ordenes          ordenes[]
@@ -100,6 +139,11 @@ model usuarios {
   discount_requests_reviewed discount_requests[] @relation("discount_reviewer")
   notifications     notifications[]
   virtual_tryon_events virtual_tryon_events[]
+  support_created support_tickets[] @relation("support_owner")
+  support_responded support_tickets[] @relation("support_agent")
+  returns_created return_requests[] @relation("return_owner")
+  returns_reviewed return_requests[] @relation("return_reviewer")
+  financial_expenses financial_expenses[]
 }
 
 model inventory_movements {
@@ -125,6 +169,9 @@ model discount_requests {
   comentario_admin  String?         @db.VarChar(255)
   solicitado_en     DateTime        @default(now()) @db.Timestamp(6)
   revisado_en       DateTime?       @db.Timestamp(6)
+  duracion_horas    Int?
+  fecha_inicio     DateTime?       @db.Timestamptz(6)
+  fecha_fin        DateTime?       @db.Timestamptz(6)
   producto_tallas   producto_tallas @relation(fields: [producto_talla_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_discount_request_variant")
   solicitante       usuarios        @relation("discount_requester", fields: [solicitado_por], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_discount_requester")
   revisor           usuarios?       @relation("discount_reviewer", fields: [revisado_por], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_discount_reviewer")
@@ -169,4 +216,86 @@ model virtual_tryon_events {
   @@index([producto_id, creado_en])
   @@index([sesion_id, producto_id])
   @@index([orden_id])
+}
+
+model mercadopago_webhook_events {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_key      String   @unique @db.VarChar(250)
+  topic          String   @db.VarChar(80)
+  resource_id    String   @db.VarChar(100)
+  payment_status String?  @db.VarChar(50)
+  payload        Json?
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([resource_id])
+  @@index([topic, resource_id])
+}
+
+model store_settings {
+  id         String   @id @default("store")
+  values     Json
+  updated_by String?  @db.Uuid
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
+model support_tickets {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  subject      String   @db.VarChar(150)
+  message      String   @db.VarChar(2000)
+  status       String   @default("OPEN") @db.VarChar(20)
+  response     String?  @db.VarChar(2000)
+  responded_by String?  @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  user usuarios @relation("support_owner", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  responder usuarios? @relation("support_agent", fields: [responded_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  @@index([user_id, created_at], map: "support_tickets_user_created")
+}
+
+model return_requests {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id    String   @db.Uuid
+  user_id     String   @db.Uuid
+  reason      String   @db.VarChar(1000)
+  status      String   @default("PENDING") @db.VarChar(20)
+  comment     String?  @db.VarChar(1000)
+  reviewed_by String?  @db.Uuid
+  amount      Decimal  @db.Decimal(10, 2)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  reviewed_at DateTime? @db.Timestamptz(6)
+  received_at DateTime? @db.Timestamptz(6)
+  refunded_at DateTime? @db.Timestamptz(6)
+  refund_id   String?  @db.VarChar(100)
+  refund_status String @default("NOT_REQUESTED") @db.VarChar(20)
+  refund_attempted_at DateTime? @db.Timestamptz(6)
+  order ordenes @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user usuarios @relation("return_owner", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewer usuarios? @relation("return_reviewer", fields: [reviewed_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  items return_items[]
+  @@index([user_id, created_at])
+  @@index([status])
+}
+
+model return_items {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id String @db.Uuid
+  detail_id String @db.Uuid
+  quantity  Int
+  request return_requests @relation(fields: [request_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  detail orden_detalles @relation(fields: [detail_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([request_id, detail_id])
+}
+
+model financial_expenses {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category    String   @db.VarChar(100)
+  description String   @db.VarChar(255)
+  amount      Decimal  @db.Decimal(10, 2)
+  spent_at    DateTime @db.Timestamptz(6)
+  created_by  String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  creator     usuarios @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([spent_at])
+  @@index([category, spent_at])
 }

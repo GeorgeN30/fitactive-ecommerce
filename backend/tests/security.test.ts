@@ -11,6 +11,7 @@ vi.mock("../src/config/env", () => ({
     adminPassword: "Admin123",
     receptionistEmail: "receptionist@test.com",
     receptionistPassword: "Admin123",
+    personalEmailDomains: ["example.com", "test.com", "gmail.com"],
   },
 }));
 

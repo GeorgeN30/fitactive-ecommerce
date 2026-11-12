@@ -1,541 +1,531 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
-import api from '../services/api';
-import {
-  getVirtualTryOnSessionId,
-  markVirtualTryOnProduct,
-  trackVirtualTryOnEvent,
-} from '../services/virtualTryOn';
+import { useCatalog } from '../hooks/useCatalog';
+import { getSizePrice } from '../services/catalog';
+import ProductOffer from '../components/ProductOffer';
+import FavoriteButton from '../components/FavoriteButton';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { paginateProducts, PRODUCTS_PER_PAGE } from '../utils/productPagination';
+import { getVirtualTryOnSessionId, markVirtualTryOnProduct, trackVirtualTryOnEvent } from '../services/virtualTryOn';
+import ProductSelector from '../components/ProbadorVirtual/ProductSelector';
 
-export const PRODUCTS_PER_PAGE = 5;
+import AvatarStage from '../components/ProbadorVirtual/AvatarStage';
+import GarmentColorPicker from '../components/ProbadorVirtual/GarmentColorPicker';
+import { getGarmentVisual, prioritizeGarmentPilots } from '../utils/garmentVisuals';
 
-export function paginateProducts<T>(products: T[], page: number, pageSize = PRODUCTS_PER_PAGE): T[] {
-  const safePage = Math.max(1, page);
-  const startIndex = (safePage - 1) * pageSize;
-  return products.slice(startIndex, startIndex + pageSize);
+function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'female' || normalized === 'mujer' || normalized === 'femenino') return 'Mujer';
+  return 'Hombre';
 }
 
-export default function ProbadorVirtual() {
-  const [searchParams] = useSearchParams();
-  const productoIdUrl = searchParams.get('producto');
+const STANDARD_SIZES = ['S', 'M', 'L'];
 
-  const [genero, setGenero] = useState('Hombre');
-  const [medidas, setMedidas] = useState({ pecho: 96, cintura: 82, cadera: 95 });
-  const [productos, setProductos] = useState<any[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [cargando, setCargando] = useState(true);
+export default function ProbadorVirtual() {
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const productoIdUrl = searchParams.get('producto');
+  const tallaUrl = searchParams.get('talla')?.toUpperCase();
+
+  const [genero, setGenero] = useState<'Hombre' | 'Mujer'>(() => {
+    return normalizeGender(user?.genero);
+  });
+
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    if (tallaUrl && STANDARD_SIZES.includes(tallaUrl)) return tallaUrl;
+    return 'M';
+  });
+
+  const [customColor, setCustomColor] = useState<string | null>(null);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('Todas');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [productPage, setProductPage] = useState(1);
-  const tryOnSessionId = useRef(getVirtualTryOnSessionId());
-  const tryOnStartedAt = useRef(Date.now());
+  const [cartSuccessMsg, setCartSuccessMsg] = useState<string | null>(null);
+
+  const [tryOnSessionId] = useState(() => getVirtualTryOnSessionId());
+  const [tryOnStartedAt] = useState(() => Date.now());
   const reportedProducts = useRef(new Set<string>());
 
+  const catalog = useCatalog();
+  const productos = useMemo(() => {
+  const normalizados = catalog.products
+    .filter((item) => {
+      const gen = (item.genero || '').trim().toLowerCase();
+      return [
+        'hombre',
+        'mujer',
+        'male',
+        'female',
+        'unisex',
+      ].includes(gen);
+    })
+    .map((item) => ({
+      ...item,
+      imagen_url:
+        item.imagenUrl ||
+        (item as any).imagen_url ||
+        (item as any).img,
+      genero: normalizeGender(item.genero),
+      categoria: item.categoria || 'General',
+      producto_tallas: (
+        item.tallas ||
+        (item as any).producto_tallas ||
+        []
+      ).map((size: any) => ({
+        ...size,
+        rango_cm_min: size.rangoCmMin,
+        rango_cm_max: size.rangoCmMax,
+      })),
+    }));
+
+  const hombres = prioritizeGarmentPilots(normalizados.filter((item) => item.genero === 'Hombre')).slice(0, 5);
+
+  const mujeres = normalizados
+    .filter((item) => item.genero === 'Mujer')
+    .slice(0, 5);
+
+  // A catalog deep link must keep its product, even when pilots occupy the first slots.
+  const requested = normalizados.find(item => String(item.id) === productoIdUrl);
+  if (requested) {
+    const selection = requested.genero === 'Hombre' ? hombres : mujeres;
+    if (!selection.some(item => item.id === requested.id)) selection[selection.length - 1] = requested;
+  }
+  return [...hombres, ...mujeres];
+}, [catalog.products, productoIdUrl]);
+
+
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  useEffect(() => {
+    setCustomColor(null);
+  }, [selectedProduct?.id]);
+
+  // Carga inicial o cambio de producto vía URL
+  const lastUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (catalog.loading || productos.length === 0) return;
+
+    const changedUrl = lastUrl.current !== productoIdUrl;
+    lastUrl.current = productoIdUrl;
+
+    if (productoIdUrl) {
+      const found = productos.find((p) => String(p.id) === String(productoIdUrl));
+      if (found) {
+        setSelectedProduct(found);
+        if (found.genero !== genero) {
+          setGenero(found.genero);
+        }
+        if (tallaUrl && STANDARD_SIZES.includes(tallaUrl)) {
+          setSelectedSize(tallaUrl);
+        }
+        return;
+      }
+    }
+
+    if (changedUrl || !selectedProduct) {
+      const defaultProd = productos.find((p) => p.genero === genero) || productos[0] || null;
+      setSelectedProduct(defaultProd);
+      if (tallaUrl && STANDARD_SIZES.includes(tallaUrl)) {
+        setSelectedSize(tallaUrl);
+      }
+    }
+  }, [productos, productoIdUrl, tallaUrl, catalog.loading]);
+
+  // Track evento de inicio de sesión de probador
   useEffect(() => {
     void trackVirtualTryOnEvent({
-      sessionId: tryOnSessionId.current,
+      sessionId: tryOnSessionId,
       type: 'session_started',
       gender: genero,
     }).catch(() => undefined);
-  }, []);
+  }, [tryOnSessionId]);
 
+  // Track evento de prueba de producto
   useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        const response = await api.get('/products');
-        const rawData = Array.isArray(response.data)
-          ? response.data
-          : (response.data.products || response.data.data || []);
-        const data = rawData.map((item: any) => ({
-          ...item,
-          imagen_url: item.imagen_url || item.imagenUrl || item.img,
-          genero: item.genero === 'male' ? 'Hombre' : item.genero === 'female' ? 'Mujer' : item.genero || 'Unisex',
-          categoria: item.categoria || 'General',
-          producto_tallas: (item.producto_tallas || item.tallas || []).map((talla: any) => ({
-            ...talla,
-            rango_cm_min: talla.rango_cm_min ?? talla.rangoCmMin,
-            rango_cm_max: talla.rango_cm_max ?? talla.rangoCmMax,
-          })),
-        }));
-
-        const productosValidos = Array.isArray(data) ? data : [];
-        setProductos(productosValidos);
-
-        if (productosValidos.length > 0) {
-          if (productoIdUrl) {
-            const productoEspecifico = productosValidos.find((p: any) => String(p.id) === String(productoIdUrl));
-            if (productoEspecifico) {
-              setSelectedProduct(productoEspecifico);
-              if (productoEspecifico.genero) {
-                setGenero(productoEspecifico.genero);
-              }
-            } else {
-              seleccionarPorDefecto(productosValidos);
-            }
-          } else {
-            seleccionarPorDefecto(productosValidos);
-          }
-        }
-      } catch (error) {
-        console.error("Error al cargar productos para el probador:", error);
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargarDatos();
-  }, [productoIdUrl]);
-
-  const seleccionarPorDefecto = (listaValidos: any[]) => {
-    const inicialesHombre = listaValidos.filter((p: any) => ['hombre', 'male'].includes(p.genero?.toLowerCase()));
-    if (inicialesHombre.length > 0) {
-      setSelectedProduct(inicialesHombre[0]);
-    } else if (listaValidos.length > 0) {
-      setSelectedProduct(listaValidos[0]);
-      setGenero(listaValidos[0].genero || 'Hombre');
-    }
-  };
-
-  const productosDelGenero = productos.filter(p => p?.genero?.toLowerCase() === genero.toLowerCase());
-  const categoriasUnicas = ['Todas', ...Array.from(new Set(productosDelGenero.map(p => p?.categoria))).filter(Boolean)];
-  const productosFiltrados = categoriaFiltro === 'Todas'
-    ? productosDelGenero
-    : productosDelGenero.filter(p => p?.categoria === categoriaFiltro);
-  const productPageCount = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTS_PER_PAGE));
-  const currentProductPage = Math.min(productPage, productPageCount);
-  const productPageStart = (currentProductPage - 1) * PRODUCTS_PER_PAGE;
-  const visibleProducts = paginateProducts(productosFiltrados, currentProductPage);
-  const productPageEnd = Math.min(productPageStart + PRODUCTS_PER_PAGE, productosFiltrados.length);
-
-  const handleCambioGenero = (nuevoGenero: string) => {
-    setGenero(nuevoGenero);
-    setCategoriaFiltro('Todas');
-    setProductPage(1);
-
-    if (nuevoGenero === 'Mujer') {
-      setMedidas({ pecho: 90, cintura: 74, cadera: 98 });
-    } else {
-      setMedidas({ pecho: 96, cintura: 82, cadera: 95 });
-    }
-
-    const prodsNuevos = productos.filter(p => {
-      const productGender = p?.genero?.toLowerCase();
-      return productGender === nuevoGenero.toLowerCase() || (nuevoGenero === 'Hombre' && productGender === 'male') || (nuevoGenero === 'Mujer' && productGender === 'female');
-    });
-    if (prodsNuevos.length > 0) {
-      setSelectedProduct(prodsNuevos[0]);
-    } else {
-      setSelectedProduct(null);
-    }
-  };
-
-  const categoriaSeleccionada = (selectedProduct?.categoria || '').toLowerCase();
-  const esPrendaInferior = categoriaSeleccionada.includes('buzo') || categoriaSeleccionada.includes('short') || categoriaSeleccionada.includes('legging') || categoriaSeleccionada.includes('pantalón') || categoriaSeleccionada.includes('pantalon');
-
-  const analisis = useMemo(() => {
-    if (!selectedProduct || !selectedProduct.producto_tallas) return null;
-
-    const tallas = selectedProduct.producto_tallas;
-    if (!Array.isArray(tallas) || tallas.length === 0) return null;
-
-    let tallaIdeal: any = null;
-    let mejorDiferencia = Infinity;
-
-    const medidaBase = esPrendaInferior ? medidas.cintura : medidas.pecho;
-
-    tallaIdeal = tallas.find((t: any) => medidaBase >= Number(t.rango_cm_min || 0) && medidaBase <= Number(t.rango_cm_max || 0));
-
-    if (!tallaIdeal) {
-      tallas.forEach((t: any) => {
-        const min = Number(t.rango_cm_min || 0);
-        const max = Number(t.rango_cm_max || 0);
-
-        if (min > 0 && max > 0) {
-          const centro = (min + max) / 2;
-          const diferencia = Math.abs(medidaBase - centro);
-
-          if (diferencia < mejorDiferencia) {
-            mejorDiferencia = diferencia;
-            tallaIdeal = t;
-          }
-        }
-      });
-    } else {
-      const centro = (Number(tallaIdeal.rango_cm_min || 0) + Number(tallaIdeal.rango_cm_max || 0)) / 2;
-      mejorDiferencia = Math.abs(medidaBase - centro);
-    }
-
-    if (!tallaIdeal) return null;
-
-    const calcularAjuste = (medidaUsuario: number, min: number, max: number) => {
-      const rangoTotal = max - min;
-      const posicion = rangoTotal === 0 ? 50 : ((medidaUsuario - min) / rangoTotal) * 100;
-      const porcentajeVisual = Math.max(5, Math.min(95, posicion));
-
-      let estado = 'Perfecto';
-      let color = 'bg-brand-green';
-
-      if (medidaUsuario < min - 3) { estado = 'Muy Holgado'; color = 'bg-blue-400'; }
-      else if (medidaUsuario <= min + 1) { estado = 'Holgado'; color = 'bg-yellow-400'; }
-      else if (medidaUsuario > max + 3) { estado = 'Muy Ajustado'; color = 'bg-red-500'; }
-      else if (medidaUsuario >= max - 1) { estado = 'Ajustado'; color = 'bg-orange-400'; }
-
-      return { estado, color, porcentajeVisual };
-    };
-
-    const minBase = Number(tallaIdeal.rango_cm_min || 60);
-    const maxBase = Number(tallaIdeal.rango_cm_max || 100);
-
-    const difCintura = genero === 'Mujer' ? 18 : 12;
-    const difCadera = genero === 'Mujer' ? -4 : 2;
-
-    let detallesFitMap = [];
-
-    if (esPrendaInferior) {
-      const ajusteCintura = calcularAjuste(medidas.cintura, minBase, maxBase);
-      const ajusteCadera = calcularAjuste(medidas.cadera, minBase + 10, maxBase + 10);
-      detallesFitMap = [
-        { zona: 'Cintura', ...ajusteCintura, cms: medidas.cintura },
-        { zona: 'Cadera', ...ajusteCadera, cms: medidas.cadera }
-      ];
-    } else {
-      const ajustePecho = calcularAjuste(medidas.pecho, minBase, maxBase);
-      const ajusteCintura = calcularAjuste(medidas.cintura, minBase - difCintura, maxBase - difCintura);
-      const ajusteCadera = calcularAjuste(medidas.cadera, minBase - difCadera, maxBase - difCadera);
-      detallesFitMap = [
-        { zona: 'Pecho / Busto', ...ajustePecho, cms: medidas.pecho },
-        { zona: 'Cintura', ...ajusteCintura, cms: medidas.cintura },
-        { zona: 'Cadera', ...ajusteCadera, cms: medidas.cadera }
-      ];
-    }
-
-    const matchScore = Math.max(40, Math.min(99, 100 - (mejorDiferencia * 1.8))).toFixed(0);
-
-    return {
-      talla: tallaIdeal.talla || 'M',
-      stock: tallaIdeal.stock || 0,
-      matchScore,
-      detalles: detallesFitMap
-    };
-  }, [medidas, selectedProduct, genero, esPrendaInferior]);
-
-  useEffect(() => {
-    if (!selectedProduct || !analisis || reportedProducts.current.has(String(selectedProduct.id))) {
-      return;
-    }
-
+    if (!selectedProduct || reportedProducts.current.has(String(selectedProduct.id))) return;
     const productId = String(selectedProduct.id);
     reportedProducts.current.add(productId);
     markVirtualTryOnProduct(productId);
-    const durationSeconds = Math.max(
-      0,
-      Math.round((Date.now() - tryOnStartedAt.current) / 1000),
-    );
-    const event = {
-      sessionId: tryOnSessionId.current,
+    void trackVirtualTryOnEvent({
+      type: 'try_on',
+      sessionId: tryOnSessionId,
       productId,
-      size: String(analisis.talla),
+      size: selectedSize,
       gender: genero,
-      compatibility: Number(analisis.matchScore),
-      durationSeconds,
-    };
+      durationSeconds: Math.max(0, Math.round((Date.now() - tryOnStartedAt) / 1000)),
+    }).catch(() => undefined);
+  }, [selectedProduct, selectedSize, genero, tryOnSessionId, tryOnStartedAt]);
 
-    void Promise.all([
-      trackVirtualTryOnEvent({ type: 'try_on', ...event }),
-      trackVirtualTryOnEvent({ type: 'fit_result', ...event }),
-    ]).catch(() => undefined);
-  }, [analisis, genero, selectedProduct]);
+  const handleCambioGenero = (nuevoGenero: string) => {
+    const nextGen: 'Hombre' | 'Mujer' = nuevoGenero === 'Mujer' ? 'Mujer' : 'Hombre';
+    setGenero(nextGen);
+    setCategoriaFiltro('Todas');
+    setSearchTerm('');
+    setProductPage(1);
 
-  const handleMedidaManual = (id: string, value: string) => {
-    const numValue = value === '' ? 0 : Number(value);
-    setMedidas({ ...medidas, [id]: numValue });
+    const prodsNuevos = productos.filter((p) => p.genero === nextGen);
+    if (prodsNuevos.length > 0) {
+      setSelectedProduct(prodsNuevos[0]);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('producto', String(prodsNuevos[0].id));
+      nextParams.set('talla', selectedSize);
+      setSearchParams(nextParams, { replace: true });
+    }
   };
 
-  if (cargando) {
+  // Filtrado de productos para el catálogo del probador
+  const productosDelGenero = productos.filter((p) => p.genero === genero);
+  const categoriasUnicas = ['Todas', ...Array.from(new Set(productosDelGenero.map((p) => p.categoria))).filter(Boolean)];
+
+  const productosFiltrados = productosDelGenero.filter((p) => {
+    const matchCat = categoriaFiltro === 'Todas' || p.categoria === categoriaFiltro;
+    const matchSearch =
+      !searchTerm ||
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.marca && p.marca.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchCat && matchSearch;
+  });
+
+  const pageCount = Math.max(1, Math.ceil(productosFiltrados.length / PRODUCTS_PER_PAGE));
+  const currentProductPage = Math.min(productPage, pageCount);
+  const firstProductIndex = productosFiltrados.length === 0 ? 0 : (currentProductPage - 1) * PRODUCTS_PER_PAGE + 1;
+  const lastProductIndex = Math.min(currentProductPage * PRODUCTS_PER_PAGE, productosFiltrados.length);
+  const visibleProducts = paginateProducts(productosFiltrados, currentProductPage);
+
+  const handleCategoryFilterChange = (category: string) => {
+    setCategoriaFiltro(category);
+    setProductPage(1);
+  };
+
+  // Información de stock y variante de la talla activa
+  const productSizes = selectedProduct?.producto_tallas || selectedProduct?.tallas || [];
+  const activeVariant = productSizes.find((v: any) => String(v.talla).trim().toUpperCase() === selectedSize);
+  const activeStock = activeVariant ? Number(activeVariant.stock ?? 0) : 0;
+  const isOutOfStock = !activeVariant || activeStock <= 0;
+
+  const currentPriceInfo = selectedProduct && activeVariant
+    ? getSizePrice(selectedProduct, activeVariant)
+    : { price: Number(selectedProduct?.precio || 0), discount: 0 };
+
+  const handleAddToCart = () => {
+    if (!selectedProduct) return;
+
+    if (!activeVariant || !activeVariant.id) {
+      alert(`La talla ${selectedSize} no está configurada para este producto.`);
+      return;
+    }
+
+    if (activeStock <= 0) {
+      alert(`La talla ${selectedSize} está actualmente agotada. Elige otra talla para añadir al carrito.`);
+      return;
+    }
+
+    addToCart({
+      id: String(selectedProduct.id),
+      name: selectedProduct.nombre,
+      price: currentPriceInfo.price,
+      img: selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || '',
+      quantity: 1,
+      size: selectedSize,
+      color: selectedProduct.color || 'Original',
+      stock: activeStock,
+      tallaId: String(activeVariant.id),
+    });
+
+    setCartSuccessMsg(`¡${selectedProduct.nombre} (Talla ${selectedSize}) agregado a tu carrito!`);
+    setTimeout(() => setCartSuccessMsg(null), 4000);
+  };
+
+  const handleSelectSize = (sz: string) => {
+    const norm = sz.trim().toUpperCase();
+    setSelectedSize(norm);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('talla', norm);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleSelectProduct = (product: any) => {
+    setSelectedProduct(product);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('producto', String(product.id));
+    if (selectedSize) {
+      nextParams.set('talla', selectedSize);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  if (catalog.loading) {
     return (
       <AppLayout>
-        <div className="min-h-screen flex items-center justify-center font-bold text-xl dark:text-white">
+        <div className="min-h-screen flex items-center justify-center font-bold text-xl text-gray-900 dark:text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-green mr-4"></div>
-          Iniciando Smart Fit 2D...
+          Cargando Probador Virtual 3D...
         </div>
       </AppLayout>
     );
   }
 
-  const inputsMedidas = [
-    { id: 'pecho', label: 'Contorno de Pecho / Busto (cm)', mostrar: !esPrendaInferior },
-    { id: 'cintura', label: 'Contorno de Cintura (cm)', mostrar: true },
-    { id: 'cadera', label: 'Contorno de Cadera (cm)', mostrar: true }
-  ];
-
   return (
     <AppLayout>
-      <div className="bg-[#f4f7f9] dark:bg-[#0f1115] min-h-screen py-10 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-[#f4f7f9] dark:bg-[#0f1115] min-h-screen py-8 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header Superior Limpio */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <Link to="/catalogo" className="hover:text-brand-green transition-colors">
+                  Catálogo
+                </Link>
+                <span>/</span>
+                <span className="text-gray-900 dark:text-white font-bold">Probador Virtual</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-green animate-pulse"></span>
+                Probador Virtual 3D
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Previsualización anatómica 3D vinculada directamente al catálogo oficial y tallas estándar
+              </p>
+            </div>
 
-          <div className="mb-10">
-            <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
-              <svg className="w-8 h-8 text-brand-green drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-              Smart Fit 2D <span className="text-[10px] font-black bg-brand-green/20 text-brand-green border border-brand-green/30 px-3 py-1 rounded-full uppercase tracking-widest ml-2 align-middle">Beta</span>
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm font-medium">Algoritmo de análisis biométrico cruzado con especificaciones de confección en tiempo real.</p>
+            {/* Selector Rápido de Género en Header */}
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 p-1.5 rounded-2xl shadow-sm">
+              <button
+                type="button"
+                onClick={() => handleCambioGenero('Hombre')}
+                className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                  genero === 'Hombre'
+                    ? 'bg-brand-green text-black shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                Hombre
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCambioGenero('Mujer')}
+                className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                  genero === 'Mujer'
+                    ? 'bg-brand-green text-black shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                Mujer
+              </button>
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-12 gap-8">
+          {/* Notificación de Carrito */}
+          {cartSuccessMsg && (
+            <div className="mb-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between shadow-sm animate-fade-in">
+              <div className="flex items-center gap-2">
+                <i className="fa-solid fa-circle-check text-emerald-500 text-base"></i>
+                <span>{cartSuccessMsg}</span>
+              </div>
+              <Link to="/carrito" className="underline font-black text-xs hover:opacity-80">
+                Ir al carrito →
+              </Link>
+            </div>
+          )}
 
-            <div className="lg:col-span-4 bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5 transition-all">
-              <h3 className="font-extrabold text-sm dark:text-white mb-6 uppercase tracking-widest text-center border-b border-gray-100 dark:border-white/5 pb-4">Tu Perfil Físico</h3>
+          {catalog.error && (
+            <p role="alert" className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              {catalog.error}
+            </p>
+          )}
 
-              <div className="flex justify-center mb-10 relative bg-gray-50/50 dark:bg-black/20 rounded-2xl py-8 overflow-hidden shadow-inner border border-gray-100/50 dark:border-white/5">
-
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-32 h-40 bg-brand-green/10 dark:bg-brand-green/5 blur-3xl rounded-full"></div>
-                </div>
-
-                <svg className="w-48 h-64 drop-shadow-2xl transition-all z-10 relative" viewBox="0 0 100 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="48" y="200" width="4" height="40" fill="#CBD5E1" className="dark:fill-gray-700/50" />
-                  <ellipse cx="50" cy="235" rx="15" ry="3" fill="#94A3B8" className="dark:fill-gray-800" />
-                  <rect x="47" y="20" width="6" height="15" fill="#E2E8F0" className="dark:fill-gray-700/50" />
-                  <ellipse cx="50" cy="20" rx="8" ry="3" fill="#94A3B8" className="dark:fill-gray-800" />
-
-                  {genero === 'Hombre' ? (
-                    <path d="M42 35 C42 35, 58 35, 58 35 C68 35, 82 45, 85 55 L82 100 L76 160 C76 180, 65 200, 50 200 C35 200, 24 180, 24 160 L18 100 L15 55 C18 45, 32 35, 42 35 Z" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="1.5" className="dark:fill-[#1a1d24] dark:stroke-gray-700/50"/>
-                  ) : (
-                    <path d="M44 35 C44 35, 56 35, 56 35 C64 35, 76 45, 78 55 L70 95 C66 110, 64 120, 68 135 L76 170 C78 185, 65 200, 50 200 C35 200, 22 185, 24 170 L32 135 C36 120, 34 110, 30 95 L22 55 C24 45, 36 35, 44 35 Z" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="1.5" className="dark:fill-[#1a1d24] dark:stroke-gray-700/50"/>
-                  )}
-
-                  <g className="text-brand-green transition-opacity duration-300">
-                    {!esPrendaInferior && (
-                      <>
-                        <line x1="10" y1="75" x2="90" y2="75" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                        <circle cx="90" cy="75" r="2.5" fill="currentColor" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                        <text x="5" y="72" fontSize="6" fill="currentColor" fontWeight="900" letterSpacing="1">PECHO</text>
-                      </>
-                    )}
-
-                    <line x1="18" y1="120" x2="82" y2="120" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                    <circle cx="82" cy="120" r="2.5" fill="currentColor" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                    <text x="14" y="117" fontSize="6" fill="currentColor" fontWeight="900" letterSpacing="1">CINTURA</text>
-
-                    <line x1="15" y1="160" x2="85" y2="160" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                    <circle cx="85" cy="160" r="2.5" fill="currentColor" className="drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-                    <text x="11" y="157" fontSize="6" fill="currentColor" fontWeight="900" letterSpacing="1">CADERA</text>
-                  </g>
-                </svg>
+          {/* Grid Principal Equilibrado de 3 Columnas (3 - 6 - 3) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-16">
+            {/* Columna Izquierda: Selector de Prendas del Catálogo */}
+            <div className="lg:col-span-3 bg-white dark:bg-white/[0.02] p-4 lg:p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-gray-100 dark:border-white/5 flex flex-col min-h-[420px] lg:h-[720px]">
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100 dark:border-white/5">
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-500">
+                  Prendas {genero}
+                </h3>
+                <span className="text-[10px] font-bold bg-brand-green/20 text-brand-green px-2 py-0.5 rounded-full">
+                  {productosDelGenero.length} productos
+                </span>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Género Biométrico</label>
-                  <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 p-1 bg-gray-50 dark:bg-black/20">
-                    {['Hombre', 'Mujer'].map(g => (
-                      <button
-                        key={g}
-                        onClick={() => handleCambioGenero(g)}
-                        className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all duration-300 cursor-pointer ${genero === g ? 'bg-white text-gray-900 shadow-sm dark:bg-brand-green dark:text-black' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="transition-all duration-300 space-y-4">
-                  {inputsMedidas.map(med => (
-                    med.mostrar && (
-                      <div key={med.id} className="bg-white dark:bg-white/[0.02] p-4 rounded-2xl border border-gray-100 dark:border-white/5 transition-all shadow-sm">
-                        <label className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-4 block">{med.label}</label>
-                        <div className="flex items-center gap-5">
-                          <input
-                            type="range"
-                            min="60"
-                            max="140"
-                            value={medidas[med.id as keyof typeof medidas]}
-                            onChange={(e) => setMedidas({...medidas, [med.id]: Number(e.target.value)})}
-                            className="flex-1 accent-brand-green cursor-pointer h-1.5 bg-gray-200 rounded-full appearance-none dark:bg-gray-700"
-                          />
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min="60"
-                              max="140"
-                              value={medidas[med.id as keyof typeof medidas] || ''}
-                              onChange={(e) => handleMedidaManual(med.id, e.target.value)}
-                              className="w-16 px-2 py-2 text-center text-sm font-black border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-black/40 dark:text-white focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  ))}
-                </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                <ProductSelector
+                  visibleProducts={visibleProducts}
+                  selectedProduct={selectedProduct}
+                  setSelectedProduct={handleSelectProduct}
+                  genero={genero}
+                  handleCambioGenero={handleCambioGenero}
+                  categoriaFiltro={categoriaFiltro}
+                  setCategoriaFiltro={handleCategoryFilterChange}
+                  categoriasUnicas={categoriasUnicas}
+                  currentPage={currentProductPage}
+                  pageCount={pageCount}
+                  onPageChange={setProductPage}
+                  totalProducts={productosFiltrados.length}
+                  firstProductIndex={firstProductIndex}
+                  lastProductIndex={lastProductIndex}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                />
               </div>
             </div>
 
-            <div className="lg:col-span-8 flex flex-col gap-8">
+            {/* Columna Central: Escenario 3D con Avatar Centrado Horizontalmente */}
+            <div className="lg:col-span-6 flex min-w-0 flex-col h-[520px] lg:h-[720px] relative">
+              
+                <AvatarStage
+                  selectedProduct={selectedProduct}
+                  genero={genero}
+                  activeSize={selectedSize}
+                  customColor={customColor}
+                />
+            </div>
 
-              <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                  <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">1. Selecciona una prenda</h3>
-
-                  <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
-                    {categoriasUnicas.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => {
-                          setCategoriaFiltro(cat);
-                          setProductPage(1);
+            {/* Columna Derecha: Ficha de Acción, Tallas, Stock y Compra Directa */}
+            <aside aria-label="Opciones de la prenda" className="lg:col-span-3 min-w-0 bg-white dark:bg-white/[0.02] p-5 lg:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-gray-100 dark:border-white/5 flex flex-col min-h-[420px] lg:h-[720px] overflow-hidden">
+              {selectedProduct ? (
+                <div className="flex h-full min-h-0 min-w-0 flex-col justify-between gap-4">
+                  {/* Ficha de la Prenda */}
+                  <div role="region" aria-label="Detalles y ajuste de la prenda" tabIndex={0} className="min-h-0 min-w-0 space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green lg:flex-1 lg:overflow-y-auto lg:pr-1">
+                    <div className="relative rounded-2xl bg-[#f4f5f7] dark:bg-gray-800/60 p-4 aspect-[4/3] flex items-center justify-center overflow-hidden border border-gray-100 dark:border-white/5">
+                      <img
+                        src={selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || 'https://placehold.co/400x400'}
+                        alt={selectedProduct.nombre}
+                        className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+                      />
+                      <FavoriteButton
+                        product={{
+                          id: String(selectedProduct.id),
+                          cat: selectedProduct.categoria || 'Catálogo',
+                          name: selectedProduct.nombre,
+                          price: currentPriceInfo.price,
+                          img: selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || '',
                         }}
-                        className={`whitespace-nowrap px-5 py-2 rounded-full text-[11px] font-bold transition-all cursor-pointer ${categoriaFiltro === cat ? 'bg-brand-green text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 border border-transparent dark:border-white/5'}`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center bg-white/90 dark:bg-zinc-800/90 rounded-full shadow-md text-red-500 hover:scale-110 transition-all cursor-pointer"
+                      />
+                    </div>
 
-                <div role="group" aria-label="Selector de prendas" className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
-                  {visibleProducts.map(prod => (
-                    <button
-                      key={prod.id}
-                      onClick={() => setSelectedProduct(prod)}
-                      className={`flex-shrink-0 w-28 h-36 rounded-2xl overflow-hidden border-2 transition-all duration-300 relative bg-gray-50 dark:bg-black/20 cursor-pointer ${selectedProduct?.id === prod.id ? 'border-brand-green scale-105 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-transparent opacity-70 hover:opacity-100 dark:border-white/5'}`}
-                    >
-                      <img src={prod.imagen_url || prod.img} alt={prod.nombre} className="w-full h-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal" />
-                      {selectedProduct?.id === prod.id && (
-                        <div className="absolute inset-0 bg-brand-green/20 flex items-center justify-center backdrop-blur-[2px]">
-                          <div className="bg-brand-green text-black rounded-full p-1.5 shadow-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    <div>
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                        <span>{selectedProduct.marca || 'Marca Oficial'}</span>
+                        <span className="max-w-full break-words bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
+                          {selectedProduct.categoria}
+                        </span>
+                      </div>
+                      <h2 className="break-words text-base font-black text-gray-900 dark:text-white mt-1">
+                        {selectedProduct.nombre}
+                      </h2>
+                    </div>
+
+                    {/* Precios y Ofertas */}
+                    <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                      <ProductOffer product={selectedProduct} selectedSize={selectedSize} />
+                    </div>
+
+                    {/* Selector y Estado de Tallas */}
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                          Talla Seleccionada:
+                        </span>
+                        <span className="text-xs font-black text-brand-green">
+                          Talla {selectedSize}
+                        </span>
+                      </div>
+
+                      <div role="group" aria-label="Tallas de la prenda" className="grid grid-cols-3 gap-2">
+                        {STANDARD_SIZES.map((sz) => {
+                          const isSelected = sz === selectedSize;
+                          const variant = productSizes.find((v: any) => String(v.talla).trim().toUpperCase() === sz);
+                          const hasStock = variant && Number(variant.stock) > 0;
+
+                          return (
+                            <button
+                              key={sz}
+                              type="button"
+                              aria-label={`Probar talla ${sz}`}
+                              aria-pressed={isSelected}
+                              onClick={() => handleSelectSize(sz)}
+                              className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer text-center relative ${
+                                isSelected
+                                  ? 'bg-brand-green text-black ring-2 ring-brand-green/80 shadow-md font-black'
+                                  : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                              } ${!hasStock ? 'opacity-50' : ''}`}
+                            >
+                              {sz}
+                              {!hasStock && (
+                                <span className="block text-[8px] font-normal text-red-500 leading-none">
+                                  Sin stock
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Mensaje de Stock en Tiempo Real */}
+                      <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/5 text-xs">
+                        {isOutOfStock ? (
+                          <div className="flex items-start gap-2 text-red-600 dark:text-red-400 font-bold">
+                            <i aria-hidden="true" className="fa-solid fa-circle-xmark mt-0.5 shrink-0 text-red-500"></i>
+                            <span>Agotado en Talla {selectedSize}</span>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                            <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+                            <span>{activeStock} unidades disponibles en Talla {selectedSize}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <GarmentColorPicker product={selectedProduct} value={customColor} onChange={setCustomColor} />
+                    <section aria-labelledby="try-on-fit-heading" className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                      <div className="mb-2 flex items-start gap-2">
+                        <i aria-hidden="true" className="fa-solid fa-circle-info mt-0.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                        <h3 id="try-on-fit-heading" className="min-w-0 break-words text-xs font-bold text-slate-800 dark:text-slate-200">Sobre el ajuste</h3>
+                      </div>
+                      <p className="break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                        Previsualización 3D aproximada. El tipo de cuerpo adapta el avatar, pero no permite confirmar la compatibilidad ni recomendar una talla sin comparar medidas reales de la prenda y del cuerpo.
+                      </p>
+                      {getGarmentVisual(selectedProduct) && (
+                        <p className="mt-2 break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                          Diseño piloto basado en la fotografía del producto, no en un escaneo 3D. La prenda complementaria es ilustrativa y no se añade al carrito.
+                        </p>
                       )}
+                    </section>
+                  </div>
+
+                  {/* Acciones de Compra y Detalle */}
+                  <div className="shrink-0 space-y-2 pt-3 border-t border-gray-100 dark:border-white/5">
+                    <button
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={handleAddToCart}
+                      className="w-full py-3.5 rounded-2xl bg-brand-green text-black text-xs font-black uppercase tracking-wider hover:opacity-95 active:scale-[0.98] transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <i className="fa-solid fa-cart-shopping"></i>
+                      <span>{isOutOfStock ? 'Talla Agotada' : 'Añadir al Carrito'}</span>
                     </button>
-                  ))}
-                  {productosFiltrados.length === 0 && (
-                    <div className="w-full text-center py-10 text-gray-500 font-bold text-sm bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                      No hay productos configurados con tallas para esta selección.
-                    </div>
-                  )}
-                </div>
 
-                {productosFiltrados.length > PRODUCTS_PER_PAGE && (
-                  <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-gray-500 dark:text-gray-400">
-                    <span>Mostrando {productPageStart + 1}-{productPageEnd} de {productosFiltrados.length} prendas</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        aria-label="Prendas anteriores"
-                        disabled={currentProductPage === 1}
-                        onClick={() => setProductPage((page) => Math.max(1, page - 1))}
-                        className="px-3 h-8 rounded-lg border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-green hover:text-brand-green transition-colors"
-                      >
-                        Anterior
-                      </button>
-                      <span className="min-w-24 text-center">Página {currentProductPage} de {productPageCount}</span>
-                      <button
-                        type="button"
-                        aria-label="Prendas siguientes"
-                        disabled={currentProductPage === productPageCount}
-                        onClick={() => setProductPage((page) => Math.min(productPageCount, page + 1))}
-                        className="px-3 h-8 rounded-lg border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:border-brand-green hover:text-brand-green transition-colors"
-                      >
-                        Siguiente
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {selectedProduct && analisis ? (
-                <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5 flex-1 flex flex-col md:flex-row gap-10">
-
-                  <div className="w-full md:w-1/3 flex flex-col justify-center items-center">
-                    <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 dark:bg-black/40 shadow-inner border border-gray-200/50 dark:border-white/5">
-                      <img src={selectedProduct.imagen_url || selectedProduct.img} alt={selectedProduct.nombre} className="w-full h-full object-contain p-4 mix-blend-multiply dark:mix-blend-normal" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex items-end p-5">
-                        <div className="text-white">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-brand-green mb-1.5 drop-shadow-md">{selectedProduct.categoria}</p>
-                          <h4 className="font-extrabold text-sm leading-snug line-clamp-2 drop-shadow-lg text-gray-50">{selectedProduct.nombre || selectedProduct.name}</h4>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="w-full md:w-2/3 flex flex-col justify-center">
-                    <div className="flex items-center justify-between mb-10 border-b border-gray-100 dark:border-white/5 pb-8">
-                      <div>
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Talla Calculada</p>
-                        <div className="flex items-center gap-4">
-                          <span className="text-7xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">{analisis.talla}</span>
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest border ${Number(analisis.stock) > 0 ? 'bg-brand-green/10 text-brand-green border-brand-green/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                            {Number(analisis.stock) > 0 ? 'EN STOCK' : 'AGOTADO'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end">
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Precisión</p>
-                        <div className="w-16 h-16 rounded-full border-[4px] border-brand-green flex items-center justify-center bg-white dark:bg-[#1a1d24] shadow-[0_0_20px_rgba(16,185,129,0.25)] relative">
-                          <span className="text-lg font-black text-gray-900 dark:text-white">{analisis.matchScore}%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <h4 className="text-[11px] font-black text-gray-900 dark:text-white mb-6 uppercase tracking-widest flex items-center gap-2">
-                      <svg className="w-4 h-4 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                      Mapa de Ajuste (Fit Map)
-                    </h4>
-
-                    <div className="space-y-7">
-                      {analisis.detalles.map((det: any, idx: number) => (
-                        <div key={idx} className="group transition-all duration-300">
-                          <div className="flex justify-between items-center text-xs font-bold mb-3">
-                            <span className="text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[11px]">
-                              {det.zona} {det.estado !== 'No aplica' && <span className="text-gray-400 dark:text-gray-500 font-medium normal-case ml-1">({det.cms} cm)</span>}
-                            </span>
-                            <span className={`${det.color.replace('bg-', 'text-')} text-[10px] font-black px-2.5 py-1 rounded-md bg-gray-50 dark:bg-white/5 border border-transparent dark:border-white/5 uppercase tracking-wider`}>
-                              {det.estado}
-                            </span>
-                          </div>
-                          {det.estado !== 'No aplica' ? (
-                            <>
-                              <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden relative shadow-inner">
-                                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-400 dark:bg-gray-500 z-10 -ml-px"></div>
-                                <div
-                                  className={`absolute top-0 bottom-0 w-3 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)] ${det.color} transition-all duration-1000 ease-out`}
-                                  style={{ left: `calc(${det.porcentajeVisual}% - 6px)` }}
-                                ></div>
-                              </div>
-                              <div className="flex justify-between text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                                <span>Ajustado</span>
-                                <span className="text-brand-green/80">Perfecto</span>
-                                <span>Holgado</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="h-1.5 w-full bg-gray-100 dark:bg-white/5 rounded-full opacity-50"></div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-10">
-                      <Link to={`/producto/${selectedProduct.id}`} className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        Ver Detalle del Producto
-                      </Link>
-                    </div>
-
+                    <Link
+                      to={`/producto/${selectedProduct.id}`}
+                      className="w-full py-2.5 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 text-gray-800 dark:text-gray-200 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5"
+                    >
+                      <span>Ver ficha completa</span>
+                      <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                    </Link>
                   </div>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-white/[0.02] backdrop-blur-xl rounded-3xl p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-gray-100 dark:border-white/5 flex-1 flex flex-col items-center justify-center text-center h-full">
-                  <div className="bg-gray-50 dark:bg-white/5 p-4 rounded-full mb-5 border border-dashed border-gray-200 dark:border-white/10">
-                    <svg className="w-10 h-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm text-sm">No pudimos analizar esta prenda. Asegúrate de que la base de datos tenga los campos <strong>rango_cm_min</strong> y <strong>rango_cm_max</strong> configurados.</p>
+                <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-6">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center text-2xl text-slate-400"><i className="fa-solid fa-shirt"></i></div>
+                  <p className="text-xs font-bold">Selecciona una prenda del catálogo para ver su información y probarla.</p>
                 </div>
               )}
-
-            </div>
+            </aside>
           </div>
         </div>
       </div>

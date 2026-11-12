@@ -29,6 +29,7 @@ export interface Product {
   description: string;
   stock: Record<string, number>;
   tallaIds?: Record<string, string>;
+  sizeMeasurements?: Record<string, [number | null, number | null]>;
   discounts?: Record<string, { percent: number; salePrice: number }>;
   gender: 'male' | 'female' | 'unisex';
   tag?: 'new' | 'sale' | 'trending';

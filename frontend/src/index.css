@@ -129,3 +129,16 @@ body {
 .success-check {
   animation: checkDraw 0.4s ease-out 0.6s forwards;
 }
+:root {
+  --toast-bg: #ffffff;
+  --toast-text: #111111;
+  --toast-border: #e5e7eb;
+  --toast-close: #9ca3af;
+}
+
+.dark {
+  --toast-bg: #111111;
+  --toast-text: #ffffff;
+  --toast-border: #2f2f2f;
+  --toast-close: #9ca3af;
+}

@@ -1,3 +1,14 @@
+export const PERSONAL_EMAIL_DOMAINS = [
+  "gmail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "yahoo.com",
+  "icloud.com",
+  "proton.me",
+  "protonmail.com",
+] as const;
+
 export function getEmailValidationMessage(value: string): string | null {
   const email = value.trim();
 
@@ -14,7 +25,22 @@ export function getEmailValidationMessage(value: string): string | null {
       email,
     ) && !email.includes("..");
 
-  return isValid ? null : "Revisa el formato, por ejemplo nombre@dominio.com.";
+  if (!isValid) return "Revisa el formato, por ejemplo nombre@dominio.com.";
+
+  return null;
+}
+
+export function getRegistrationEmailValidationMessage(value: string): string | null {
+  const formatMessage = getEmailValidationMessage(value);
+  if (formatMessage) return formatMessage;
+
+  const domain = value.trim().slice(value.trim().lastIndexOf("@") + 1).toLowerCase();
+  const normalizedDomain = domain.toLowerCase();
+  if (!PERSONAL_EMAIL_DOMAINS.includes(normalizedDomain as (typeof PERSONAL_EMAIL_DOMAINS)[number])) {
+    return "Utiliza un correo personal de un proveedor admitido.";
+  }
+
+  return null;
 }
 
 export type PasswordRequirementId =

@@ -1,19 +1,53 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import Toast from "../components/Toast";
 import { useCart } from "../context/CartContext";
 import { formatSoles } from "../utils/money";
 
 export default function CartPage() {
   const navigate = useNavigate();
-  const { cartItems, removeFromCart, updateQuantity, clearCart, cartTotal } =
-    useCart();
+
+  const {
+    cartItems,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    cartTotal,
+    revalidateCart,
+  } = useCart();
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+  const [validationError, setValidationError] = useState("");
+  useEffect(() => {
+    const validate = () => {
+      if (!revalidateCart) return;
+      void revalidateCart().then(({ changed, unavailable }) => {
+        setValidationError(unavailable ? "Hay productos sin stock suficiente. Ajusta o elimina esas líneas antes de comprar." : "");
+        if (changed) setToast({ message: "Actualizamos los precios y la disponibilidad del carrito.", type: "info" });
+      }).catch(() => setValidationError("No se pudo verificar el carrito. Reintenta antes de comprar."));
+    };
+    validate(); window.addEventListener("focus", validate);
+    return () => window.removeEventListener("focus", validate);
+  }, [revalidateCart]);
 
   if (cartItems.length === 0) {
     return (
       <AppLayout>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+
         <div className="min-h-screen bg-[#f8f9fa] dark:bg-brand-dark-bg flex items-center justify-center px-4">
           <div className="text-center">
-            <div className="text-6xl mb-6">🛒</div>
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-3xl text-slate-400"><i className="fa-solid fa-bag-shopping"></i></div>
 
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-3">
               Tu carrito está vacío
@@ -37,6 +71,14 @@ export default function CartPage() {
 
   return (
     <AppLayout>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="min-h-screen bg-[#f8f9fa] dark:bg-brand-dark-bg py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
@@ -50,6 +92,7 @@ export default function CartPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
+            {validationError && <p role="alert" className="lg:col-span-3 text-red-600">{validationError}</p>}
             <div className="lg:col-span-2 space-y-4">
               {cartItems.map((item) => (
                 <div
@@ -57,7 +100,7 @@ export default function CartPage() {
                   className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 sm:p-6 border border-gray-100 dark:border-gray-800 shadow-sm"
                 >
                   <div className="flex gap-4">
-                    <div className="w-28 h-32 sm:w-36 sm:h-40 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+                    <div className="w-28 h-32 sm:w-36 sm:h-40 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 shrink-0">
                       <img
                         src={item.img}
                         alt={item.name}
@@ -78,13 +121,22 @@ export default function CartPage() {
                         </div>
 
                         <button
-                          onClick={() =>
-                            removeFromCart(item.id, item.size, item.color)
-                          }
+                          onClick={() => {
+                            removeFromCart(
+                              item.id,
+                              item.size,
+                              item.color
+                            );
+
+                            setToast({
+                              message: `${item.name} eliminado del carrito`,
+                              type: "success",
+                            });
+                          }}
                           className="text-gray-400 hover:text-red-500 transition"
                           title="Eliminar producto"
                         >
-                          🗑️
+                          <i className="fa-regular fa-trash-can"></i>
                         </button>
                       </div>
 
@@ -114,10 +166,10 @@ export default function CartPage() {
                                 item.id,
                                 Math.max(1, item.quantity - 1),
                                 item.size,
-                                item.color,
+                                item.color
                               )
                             }
-                            className="w-9 h-9 hover:text-brand-green"
+                            className="w-9 h-9 hover:text-brand-green disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             −
                           </button>
@@ -132,14 +184,22 @@ export default function CartPage() {
                                 item.id,
                                 item.quantity + 1,
                                 item.size,
-                                item.color,
+                                item.color
                               )
                             }
-                            className="w-9 h-9 hover:text-brand-green"
+                            disabled={typeof item.stock === "number" && item.quantity >= item.stock}
+                            title={typeof item.stock === "number" ? `Stock disponible: ${item.stock}` : undefined}
+                            className="w-9 h-9 hover:text-brand-green disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             +
                           </button>
                         </div>
+
+                        {typeof item.stock === "number" && (
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                            Stock disponible: {item.stock}
+                          </p>
+                        )}
 
                         <div className="text-right">
                           <p className="text-xs text-gray-400">
@@ -155,9 +215,10 @@ export default function CartPage() {
                   </div>
                 </div>
               ))}
-
               <button
-                onClick={clearCart}
+                onClick={() => {
+                  clearCart();
+                }}
                 className="text-sm font-bold text-red-500 hover:underline"
               >
                 Vaciar carrito
@@ -182,11 +243,15 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Envío</span>
 
-                    <span className="font-bold text-brand-green">GRATIS</span>
+                    <span className="font-bold text-brand-green">
+                      GRATIS
+                    </span>
                   </div>
 
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between">
-                    <span className="font-extrabold text-lg">Total</span>
+                    <span className="font-extrabold text-lg">
+                      Total
+                    </span>
 
                     <span className="font-black text-2xl">
                       {formatSoles(cartTotal)}

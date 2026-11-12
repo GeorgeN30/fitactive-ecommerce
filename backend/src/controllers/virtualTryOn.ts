@@ -19,4 +19,19 @@ export const virtualTryOnController = {
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "VIRTUAL_TRYON_EVENT_FAILED" });
     }
   },
+
+  // GET /api/virtual-tryon/my-history
+  async getMyHistory(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user?.userId) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: "UNAUTHORIZED" });
+        return;
+      }
+      const history = await virtualTryOnService.getMyHistory(req.user.userId);
+      res.json({ history });
+    } catch (err: unknown) {
+      console.error("Virtual try-on history error:", err);
+      res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: "VIRTUAL_TRYON_HISTORY_FAILED" });
+    }
+  },
 };

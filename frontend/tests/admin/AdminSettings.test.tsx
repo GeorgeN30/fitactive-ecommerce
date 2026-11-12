@@ -1,26 +1,24 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+vi.mock("../../src/services/api", () => ({ default: { get: vi.fn(), put: vi.fn() } }));
+import api from "../../src/services/api";
 import AdminSettingsView from "../../src/components/admin/views/AdminSettingsView";
-
+import { DEFAULT_STORE_SETTINGS } from "../../src/context/StoreSettingsContext";
 describe("AdminSettingsView", () => {
-  it("muestra las secciones de configuracion", () => {
-    render(<AdminSettingsView />);
-    expect(screen.getByText("Configuración del Panel")).toBeInTheDocument();
-    expect(screen.getByText("Configuración General")).toBeInTheDocument();
-    expect(screen.getByText("Seguridad")).toBeInTheDocument();
+  beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.get).mockResolvedValue({ data: { settings: DEFAULT_STORE_SETTINGS } }); });
+  it("loads effective settings and exposes account security", async () => {
+    render(<MemoryRouter><AdminSettingsView /></MemoryRouter>);
+    expect(await screen.findByLabelText("Nombre de la tienda")).toHaveValue("FITLOOK Perú");
+    expect(screen.getByRole("link", { name: "Seguridad de mi cuenta" })).toHaveAttribute("href", "/configuracion");
+    expect(screen.queryByText("Modo Pruebas (Sandbox)")).not.toBeInTheDocument();
   });
-
-  it("alterna el modo de pruebas de pagos", async () => {
-    const user = userEvent.setup();
-    render(<AdminSettingsView />);
-    const field = screen
-      .getByText("Modo Pruebas (Sandbox)")
-      .closest("div") as HTMLElement;
-    const button = field.querySelector("button") as HTMLButtonElement;
-    const status = field.querySelector("span") as HTMLSpanElement;
-    expect(status).toHaveTextContent("Activado");
-    await user.click(button);
-    expect(status).toHaveTextContent("Desactivado");
+  it("saves only changed fields, preserving another admin's unrelated settings", async () => {
+    vi.mocked(api.put).mockResolvedValue({ data: { settings: { ...DEFAULT_STORE_SETTINGS, limit: 70 } } });
+    const user = userEvent.setup(); render(<MemoryRouter><AdminSettingsView /></MemoryRouter>);
+    const limit = await screen.findByLabelText("Sesiones del probador por IP al día"); await user.clear(limit); await user.type(limit, "70"); await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    expect(api.put).toHaveBeenCalledWith("/admin/settings", { limit: 70 });
+    expect(await screen.findByRole("status")).toHaveTextContent("Cambios guardados");
   });
 });

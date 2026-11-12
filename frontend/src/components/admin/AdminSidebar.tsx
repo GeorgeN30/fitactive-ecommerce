@@ -3,7 +3,6 @@ import { useAuth } from "../../context/AuthContext";
 
 export type AdminTab =
   | "dashboard"
-  | "products"
   | "inventory"
   | "orders"
   | "customers"
@@ -21,7 +20,6 @@ interface AdminSidebarProps {
 
 const navItems: { key: AdminTab; label: string; icon: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: "fa-solid fa-chart-line" },
-  { key: "products", label: "Productos", icon: "fa-solid fa-box" },
   { key: "inventory", label: "Inventario", icon: "fa-solid fa-warehouse" },
   { key: "orders", label: "Pedidos", icon: "fa-solid fa-cart-shopping" },
   { key: "customers", label: "Clientes", icon: "fa-solid fa-users" },

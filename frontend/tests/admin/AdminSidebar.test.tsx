@@ -26,9 +26,10 @@ describe("AdminSidebar", () => {
 
   it("muestra todos los items de navegacion", () => {
     renderSidebar();
-    for (const label of ["Dashboard", "Productos", "Inventario", "Pedidos", "Clientes", "Devoluciones", "Métricas", "Notificaciones", "Configuración"]) {
+    for (const label of ["Dashboard", "Inventario", "Pedidos", "Clientes", "Devoluciones", "Métricas", "Notificaciones", "Configuración"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("button", { name: "Productos" })).not.toBeInTheDocument();
   });
 
   it("notifica el cambio de tab al hacer click", async () => {

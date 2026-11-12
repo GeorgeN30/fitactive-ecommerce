@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import type { BodyType } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { baas } from "./baas";
 import { config } from "../config/env";
@@ -72,6 +73,17 @@ function isValidEmail(email: string): boolean {
   return true;
 }
 
+function validateRegistrationEmail(email: string): void {
+  if (!isValidEmail(email)) {
+    throw new Error("INVALID_EMAIL");
+  }
+
+  const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+  if (!config.personalEmailDomains.includes(domain)) {
+    throw new Error("EMAIL_DOMAIN_NOT_ALLOWED");
+  }
+}
+
 function resolveRole(email: string): string {
   if (config.adminEmail && email === config.adminEmail.toLowerCase()) {
     return ROLES.ADMIN;
@@ -95,6 +107,13 @@ function resolveExistingUserRole(email: string, currentRole: string | null): str
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72;
 
+type MeasurementValue = { toNumber(): number } | number | null;
+
+function serializeMeasurement(value: MeasurementValue): number | null {
+  if (value == null) return null;
+  return typeof value === "number" ? value : value.toNumber();
+}
+
 function validatePassword(password: string): void {
   if (typeof password !== "string") throw new Error("INVALID_PASSWORD_FORMAT");
   if (password.length < MIN_PASSWORD_LENGTH) throw new Error("PASSWORD_TOO_SHORT");
@@ -102,7 +121,6 @@ function validatePassword(password: string): void {
     throw new Error("PASSWORD_TOO_LONG");
   }
 }
-
 function sanitizeUser(user: {
   id: string;
   email: string;
@@ -112,6 +130,19 @@ function sanitizeUser(user: {
   twoFactorEnabled: boolean;
   points: number;
   provider: string | null;
+
+  genero: string | null;
+  bodyType?: BodyType | null;
+  altura: MeasurementValue;
+  medida_pecho: MeasurementValue;
+  medida_cintura: MeasurementValue;
+  medida_cadera: MeasurementValue;
+  medida_muslo: MeasurementValue;
+  preferencia_ropa: string | null;
+  preferencia_colores: string | null;
+  preferencia_deporte: string | null;
+
+  onboarding_completado: boolean;
 }) {
   return {
     id: user.id,
@@ -121,6 +152,21 @@ function sanitizeUser(user: {
     picture: user.picture,
     twoFactorEnabled: user.twoFactorEnabled,
     points: user.points,
+
+    genero: user.genero,
+    bodyType: user.bodyType ?? null,
+
+    altura: serializeMeasurement(user.altura),
+    medida_pecho: serializeMeasurement(user.medida_pecho),
+    medida_cintura: serializeMeasurement(user.medida_cintura),
+    medida_cadera: serializeMeasurement(user.medida_cadera),
+    medida_muslo: serializeMeasurement(user.medida_muslo),
+    preferencia_ropa: user.preferencia_ropa,
+    preferencia_colores: user.preferencia_colores,
+    preferencia_deporte: user.preferencia_deporte,
+
+    onboarding_completado: user.onboarding_completado,
+
     provider: user.provider || "LOCAL",
     hasPassword: false,
     isNewUser: false,
@@ -133,9 +179,7 @@ export const authService = {
     password: string,
     name?: string
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
-    if (!isValidEmail(email)) {
-      throw new Error("INVALID_EMAIL");
-    }
+    validateRegistrationEmail(email);
     validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
@@ -169,9 +213,7 @@ export const authService = {
     password: string,
     name?: string
   ): Promise<{ message: string }> {
-    if (!isValidEmail(email)) {
-      throw new Error("INVALID_EMAIL");
-    }
+    validateRegistrationEmail(email);
     validatePassword(password);
 
     const existing = await prisma.usuarios.findUnique({ where: { email } });
@@ -189,6 +231,7 @@ export const authService = {
     email: string,
     code: string
   ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
+    validateRegistrationEmail(email);
     const pending = getPendingRegistration(email);
     if (!pending) {
       throw new Error("NO_PENDING_REGISTRATION");
@@ -253,20 +296,15 @@ export const authService = {
 
     if (user.twoFactorEnabled) {
       if (!user.totpSecret) {
-        await prisma.usuarios.update({
-          where: { id: user.id },
-          data: { twoFactorEnabled: false },
-        });
-        user.twoFactorEnabled = false;
-      } else {
-        const preAuthToken = await baas.signJwt(user.id, { purpose: "mfa_pending" }, 300);
-        return {
-          requires2Fa: true,
-          userId: user.id,
-          token: preAuthToken.token,
-          user: sanitizeUser(user),
-        };
+        throw new Error("TOTP_NOT_SETUP");
       }
+      const preAuthToken = await baas.signJwt(user.id, { purpose: "mfa_pending" }, 300);
+      return {
+        requires2Fa: true,
+        userId: user.id,
+        token: preAuthToken.token,
+        user: sanitizeUser(user),
+      };
     }
 
     const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
@@ -345,20 +383,15 @@ export const authService = {
 
     if (user.twoFactorEnabled) {
       if (!user.totpSecret) {
-        await prisma.usuarios.update({
-          where: { id: user.id },
-          data: { twoFactorEnabled: false },
-        });
-        user.twoFactorEnabled = false;
-      } else {
-        const preAuthToken = await baas.signJwt(user.id, { purpose: "mfa_pending" }, 300);
-        return {
-          token: preAuthToken.token,
-          user: sanitizeUser(user),
-          requires2Fa: true,
-          userId: user.id,
-        };
+        throw new Error("TOTP_NOT_SETUP");
       }
+      const preAuthToken = await baas.signJwt(user.id, { purpose: "mfa_pending" }, 300);
+      return {
+        token: preAuthToken.token,
+        user: sanitizeUser(user),
+        requires2Fa: true,
+        userId: user.id,
+      };
     }
 
     const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
@@ -371,7 +404,10 @@ export const authService = {
 
   async googleAuth(
     accessToken: string
-  ): Promise<{ token: string; user: ReturnType<typeof sanitizeUser> }> {
+  ): Promise<
+    | { token: string; user: ReturnType<typeof sanitizeUser> }
+    | { requires2Fa: true; userId: string; token: string; user: ReturnType<typeof sanitizeUser> }
+  > {
     const googleProfile = await baas.verifyGoogleToken(accessToken);
 
     let user = await prisma.usuarios.findUnique({
@@ -409,6 +445,19 @@ export const authService = {
         where: { id: user.id },
         data: updates,
       });
+    }
+
+    if (user.twoFactorEnabled) {
+      if (!user.totpSecret) {
+        throw new Error("TOTP_NOT_SETUP");
+      }
+      const preAuthToken = await baas.signJwt(user.id, { purpose: "mfa_pending" }, 300);
+      return {
+        requires2Fa: true,
+        userId: user.id,
+        token: preAuthToken.token,
+        user: { ...sanitizeUser(user), hasPassword: !!user.passwordHash, isNewUser },
+      };
     }
 
     const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
@@ -663,7 +712,7 @@ export const authService = {
   async enable2Fa(
     userId: string,
     code: string
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ success: boolean; token: string; user: ReturnType<typeof sanitizeUser> }> {
     const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.totpSecret) {
       throw new Error("TOTP_NOT_SETUP");
@@ -674,12 +723,16 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    await prisma.usuarios.update({
+    const jwtResult = await baas.signJwt(user.id, {
+      role: user.role || ROLES.CUSTOMER,
+      mfa_verified: true,
+    });
+    const updatedUser = await prisma.usuarios.update({
       where: { id: userId },
       data: { twoFactorEnabled: true },
     });
 
-    return { success: true };
+    return { success: true, token: jwtResult.token, user: sanitizeUser(updatedUser) };
   },
 
   async verify2Fa(
@@ -692,15 +745,7 @@ export const authService = {
     }
 
     if (!user.totpSecret) {
-      await prisma.usuarios.update({
-        where: { id: userId },
-        data: { twoFactorEnabled: false },
-      });
-      const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
-      return {
-        token: jwtResult.token,
-        user: sanitizeUser({ ...user, twoFactorEnabled: false }),
-      };
+      throw new Error("TOTP_NOT_SETUP");
     }
 
     const result = await baas.verifyTotp(user.totpSecret, code);
@@ -708,7 +753,10 @@ export const authService = {
       throw new Error("INVALID_TOTP");
     }
 
-    const jwtResult = await baas.signJwt(user.id, { role: user.role || ROLES.CUSTOMER });
+    const jwtResult = await baas.signJwt(user.id, {
+      role: user.role || ROLES.CUSTOMER,
+      mfa_verified: true,
+    });
 
     return {
       token: jwtResult.token,
@@ -723,6 +771,10 @@ export const authService = {
     const user = await prisma.usuarios.findUnique({ where: { id: userId } });
     if (!user || !user.totpSecret) {
       throw new Error("TOTP_NOT_SETUP");
+    }
+    if (["admin", "inventory", "receptionist"].includes(user.role || "") &&
+        (await import("./settings").then((module) => module.settingsService.get())).twoFactor) {
+      throw new Error("STAFF_MFA_REQUIRED");
     }
 
     const result = await baas.verifyTotp(user.totpSecret, code);

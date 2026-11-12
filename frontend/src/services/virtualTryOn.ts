@@ -58,9 +58,9 @@ export function getVirtualTryOnSessionId(): string {
   const existing = sessionStorage.getItem(VIRTUAL_TRYON_SESSION_KEY);
   if (existing) return existing;
 
-  const generated = typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `tryon-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const generated = typeof crypto.randomUUID === "function" ? crypto.randomUUID()
+    : `tryon-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
   sessionStorage.setItem(VIRTUAL_TRYON_SESSION_KEY, generated);
   return generated;
 }
@@ -99,4 +99,34 @@ export async function fetchVirtualTryOnSummary(
     params: { period, ...(date ? { date } : {}) },
   });
   return data.summary as VirtualTryOnSummary;
+}
+
+
+export interface UserTryOnHistoryItem {
+  id: string;
+  usuario_id: string;
+  producto_id: string;
+  tipo: string;
+  talla: string;
+  genero: string;
+  compatibilidad: number | null;
+  duracion_segundos: number | null;
+  creado_en: string;
+  productos?: {
+    id: string;
+    nombre: string;
+    categoria: string;
+    precio: number;
+    imagen_url: string;
+    genero: string;
+  };
+}
+
+export async function fetchMyTryOnHistory(): Promise<UserTryOnHistoryItem[]> {
+  try {
+    const { data } = await api.get("/virtual-tryon/my-history");
+    return (data.history || []) as UserTryOnHistoryItem[];
+  } catch {
+    return [];
+  }
 }

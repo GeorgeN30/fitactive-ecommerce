@@ -22,6 +22,7 @@ export default function InventoryStockView({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [toastMessage, setToastMessage] = useState("");
   const [stockInput, setStockInput] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
   const [motivo, setMotivo] = useState("Recepción de mercadería (Entrada)");
 
   const totalUnits = products.reduce(
@@ -59,9 +60,9 @@ export default function InventoryStockView({
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product);
-    setStockInput(
-      Object.values(product.stock).reduce((sum, stock) => sum + stock, 0).toString(),
-    );
+    const firstSize = Object.keys(product.stock)[0] || "";
+    setSelectedSize(firstSize);
+    setStockInput(firstSize ? String(product.stock[firstSize] ?? 0) : "");
     setIsEditModalOpen(true);
   };
 
@@ -72,17 +73,20 @@ export default function InventoryStockView({
 
   const handleSaveStock = async () => {
     if (!editingProduct) return;
-    if (!stockInput || isNaN(Number(stockInput))) {
-      alert("Debe ingresar un número válido");
+    if (!selectedSize) {
+      alert("Selecciona una talla antes de ajustar el stock.");
+      return;
+    }
+    if (!stockInput || !Number.isInteger(Number(stockInput)) || Number(stockInput) < 0) {
+      alert("Debe ingresar un número entero válido.");
       return;
     }
 
     if (onUpdateStock) {
       try {
-        const sizeKey = Object.keys(editingProduct.stock)[0] || "Única";
         await onUpdateStock(
           String(editingProduct.id),
-          sizeKey,
+          selectedSize,
           Number(stockInput),
           motivo,
         );
@@ -95,10 +99,9 @@ export default function InventoryStockView({
     setProducts(
       products.map((p) => {
         if (p.id === editingProduct.id) {
-          const sizeKey = Object.keys(p.stock)[0] || "Única";
           return {
             ...p,
-            stock: { ...p.stock, [sizeKey]: Number(stockInput) },
+            stock: { ...p.stock, [selectedSize]: Number(stockInput) },
           };
         }
         return p;
@@ -162,12 +165,32 @@ export default function InventoryStockView({
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase">
-                  Nuevo Stock Total
+                  Talla a ajustar
+                </label>
+                <select
+                  value={selectedSize}
+                  onChange={(event) => {
+                    const nextSize = event.target.value;
+                    setSelectedSize(nextSize);
+                    setStockInput(String(editingProduct.stock[nextSize] ?? 0));
+                  }}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-950/50"
+                >
+                  <option value="">Selecciona una talla</option>
+                  {Object.keys(editingProduct.stock).map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">
+                  Stock de la talla
                 </label>
                 <div className="flex items-center border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-gray-50 dark:bg-zinc-950/50">
                   <button
                     onClick={() =>
-                      setStockInput((Number(stockInput) - 1).toString())
+                      setStockInput(Math.max(0, Number(stockInput) - 1).toString())
                     }
                     className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold"
                   >
@@ -181,7 +204,7 @@ export default function InventoryStockView({
                   />
                   <button
                     onClick={() =>
-                      setStockInput((Number(stockInput) + 1).toString())
+                        setStockInput((Number(stockInput) + 1).toString())
                     }
                     className="px-5 py-3 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors font-bold"
                   >

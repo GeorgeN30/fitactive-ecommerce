@@ -10,6 +10,11 @@ import inventoryRoutes from "./routes/inventory";
 import productsRoutes from "./routes/products";
 import notificationsRoutes from "./routes/notifications";
 import virtualTryOnRoutes from "./routes/virtualTryOn";
+import paymentsRoutes from "./routes/payments";
+import { orderService } from "./services/orders";
+import { settingsController } from "./controllers/settings";
+import supportRoutes from "./routes/support";
+import returnsRoutes from "./routes/returns";
 
 const app = express();
 
@@ -25,15 +30,27 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.get("/api/store-settings", settingsController.get);
+app.use("/api/support", supportRoutes);
+app.use("/api/returns", returnsRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/virtual-tryon", virtualTryOnRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 app.listen(config.port, () => {
   console.log(`Server running on http://localhost:${config.port}`);
+  void orderService.releaseExpiredPendingOrders().catch((error: unknown) => {
+    console.error("Initial pending order cleanup failed:", error);
+  });
+  setInterval(() => {
+    void orderService.releaseExpiredPendingOrders().catch((error: unknown) => {
+      console.error("Pending order cleanup failed:", error);
+    });
+  }, 60_000);
 });
 
 export default app;

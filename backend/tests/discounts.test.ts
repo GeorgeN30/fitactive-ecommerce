@@ -80,6 +80,27 @@ describe("discountService", () => {
     vi.clearAllMocks();
   });
 
+  it("rejects invalid duration and expired custom windows before writing", async () => {
+    for (const validity of [{ duracionHoras: 1 }, { fechaFin: "2020-01-01T00:00:00Z" }, { fechaFin: "invalid" }, { duracionHoras: 24, fechaFin: "2099-01-01T00:00:00Z" }]) {
+      await expect(discountService.createRequest("inventory-1", {
+        productoTallaIds: ["size-1"], porcentaje: 20, motivo: "Temporada", ...validity,
+      })).rejects.toThrow(/INVALID_DISCOUNT/);
+    }
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("starts quick durations at approval instead of request time", async () => {
+    const tx = buildTx();
+    tx.discount_requests.findUnique.mockResolvedValue({ ...(requestRow("request-1") as unknown as Record<string, unknown>), duracion_horas: 24 });
+    tx.discount_requests.updateMany.mockResolvedValue({ count: 1 });
+    tx.producto_tallas.updateMany.mockResolvedValue({ count: 1 });
+    tx.discount_requests.findUniqueOrThrow.mockResolvedValue(requestRow("request-1", "APPROVED", 20));
+    mockPrisma.$transaction.mockImplementation((callback: (transaction: ReturnType<typeof buildTx>) => unknown) => callback(tx));
+    await discountService.reviewRequest("request-1", "admin-1", "APPROVED");
+    const applied = tx.producto_tallas.updateMany.mock.calls[0][0].data;
+    expect(applied.descuento_fin.getTime() - applied.descuento_inicio.getTime()).toBe(86_400_000);
+  });
+
   it("validates the request and deduplicates selected sizes", async () => {
     await expect(
       discountService.createRequest("inventory-1", {
@@ -177,8 +198,8 @@ describe("discountService", () => {
       data: expect.objectContaining({ estado: "APPROVED", revisado_por: "admin-1" }),
     });
     expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith({
-      where: { id: "size-1", descuento_porcentaje: 0 },
-      data: { descuento_porcentaje: 20 },
+      where: expect.objectContaining({ id: "size-1", OR: expect.any(Array) }),
+      data: expect.objectContaining({ descuento_porcentaje: 20, descuento_solicitud_id: "request-1" }),
     });
     expect(result.status).toBe("APPROVED");
     expect(result.product.salePrice).toBe(39.92);
@@ -255,8 +276,8 @@ describe("discountService", () => {
     const result = await discountService.revertRequest("request-1", "admin-1");
 
     expect(tx.producto_tallas.updateMany).toHaveBeenCalledWith({
-      where: { id: "size-1", descuento_porcentaje: 20 },
-      data: { descuento_porcentaje: 0 },
+      where: expect.objectContaining({ id: "size-1", descuento_porcentaje: 20, OR: expect.any(Array) }),
+      data: expect.objectContaining({ descuento_porcentaje: 0, descuento_solicitud_id: null }),
     });
     expect(tx.discount_requests.updateMany).toHaveBeenCalledWith({
       where: { id: "request-1", estado: "APPROVED" },

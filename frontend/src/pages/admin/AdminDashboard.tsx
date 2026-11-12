@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTheme } from "next-themes";
 import DashboardView, {
   type DashboardMetric,
@@ -15,6 +15,7 @@ import VirtualTryOnMetrics from "../../components/admin/views/VirtualTryOnMetric
 import AdminDiscountRequestsView from "../../components/admin/views/AdminDiscountRequestsView";
 import AdminRolesAccessView from "../../components/admin/views/AdminRolesAccessView";
 import AdminReturnsView from "../../components/admin/views/AdminReturnsView";
+import AdminSupportView from "../../components/admin/views/AdminSupportView";
 import AdminFinanceView from "../../components/admin/views/AdminFinanceView";
 import ModalPortal from "../../components/ModalPortal";
 import NotificationToast from "../../components/NotificationToast";
@@ -56,8 +57,9 @@ function AdminIcon({
   size = 18,
   className = "",
 }: IconProps & { name: string }) {
+  if (name === "fa-bars") return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><path d="M3 6h18M3 12h18M3 18h18" /></svg>;
   return (
-    <i className={`fa-solid ${name} ${className}`} style={{ fontSize: size }} />
+    <i aria-hidden="true" className={`fa-solid ${name} ${className}`} style={{ fontSize: size, display: "inline-block", width: size, height: size }} />
   );
 }
 
@@ -104,7 +106,10 @@ type Section =
   | "notifications"
   | "config"
   | "discounts"
-  | "returns";
+  | "returns"
+  | "support";
+
+const VALID_ADMIN_SECTIONS = new Set<Section>(["dashboard", "orders", "clients", "roles", "metrics", "finance", "notifications", "config", "discounts", "returns", "support"]);
 
 interface ProductFormData {
   name: string;
@@ -186,6 +191,8 @@ function BarChart({ data, color }: { data: number[]; color: string }) {
 }
 
 export default function AdminDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSection = searchParams.get("section");
   const { theme, setTheme } = useTheme();
   const logout = () => {
     clearStoredSession();
@@ -203,6 +210,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [sales, setSales] = useState<SalesDataPoint[]>([]);
+  const [loadError, setLoadError] = useState("");
 
   const navigate = (view: "home") => {
     if (view === "home") window.location.href = "/";
@@ -305,6 +313,7 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         if (isAuthError(error)) handleUnauthorized();
+        else if (!cancelled) setLoadError("No se pudieron cargar los datos del panel. Reintenta para evitar trabajar con información incompleta.");
       }
     };
     void loadAll();
@@ -345,7 +354,11 @@ export default function AdminDashboard() {
         message: notification.message,
         kind: notification.priority === "high" ? "critical" : "info",
       });
-      if (event.type === "NEW_ORDER" || event.type === "ORDER_STATUS") {
+      if (
+        event.type === "NEW_ORDER" ||
+        event.type === "ORDER_STATUS" ||
+        event.type === "PAYMENT_STATUS"
+      ) {
         void refreshOrders();
       }
     });
@@ -389,13 +402,15 @@ export default function AdminDashboard() {
     } catch (error) {
       if (isAuthError(error)) {
         handleUnauthorized();
-        return;
+        throw error;
       }
       window.alert("No se pudo actualizar el estado del pedido.");
+      throw error;
     }
   };
 
-  const [section, setSection] = useState<Section>("dashboard");
+  const [section, setSection] = useState<Section>(() => VALID_ADMIN_SECTIONS.has(requestedSection as Section) ? requestedSection as Section : "dashboard");
+  useEffect(() => { if (VALID_ADMIN_SECTIONS.has(requestedSection as Section)) setSection(requestedSection as Section); }, [requestedSection]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedClient, setSelectedClient] = useState<User | null>(null);
@@ -581,6 +596,7 @@ export default function AdminDashboard() {
     },
     { key: "notifications", label: "Notificaciones", icon: <Bell size={18} /> },
     { key: "config", label: "Configuración", icon: <Settings size={18} /> },
+    { key: "support", label: "Consultas de soporte", icon: <Settings size={18} /> },
   ];
 
   const Sidebar = () => (
@@ -609,6 +625,7 @@ export default function AdminDashboard() {
             key={item.key}
             onClick={() => {
               setSection(item.key);
+              if (searchParams.has("section")) setSearchParams({}, { replace: true });
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${section === item.key ? "bg-[#00E87A] text-[#0A0A0A]" : "text-gray-400 hover:text-white hover:bg-white/5"}`}
@@ -629,6 +646,12 @@ export default function AdminDashboard() {
           className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
         >
           <AdminIcon name="fa-store" size={16} /> Vista tienda
+        </Link>
+        <Link
+          to="/configuracion"
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          <AdminIcon name="fa-user-shield" size={16} /> Seguridad de mi cuenta
         </Link>
         <div className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-400">
           <div className="flex items-center gap-3">
@@ -706,6 +729,7 @@ export default function AdminDashboard() {
         <header className="bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-6 py-4 flex items-center gap-4 flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú del panel"
             className="lg:hidden text-gray-500 dark:text-gray-300"
           >
             <Menu size={20} />
@@ -795,6 +819,8 @@ export default function AdminDashboard() {
           {section === "returns" && <AdminReturnsView />}
 
           {section === "config" && <AdminSettingsView />}
+          {loadError && <div role="alert" className="p-4 text-red-600 border rounded-xl">{loadError} <button onClick={() => window.location.reload()} className="underline">Reintentar</button></div>}
+          {section === "support" && <AdminSupportView />}
         </main>
       </div>
 

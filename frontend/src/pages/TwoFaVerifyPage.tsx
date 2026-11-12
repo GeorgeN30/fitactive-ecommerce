@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
@@ -23,10 +23,16 @@ export default function TwoFaVerifyPage() {
     navigate(path, { replace: true });
   }, [navigate, user]);
 
-  if (!preAuthUserId) {
-    navigate("/login", { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (!preAuthUserId && !user && !success) {
+      navigate("/login", {
+        replace: true,
+        state: { authError: "No hay una verificación 2FA pendiente. Inicia sesión nuevamente." },
+      });
+    }
+  }, [navigate, preAuthUserId, success, user]);
+
+  if (!preAuthUserId && !user && !success) return null;
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -38,12 +44,27 @@ export default function TwoFaVerifyPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response
         ?.status;
-      if (status === 401) {
+      const apiError = (err as { response?: { data?: { error?: string } } })
+        ?.response?.data?.error;
+      if (status === 401 || (err instanceof Error && err.message === "NO_PREAUTH_SESSION")) {
         clearPreAuth();
-        navigate("/login", { replace: true });
+        navigate("/login", {
+          replace: true,
+          state: {
+            authError: apiError === "ACCOUNT_BLOCKED"
+              ? "Esta cuenta está bloqueada. Contacta al administrador."
+              : apiError === "MFA_REQUIRED"
+                ? "El token enviado no corresponde a una verificación 2FA. Inicia sesión nuevamente."
+                : "El desafío de verificación expiró o no es válido. Inicia sesión nuevamente.",
+          },
+        });
         return;
       }
-      setError("código inválido. Intenta de nuevo.");
+      setError(
+        apiError === "TOTP_NOT_SETUP"
+          ? "La verificación 2FA de esta cuenta necesita configurarse de nuevo."
+          : "El código es inválido o expiró. Revisa la hora automática de tu dispositivo e intenta de nuevo.",
+      );
       setCode("");
     } finally {
       setLoading(false);

@@ -10,7 +10,7 @@ vi.mock("../src/config/prisma", () => ({
 
 import { authService } from "../src/services/auth";
 import { prisma } from "../src/config/prisma";
-import { validateJWT, type AuthRequest } from "../src/middlewares/auth";
+import { validateJWT, validateMfaPendingJWT, type AuthRequest } from "../src/middlewares/auth";
 import { checkRole } from "../src/middlewares/role";
 import { ROLES } from "../src/constants";
 
@@ -62,6 +62,64 @@ describe("staff authorization", () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ error: "INSUFFICIENT_ROLE" });
     expect(roleNext).not.toHaveBeenCalled();
+  });
+
+  it("rejects ordinary access tokens for accounts with 2FA enabled", async () => {
+    vi.mocked(authService.verifyToken).mockResolvedValue({
+      valid: true,
+      claims: { sub: "user-1", extra: { role: "admin" } },
+    } as never);
+    vi.mocked(prisma.usuarios.findUnique).mockResolvedValue({
+      role: ROLES.ADMIN,
+      blocked: false,
+      twoFactorEnabled: true,
+    } as never);
+    const res = response();
+    const next = vi.fn() as NextFunction;
+
+    validateJWT(request("pre-2fa-admin-session"), res, next);
+    await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(401));
+
+    expect(res.json).toHaveBeenCalledWith({ error: "MFA_REQUIRED" });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("accepts an access token marked as verified by MFA", async () => {
+    vi.mocked(authService.verifyToken).mockResolvedValue({
+      valid: true,
+      claims: {
+        sub: "user-1",
+        extra: { role: "admin", mfa_verified: true },
+      },
+    } as never);
+    vi.mocked(prisma.usuarios.findUnique).mockResolvedValue({
+      role: ROLES.ADMIN,
+      blocked: false,
+      twoFactorEnabled: true,
+    } as never);
+    const req = request("post-mfa-admin-session");
+    const next = vi.fn() as NextFunction;
+
+    validateJWT(req, response(), next);
+    await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
+    expect(req.user?.role).toBe(ROLES.ADMIN);
+  });
+
+  it("allows a pending MFA token only on the MFA verification middleware", async () => {
+    vi.mocked(authService.verifyToken).mockResolvedValue({
+      valid: true,
+      claims: { sub: "user-1", extra: { purpose: "mfa_pending" } },
+    } as never);
+    vi.mocked(prisma.usuarios.findUnique).mockResolvedValue({
+      role: ROLES.ADMIN,
+      blocked: false,
+      twoFactorEnabled: true,
+    } as never);
+    const req = request("short-lived-mfa-token");
+    const next = vi.fn() as NextFunction;
+
+    validateMfaPendingJWT(req, response(), next);
+    await vi.waitFor(() => expect(next).toHaveBeenCalledOnce());
   });
 
   it("prevents an admin from creating inventory discount requests", () => {

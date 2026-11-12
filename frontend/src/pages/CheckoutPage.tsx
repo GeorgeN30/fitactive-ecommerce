@@ -4,18 +4,27 @@ import axios from "axios";
 
 import AppLayout from "../components/AppLayout";
 import { useCart } from "../context/CartContext";
-import { createOrder, resolveOrderEntries } from "../services/orders";
+import {
+  createMercadoPagoPreference,
+  createOrder,
+  redirectToMercadoPago,
+  resolveOrderEntries,
+  type CheckoutDetails,
+} from "../services/orders";
 import { getVirtualTryOnSessionId } from "../services/virtualTryOn";
+import { useStoreSettings } from "../context/StoreSettingsContext";
 
 export default function CheckoutPage() {
-  const { cartItems, cartTotal, clearCart } = useCart();
+  const { cartItems, cartTotal, registerPendingCheckout, revalidateCart } = useCart();
   const navigate = useNavigate();
+  const settings = useStoreSettings();
 
   const [step, setStep] = useState(1);
   const [orderNumber, setOrderNumber] = useState("");
   const [orderTotal, setOrderTotal] = useState(0);
   const [processingOrder, setProcessingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [pendingOrderId, setPendingOrderId] = useState("");
 
   const [purchasedItems, setPurchasedItems] = useState(cartItems);
 
@@ -31,6 +40,15 @@ export default function CheckoutPage() {
     city: "",
     reference: "",
   });
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    district?: string;
+    city?: string;
+    reference?: string;
+  }>({});
 
   if (cartItems.length === 0 && step !== 5) {
     return (
@@ -61,12 +79,79 @@ export default function CheckoutPage() {
 
   const handleCustomerSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setStep(2);
+
+    const errors: typeof validationErrors = {};
+
+    const name = customerData.name.trim();
+    const email = customerData.email.trim();
+    const phone = customerData.phone.trim();
+
+    if (!name) {
+      errors.name = "El nombre es obligatorio.";
+    } else if (name.length < 3) {
+      errors.name = "El nombre debe tener al menos 3 caracteres.";
+    } else if (!/^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(name)) {
+      errors.name = "El nombre solo debe contener letras y espacios.";
+    }
+
+    if (!email) {
+      errors.email = "El correo electrónico es obligatorio.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Ingresa un correo electrónico válido.";
+    }
+
+    if (!phone) {
+      errors.phone = "El teléfono es obligatorio.";
+    } else if (!/^9\d{8}$/.test(phone)) {
+      errors.phone =
+        "Ingresa un teléfono válido de 9 dígitos que empiece con 9.";
+    }
+
+    setValidationErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      setStep(2);
+    }
   };
 
   const handleAddressSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setStep(3);
+
+    const errors: typeof validationErrors = {};
+
+    const address = addressData.address.trim();
+    const district = addressData.district.trim();
+    const city = addressData.city.trim();
+    const reference = addressData.reference.trim();
+
+    if (!address) {
+      errors.address = "La dirección es obligatoria.";
+    } else if (address.length < 5) {
+      errors.address = "La dirección debe tener al menos 5 caracteres.";
+    }
+
+    if (!district) {
+      errors.district = "El distrito es obligatorio.";
+    } else if (district.length < 2) {
+      errors.district = "Ingresa un distrito válido.";
+    }
+
+    if (!city) {
+      errors.city = "La ciudad es obligatoria.";
+    } else if (city.length < 2) {
+      errors.city = "Ingresa una ciudad válida.";
+    }
+
+    if (reference.length > 255) {
+      errors.reference =
+        "La referencia no puede superar los 255 caracteres.";
+    }
+
+    setValidationErrors(errors);
+
+    if (Object.keys(errors).length === 0) {
+      setStep(3);
+    }
   };
 
   const handleGoToConfirmation = () => {
@@ -84,21 +169,40 @@ export default function CheckoutPage() {
     setOrderError("");
 
     try {
-      const entries = await resolveOrderEntries(cartItems);
-      const order = await createOrder(entries, getVirtualTryOnSessionId());
+      let orderId = pendingOrderId;
+      if (!orderId) {
+        const validation = revalidateCart ? await revalidateCart() : undefined;
+        if (validation?.unavailable) { setOrderError("Hay productos sin stock suficiente. Revisa tu carrito."); return; }
+        if (validation?.changed) { setOrderError("Actualizamos el precio o la disponibilidad. Revisa el resumen y confirma nuevamente."); return; }
+        const entries = await resolveOrderEntries(cartItems);
+        const checkoutDetails: CheckoutDetails = {
+          customerName: customerData.name,
+          customerEmail: customerData.email,
+          customerPhone: customerData.phone,
+          shippingAddress: addressData.address,
+          shippingDistrict: addressData.district,
+          shippingCity: addressData.city,
+          shippingReference: addressData.reference,
+        };
+        const order = await createOrder(
+          entries,
+          getVirtualTryOnSessionId(),
+          checkoutDetails,
+          cartTotal,
+        );
+        orderId = order.id;
+        setPendingOrderId(order.id);
+        registerPendingCheckout(order.id);
+        setPurchasedItems(cartItems.map((item, index) => ({
+          ...item,
+          price: order.entries.find((entry) => entry.productoTallaId === entries[index].productoTallaId)?.precioUnitario ?? item.price,
+        })));
+        setOrderTotal(order.total);
+        setOrderNumber(order.numero);
+      }
 
-      setPurchasedItems(cartItems.map((item, index) => ({
-        ...item,
-        price: order.entries.find((entry) => entry.productoTallaId === entries[index].productoTallaId)?.precioUnitario ?? item.price,
-      })));
-
-      setOrderTotal(order.total);
-
-      setOrderNumber(order.numero);
-
-      clearCart();
-
-      setStep(5);
+      const preference = await createMercadoPagoPreference(orderId);
+      redirectToMercadoPago(preference.initPoint);
     } catch (error: unknown) {
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
       const code = axios.isAxiosError(error)
@@ -107,6 +211,9 @@ export default function CheckoutPage() {
 
       if (status === 401) {
         navigate("/login");
+      } else if (code === "PRICE_CHANGED") {
+        if (revalidateCart) await revalidateCart().catch(() => undefined);
+        setOrderError("La oferta o el precio cambió. Revisa el nuevo total y confirma nuevamente.");
       } else if (status === 409 || code === "INSUFFICIENT_STOCK") {
         setOrderError(
           "No hay stock suficiente para alguno de los productos. Ajusta las cantidades e inténtalo de nuevo.",
@@ -117,7 +224,7 @@ export default function CheckoutPage() {
         );
       } else {
         setOrderError(
-          "Ocurrió un error al registrar tu pedido. Inténtalo de nuevo.",
+          "No pudimos iniciar el pago. Puedes volver a intentarlo sin crear otro pedido.",
         );
       }
     } finally {
@@ -386,22 +493,20 @@ export default function CheckoutPage() {
             {[1, 2, 3, 4].map((number) => (
               <div key={number} className="flex items-center">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black ${
-                    step >= number
-                      ? "bg-brand-green text-black"
-                      : "bg-gray-200 dark:bg-gray-700 text-gray-500"
-                  }`}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black ${step >= number
+                    ? "bg-brand-green text-black"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-500"
+                    }`}
                 >
                   {step > number ? "✓" : number}
                 </div>
 
                 {number < 4 && (
                   <div
-                    className={`w-10 sm:w-20 h-1 ${
-                      step > number
-                        ? "bg-brand-green"
-                        : "bg-gray-200 dark:bg-gray-700"
-                    }`}
+                    className={`w-10 sm:w-20 h-1 ${step > number
+                      ? "bg-brand-green"
+                      : "bg-gray-200 dark:bg-gray-700"
+                      }`}
                   />
                 )}
               </div>
@@ -444,6 +549,11 @@ export default function CheckoutPage() {
                       placeholder="Ej. Juan Pérez"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                     />
+                    {validationErrors.name && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {validationErrors.name}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -464,26 +574,37 @@ export default function CheckoutPage() {
                       placeholder="correo@ejemplo.com"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                     />
+                    {validationErrors.email && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {validationErrors.email}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-bold mb-2">
                       Teléfono
                     </label>
-
                     <input
                       type="tel"
                       required
+                      maxLength={9}
+                      inputMode="numeric"
                       value={customerData.phone}
                       onChange={(e) =>
                         setCustomerData({
                           ...customerData,
-                          phone: e.target.value,
+                          phone: e.target.value.replace(/\D/g, "").slice(0, 9),
                         })
                       }
-                      placeholder="999 999 999"
+                      placeholder="Ej. 987654321"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                     />
+                    {validationErrors.phone && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {validationErrors.phone}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -533,6 +654,11 @@ export default function CheckoutPage() {
                       placeholder="Av. Javier Prado 1234"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                     />
+                    {validationErrors.address && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {validationErrors.address}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-5">
@@ -554,6 +680,11 @@ export default function CheckoutPage() {
                         placeholder="Miraflores"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                       />
+                      {validationErrors.district && (
+                        <p className="mt-1 text-sm text-red-500">
+                          {validationErrors.district}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -574,6 +705,11 @@ export default function CheckoutPage() {
                         placeholder="Lima"
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                       />
+                      {validationErrors.city && (
+                        <p className="mt-1 text-sm text-red-500">
+                          {validationErrors.city}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -594,6 +730,11 @@ export default function CheckoutPage() {
                       placeholder="Cerca del parque / edificio azul..."
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-brand-green/50"
                     />
+                    {validationErrors.reference && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {validationErrors.reference}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -721,6 +862,7 @@ export default function CheckoutPage() {
 
                     <span className="font-bold text-brand-green">GRATIS</span>
                   </div>
+                  <p className="text-xs text-gray-500 mb-3">IGV incluido ({settings.tax}%): S/ {(cartTotal - cartTotal / (1 + settings.tax / 100)).toFixed(2)}</p>
 
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between">
                     <span className="font-extrabold">Total</span>
@@ -745,7 +887,7 @@ export default function CheckoutPage() {
                   <h2 className="text-2xl font-extrabold mt-2">Confirmar pedido</h2>
 
                   <p className="text-sm text-gray-500 mt-1">
-                    Se registrará un pedido pendiente. La pasarela de pago se integrará en la siguiente fase; no se solicitarán datos de tarjeta ni se realizará un cobro.
+                    Tu pedido se reservará y serás redirigido a Mercado Pago para completar el pago de forma segura.
                   </p>
                 </div>
 
@@ -778,12 +920,13 @@ export default function CheckoutPage() {
 
                   <button
                     type="submit"
+                    data-mp-checkout-cta="checkout-pro"
                     disabled={processingOrder}
                     className="flex-1 py-4 bg-brand-green text-black font-black rounded-xl hover:opacity-90 transition disabled:opacity-50"
                   >
                     {processingOrder
-                      ? "Registrando..."
-                      : `Registrar pedido por S/ ${cartTotal.toFixed(2)}`}
+                      ? "Preparando pago..."
+                      : `Pagar con Mercado Pago · S/ ${cartTotal.toFixed(2)}`}
                   </button>
                 </div>
               </div>

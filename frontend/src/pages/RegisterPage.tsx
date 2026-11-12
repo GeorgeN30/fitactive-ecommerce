@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import AuthLayout from "../components/AuthLayout";
+import AuthLayout, { LegalModal, type LegalDocType } from "../components/AuthLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
+import AuthFieldFeedback from "../components/AuthFieldFeedback";
 import SuccessOverlay from "../components/SuccessOverlay";
 import {
-  getEmailValidationMessage,
+  getRegistrationEmailValidationMessage,
   isStrongPassword,
 } from "../utils/validation";
+import { useAuth, type User } from "../context/AuthContext";
 
 type Step = "form" | "otp";
 
@@ -24,12 +26,16 @@ export default function RegisterPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
+  const { establishSession } = useAuth();
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const emailValidationMessage = getEmailValidationMessage(email);
+  const emailValidationMessage = getRegistrationEmailValidationMessage(email);
   const passwordIsStrong = isStrongPassword(password);
+  const emailHasError = (emailTouched || email.length > 0) && Boolean(emailValidationMessage);
+  const emailIsValid = email.length > 0 && !emailValidationMessage;
 
   useEffect(() => {
     if (step === "otp") {
@@ -105,6 +111,8 @@ export default function RegisterPage() {
             setError("Este correo ya está registrado. Inicia sesión.");
           } else if (data.error === "INVALID_EMAIL") {
             setError("El correo electrónico no es válido.");
+          } else if (data.error === "EMAIL_DOMAIN_NOT_ALLOWED") {
+            setError("Utiliza un correo personal de un proveedor admitido.");
           } else {
             setError("No se pudo enviar el código. Intenta de nuevo.");
           }
@@ -144,14 +152,15 @@ export default function RegisterPage() {
           inputRefs.current[0]?.focus();
         } else if (data.error === "EMAIL_EXISTS") {
           setError("Este correo ya está registrado. Inicia sesión.");
+        } else if (data.error === "EMAIL_DOMAIN_NOT_ALLOWED") {
+          setError("Utiliza un correo personal de un proveedor admitido.");
         } else {
           setError("No se pudo crear la cuenta. Intenta de nuevo.");
           setCode(["", "", "", "", "", ""]);
         }
         return;
       }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      establishSession(data.token, data.user as User, true);
       setSuccess(true);
     } catch {
       setError("No se pudo crear la cuenta. Intenta de nuevo.");
@@ -229,10 +238,12 @@ export default function RegisterPage() {
             className="space-y-5 animate-slide-up-fade"
           >
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="registration-name" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nombre Completo
               </label>
               <input
+                id="registration-name"
+                autoComplete="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -241,48 +252,65 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Correo Electronico
+              <label htmlFor="registration-email" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+                Correo Electrónico
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError("");
-                }}
-                onBlur={() => setEmailTouched(true)}
-                required
-                autoComplete="email"
-                aria-invalid={Boolean(emailTouched && emailValidationMessage)}
-                className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
-                placeholder="ejemplo@correo.com"
-              />
-              {(emailTouched || email.length > 0) && (
-                <p
-                  className={`mt-2 flex items-center gap-1.5 text-[11px] ${
-                    emailValidationMessage
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-brand-green"
+              <div
+                className={`relative rounded-xl border transition-all ${emailHasError
+                  ? "border-red-300 bg-red-50/70 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-500/10 dark:border-red-800 dark:bg-red-950/20"
+                  : emailIsValid
+                    ? "border-brand-green/70 bg-brand-green/5 focus-within:border-brand-green focus-within:ring-4 focus-within:ring-brand-green/10"
+                    : "border-slate-200 bg-slate-50 focus-within:border-brand-green focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-green/10 dark:border-slate-600 dark:bg-slate-700/50 dark:focus-within:bg-slate-600"
                   }`}
-                >
-                  <i
-                    className={`fa-solid ${
-                      emailValidationMessage
-                        ? "fa-circle-info"
-                        : "fa-circle-check"
-                    }`}
-                  />
-                  {emailValidationMessage || "Correo válido."}
-                </p>
-              )}
+              >
+                <input
+                  id="registration-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
+                  onBlur={() => setEmailTouched(true)}
+                  required
+                  autoComplete="email"
+                  aria-invalid={emailHasError}
+                  aria-describedby="registration-email-help"
+                  className="w-full rounded-xl border-0 bg-transparent px-4 py-3 pr-11 text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-white"
+                  placeholder="ejemplo@correo.com"
+                />
+                {(emailHasError || emailIsValid) && (
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 ${emailHasError
+                      ? "text-red-700 dark:text-red-300"
+                      : emailIsValid
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : "text-slate-400"
+                      }`}
+                  >
+                    <i className={`fa-solid ${emailHasError ? "fa-circle-exclamation" : emailIsValid ? "fa-circle-check" : "fa-circle-info"}`} />
+                  </span>
+                )}
+              </div>
+              <AuthFieldFeedback
+                id="registration-email-help"
+                tone={emailHasError ? "error" : emailIsValid ? "success" : "hint"}
+              >
+                  {emailHasError
+                    ? emailValidationMessage
+                    : emailIsValid
+                      ? "Correo personal válido."
+                      : "Aceptamos Gmail, Outlook, Hotmail, Live, Yahoo, iCloud y Proton."}
+              </AuthFieldFeedback>
             </div>
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
-                Contrasena
+              <label htmlFor="registration-password" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+                Contraseña
               </label>
               <div className="relative">
                 <input
+                  id="registration-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -291,24 +319,33 @@ export default function RegisterPage() {
                   minLength={8}
                   autoComplete="new-password"
                   aria-invalid={Boolean(passwordTouched && !passwordIsStrong)}
-                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
+                  aria-describedby={passwordTouched && !passwordIsStrong ? "registration-password-feedback registration-password-requirements" : "registration-password-requirements"}
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-12 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 focus:bg-white dark:focus:bg-slate-600 aria-invalid:border-red-500 aria-invalid:bg-red-50 aria-invalid:focus:border-red-500 aria-invalid:focus:ring-red-500/20 dark:aria-invalid:border-red-400 dark:aria-invalid:bg-red-950/20 transition-all"
                   placeholder="Mínimo 8 caracteres"
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-controls="registration-password"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-brand-green"
                 >
                   <i
-                    className={`fa-regular ${
-                      showPassword ? "fa-eye" : "fa-eye-slash"
-                    } text-sm`}
+                    aria-hidden="true"
+                    className={`fa-regular ${showPassword ? "fa-eye" : "fa-eye-slash"
+                      } text-sm`}
                   />
                 </button>
               </div>
+              {passwordTouched && !passwordIsStrong && (
+                <AuthFieldFeedback id="registration-password-feedback" tone="error">
+                  Completa los requisitos de la contraseña.
+                </AuthFieldFeedback>
+              )}
               <PasswordRequirements
+                id="registration-password-requirements"
                 password={password}
-                visible={passwordTouched}
+                visible
               />
             </div>
 
@@ -320,27 +357,32 @@ export default function RegisterPage() {
                   onChange={(e) => setAgreed(e.target.checked)}
                   className="w-4 h-4 rounded mt-0.5 text-brand-green focus:ring-brand-green accent-brand-green"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                <span className="text-sm text-slate-600 dark:text-slate-300 leading-5">
                   Acepto los{" "}
-                  <a
-                    href="#"
+
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("terms")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Terminos de Servicio
-                  </a>{" "}
+                    Términos de Servicio
+                  </button>{" "}
+
                   y la{" "}
-                  <a
-                    href="#"
+
+                  <button
+                    type="button"
+                    onClick={() => setLegalDoc("privacy")}
                     className="underline text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                   >
-                    Politica de Privacidad
-                  </a>
+                    Política de Privacidad
+                  </button>
                 </span>
               </label>
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs px-4 py-2.5 rounded-lg">
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-sm leading-5 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}
@@ -355,7 +397,7 @@ export default function RegisterPage() {
               }
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Enviando codigo..." : "Crear cuenta"}
+              {sending ? "Enviando código..." : "Crear cuenta"}
             </button>
           </form>
         )}
@@ -399,7 +441,7 @@ export default function RegisterPage() {
               disabled={sending || code.some((c) => c === "")}
               className="w-full bg-brand-green hover:bg-brand-green-hover text-slate-900 font-bold py-3.5 rounded-xl transition-all shadow-md shadow-brand-green/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Verificando..." : "Verificar codigo"}
+              {sending ? "Verificando..." : "Verificar código"}
             </button>
 
             <div className="text-center">
@@ -415,7 +457,7 @@ export default function RegisterPage() {
                     onClick={handleResend}
                     className="text-brand-green font-semibold hover:underline"
                   >
-                    Reenviar codigo
+                    Reenviar código
                   </button>
                 )}
               </p>
@@ -435,11 +477,10 @@ export default function RegisterPage() {
             <button
               onClick={handleGoogleLogin}
               disabled={!clientId}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${
-                clientId
-                  ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
-                  : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
-              }`}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-semibold transition-all ${clientId
+                ? "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-white"
+                : "bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-400 cursor-not-allowed"
+                }`}
             >
               <i className="fa-brands fa-google text-sm" />
               Google
@@ -455,7 +496,7 @@ export default function RegisterPage() {
                 to="/login"
                 className="text-brand-green font-bold hover:underline ml-1"
               >
-                Inicia Sesion
+                Inicia Sesión
               </Link>
             </>
           ) : (
@@ -472,6 +513,13 @@ export default function RegisterPage() {
           )}
         </div>
       </div>
+      {legalDoc && (
+        <LegalModal
+          doc={legalDoc}
+          onClose={() => setLegalDoc(null)}
+          onSwitch={setLegalDoc}
+        />
+      )}
     </AuthLayout>
   );
 }

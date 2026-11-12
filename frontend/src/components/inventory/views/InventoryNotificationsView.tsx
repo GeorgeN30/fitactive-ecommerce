@@ -14,6 +14,7 @@ interface InventoryNotificationsViewProps {
   setNotifications: React.Dispatch<React.SetStateAction<InventoryNotification[]>>;
   onMarkRead?: (notification: InventoryNotification) => void | Promise<void>;
   onMarkAllRead?: () => void | Promise<void>;
+  onOpen?: (notification: InventoryNotification) => void;
 }
 
 export default function InventoryNotificationsView({
@@ -21,6 +22,7 @@ export default function InventoryNotificationsView({
   setNotifications,
   onMarkRead,
   onMarkAllRead,
+  onOpen,
 }: InventoryNotificationsViewProps) {
   const [toastMessage, setToastMessage] = useState("");
   const unreadCount = notifications.filter((notification) => !notification.read).length;
@@ -53,10 +55,10 @@ export default function InventoryNotificationsView({
   return (
     <div className="space-y-6 animate-fade-in text-gray-900 dark:text-white pb-10 max-w-4xl mx-auto relative">
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-[60] bg-[#00FF66] text-black px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
-          <i className="fa-solid fa-circle-check" />
-          {toastMessage}
-        </div>
+       <div className="fixed top-5 right-5 z-[60] bg-[#16A34A] text-white px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3 animate-fade-in">
+       <i className="fa-solid fa-circle-check" />
+      {toastMessage}
+      </div>
       )}
 
       <div className="flex justify-between items-end">
@@ -101,6 +103,15 @@ export default function InventoryNotificationsView({
                   className="mt-2 text-xs font-bold text-[#F59E0B] transition-colors hover:text-[#d97706]"
                 >
                   Marcar como leída
+                </button>
+              )}
+              {(notification.title.toLowerCase().includes("pedido") || notification.title.toLowerCase().includes("pago")) && (
+                <button
+                  type="button"
+                  onClick={() => onOpen?.(notification)}
+                  className="mt-2 ml-3 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Ver pedidos
                 </button>
               )}
             </div>

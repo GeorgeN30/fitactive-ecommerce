@@ -4,6 +4,7 @@ vi.mock("../src/services/api", () => ({
   default: {
     post: vi.fn(),
     get: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -108,6 +109,24 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("token")).toBe("new-token");
   });
 
+  it("establishes the session returned after registration", async () => {
+    const fakeUser = {
+      id: "u-register",
+      email: "new@example.com",
+      name: "New user",
+      role: "customer",
+      picture: null,
+    };
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.establishSession("register-token", fakeUser));
+
+    expect(result.current.token).toBe("register-token");
+    expect(result.current.user).toEqual(fakeUser);
+    expect(localStorage.getItem("token")).toBe("register-token");
+  });
+
   it("keeps a non-remembered login in sessionStorage only", async () => {
     const fakeUser = {
       id: "u1",
@@ -151,13 +170,29 @@ describe("AuthContext", () => {
     expect(result.current.token).toBe("temporary-token");
   });
 
+  it("restores a pending MFA challenge after a page reload", async () => {
+    sessionStorage.setItem("preAuth_token", "short-lived-challenge");
+    sessionStorage.setItem("preAuth_user_id", "mfa-user");
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(result.current.preAuthUserId).toBe("mfa-user");
+  });
+
   it("loginWithPassword returns true when requires2Fa", async () => {
+    localStorage.setItem("token", "previous-session-token");
+    localStorage.setItem("user", JSON.stringify({
+      id: "old-user",
+      email: "old@example.com",
+      role: "admin",
+    }));
     mockApi.post.mockResolvedValueOnce({
       data: {
         requires2Fa: true,
         userId: "u1",
         token: "preauth-token",
-        user: { id: "u1", email: "test@example.com" },
       },
     });
 
@@ -178,7 +213,49 @@ describe("AuthContext", () => {
     expect(requires2Fa!).toBe(true);
     expect(result.current.user).toBeNull();
     expect(localStorage.getItem("preAuth_token")).toBe("preauth-token");
+    expect(localStorage.getItem("preAuth_user_id")).toBe("u1");
+    expect(localStorage.getItem("token")).toBeNull();
     expect(result.current.preAuthUserId).toBe("u1");
+  });
+
+  it("verifies the MFA challenge with its own bearer token and replaces it with the session", async () => {
+    mockApi.post
+      .mockResolvedValueOnce({
+        data: { requires2Fa: true, userId: "u1", token: "mfa-challenge" },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          token: "verified-session",
+          user: {
+            id: "u1",
+            email: "test@example.com",
+            name: "Test",
+            role: "admin",
+            picture: null,
+          },
+        },
+      });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithPassword("test@example.com", "password123");
+    });
+    await act(async () => {
+      await result.current.verify2Fa("123456");
+    });
+
+    expect(mockApi.post).toHaveBeenNthCalledWith(
+      2,
+      "/auth/2fa/verify",
+      { code: "123456" },
+      { headers: { Authorization: "Bearer mfa-challenge" } },
+    );
+    expect(result.current.token).toBe("verified-session");
+    expect(result.current.user?.role).toBe("admin");
+    expect(localStorage.getItem("preAuth_token")).toBeNull();
+    expect(localStorage.getItem("preAuth_user_id")).toBeNull();
   });
 
   it("loginWithOtp persists session on success", async () => {
@@ -240,6 +317,7 @@ describe("AuthContext", () => {
 
   it("clearPreAuth removes preauth data", async () => {
     localStorage.setItem("preAuth_token", "preauth");
+    localStorage.setItem("preAuth_user_id", "u1");
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
@@ -251,6 +329,7 @@ describe("AuthContext", () => {
     });
 
     expect(localStorage.getItem("preAuth_token")).toBeNull();
+    expect(localStorage.getItem("preAuth_user_id")).toBeNull();
     expect(result.current.preAuthUserId).toBeNull();
   });
 
@@ -317,5 +396,60 @@ describe("AuthContext", () => {
 
     expect(result.current.user?.name).toBe("New Name");
     expect(result.current.user?.email).toBe("test@example.com");
+  });
+
+  it("uses the confirmed server profile and keeps it after restoring the session", async () => {
+    const savedUser = { id: "u1", email: "test@example.com", name: "Ana", role: "customer", picture: null, bodyType: "broad" };
+    localStorage.setItem("token", "stored-token");
+    localStorage.setItem("user", JSON.stringify({ ...savedUser, bodyType: null }));
+    mockApi.put.mockResolvedValue({ data: { user: savedUser } });
+    const { result, unmount } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.updateProfile({ bodyType: "broad" }); });
+    expect(mockApi.put).toHaveBeenCalledWith("/auth/me", { bodyType: "broad" });
+    expect(result.current.user).toEqual(savedUser);
+    unmount();
+    const restored = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(restored.result.current.loading).toBe(false));
+    expect(restored.result.current.user?.bodyType).toBe("broad");
+  });
+
+  it("does not change the confirmed profile if saving fails", async () => {
+    const savedUser = { id: "u1", email: "test@example.com", name: "Ana", role: "customer", picture: null, bodyType: "average" };
+    localStorage.setItem("token", "stored-token");
+    localStorage.setItem("user", JSON.stringify(savedUser));
+    mockApi.put.mockRejectedValue(new Error("offline"));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await expect(result.current.updateProfile({ bodyType: "slim" })).rejects.toThrow("offline");
+    });
+    expect(result.current.user).toEqual(savedUser);
+    expect(JSON.parse(localStorage.getItem("user")!)).toEqual(savedUser);
+  });
+
+  it.each(["localStorage", "sessionStorage"] as const)("persists a confirmed onboarding skip across reload in %s without inventing preferences", async (storageName) => {
+    const storage = window[storageName];
+    const initialUser = {
+      id: "u1", email: "ana@example.test", name: "Ana", role: "customer", picture: null,
+      onboarding_completado: false, preferencia_deporte: "Running", preferencia_ropa: null, preferencia_colores: null,
+    };
+    const savedUser = { ...initialUser, onboarding_completado: true };
+    storage.setItem("token", "stored-token");
+    storage.setItem("user", JSON.stringify(initialUser));
+    mockApi.put.mockResolvedValueOnce({ data: { user: savedUser } });
+    const { result, unmount } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.updateProfile({ onboarding_completado: true }); });
+    expect(mockApi.put).toHaveBeenCalledExactlyOnceWith("/auth/me", { onboarding_completado: true });
+    expect(result.current.user).toEqual(savedUser);
+    expect(JSON.parse(storage.getItem("user")!)).toEqual(savedUser);
+    unmount();
+    const restored = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(restored.result.current.loading).toBe(false));
+    expect(restored.result.current.user).toEqual(savedUser);
+    expect(restored.result.current.token).toBe("stored-token");
+    const otherStorage = storageName === "localStorage" ? sessionStorage : localStorage;
+    expect(otherStorage.getItem("user")).toBeNull();
   });
 });
