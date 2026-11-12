@@ -33,7 +33,6 @@ import NotFoundPage from "./pages/NotFoundPage";
 import LegacyAdminRedirect from "./components/admin/LegacyAdminRedirect";
 
 import ProfilePage from "./pages/ProfilePage";
-import ProfileSetupPage from "./pages/ProfileSetupPage";
 
 const ProbadorVirtual = lazy(() => import("./pages/ProbadorVirtual"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
@@ -54,7 +53,7 @@ function ScrollToTop() {
 function AnimatedRoutes() {
   const location = useLocation();
   return (
-    <div key={location.key} className="animate-route-fade-in">
+    <div key={location.pathname} className="animate-route-fade-in">
       <RouteErrorBoundary>
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-gray-500">Cargando…</div>}>
       <Routes location={location}>
@@ -79,7 +78,7 @@ function AnimatedRoutes() {
           path="/configurar-perfil"
           element={
             <ProtectedRoute>
-              <ProfileSetupPage />
+              <Navigate to="/perfil" replace />
             </ProtectedRoute>
           }
         />

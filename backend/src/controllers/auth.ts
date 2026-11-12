@@ -898,20 +898,7 @@ export const authController = {
           res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "INVALID_ONBOARDING_STATUS" });
           return;
         }
-        if (body.onboarding_completado) {
-          const requiredFields = [
-            "genero",
-            "altura",
-            "medida_pecho",
-            "medida_cintura",
-            "medida_cadera",
-            "medida_muslo",
-          ];
-          if (requiredFields.some((field) => body[field] === undefined || body[field] === null)) {
-            res.status(HTTP_STATUS.BAD_REQUEST).json({ error: "PROFILE_MEASUREMENTS_REQUIRED" });
-            return;
-          }
-        }
+        // True means the initial prompt was completed or explicitly skipped; measurements are optional.
         dataToUpdate.onboarding_completado = body.onboarding_completado;
         hasUpdate = true;
       }

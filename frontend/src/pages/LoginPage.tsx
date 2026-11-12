@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
+import AuthFieldFeedback from "../components/AuthFieldFeedback";
 import api from "../services/api";
 import SuccessOverlay from "../components/SuccessOverlay";
 import { getEmailValidationMessage } from "../utils/validation";
@@ -23,6 +24,9 @@ export default function LoginPage() {
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const emailValidationMessage = getEmailValidationMessage(email);
+  const showEmailFeedback = emailTouched || email.length > 0;
+  const emailHasError = showEmailFeedback && Boolean(emailValidationMessage);
+  const passwordHasError = passwordTouched && !password.trim();
 
   const navigateToHome = useCallback(() => {
     const role = user?.role;
@@ -140,10 +144,11 @@ export default function LoginPage() {
           className="space-y-5 animate-slide-up-fade"
         >
           <div>
-            <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+            <label htmlFor="login-email" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
               Correo Electrónico
             </label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => {
@@ -154,34 +159,25 @@ export default function LoginPage() {
               required
               autoFocus
               autoComplete="email"
-              aria-invalid={Boolean(emailTouched && emailValidationMessage)}
-              className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
+              aria-invalid={emailHasError}
+              aria-describedby={showEmailFeedback ? "login-email-feedback" : undefined}
+              className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 focus:bg-white dark:focus:bg-slate-600 aria-invalid:border-red-500 aria-invalid:bg-red-50 aria-invalid:focus:border-red-500 aria-invalid:focus:ring-red-500/20 dark:aria-invalid:border-red-400 dark:aria-invalid:bg-red-950/20 transition-all"
               placeholder="tu@email.com"
             />
-            {(emailTouched || email.length > 0) && (
-              <p
-                className={`mt-2 flex items-center gap-1.5 text-[11px] ${
-                  emailValidationMessage
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-brand-green"
-                }`}
-              >
-                <i
-                  className={`fa-solid ${
-                    emailValidationMessage ? "fa-circle-info" : "fa-circle-check"
-                  }`}
-                />
+            {showEmailFeedback && (
+              <AuthFieldFeedback id="login-email-feedback" tone={emailHasError ? "error" : "success"}>
                 {emailValidationMessage || "Correo válido."}
-              </p>
+              </AuthFieldFeedback>
             )}
           </div>
 
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="login-password" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Contraseña
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => {
@@ -191,27 +187,30 @@ export default function LoginPage() {
                   onBlur={() => setPasswordTouched(true)}
                   required
                   autoComplete="current-password"
-                  aria-invalid={Boolean(passwordTouched && !password.trim())}
-                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
+                  aria-invalid={passwordHasError}
+                  aria-describedby={passwordHasError ? "login-password-feedback" : undefined}
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-12 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 focus:bg-white dark:focus:bg-slate-600 aria-invalid:border-red-500 aria-invalid:bg-red-50 aria-invalid:focus:border-red-500 aria-invalid:focus:ring-red-500/20 dark:aria-invalid:border-red-400 dark:aria-invalid:bg-red-950/20 transition-all"
                   placeholder="Tu contraseña"
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-controls="login-password"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-brand-green"
                 >
                   <i
+                    aria-hidden="true"
                     className={`fa-regular ${
                       showPassword ? "fa-eye" : "fa-eye-slash"
                     } text-sm`}
                   />
                 </button>
               </div>
-              {passwordTouched && !password.trim() && (
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-                  <i className="fa-solid fa-circle-info" />
+              {passwordHasError && (
+                <AuthFieldFeedback id="login-password-feedback" tone="error">
                   Ingresa tu contraseña.
-                </p>
+                </AuthFieldFeedback>
               )}
             </div>
 
@@ -236,7 +235,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs px-4 py-2.5 rounded-lg">
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-sm leading-5 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}

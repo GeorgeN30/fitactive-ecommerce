@@ -59,6 +59,58 @@ describe("LoginPage", () => {
     });
   });
 
+  it("associates readable validation errors with both fields and clears them after correction", async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    const email = screen.getByLabelText("Correo Electrónico");
+    const password = screen.getByLabelText("Contraseña", { exact: true });
+
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Ingresa tu correo electrónico.");
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription("Ingresa tu contraseña.");
+    expect(screen.getByText("Ingresa tu correo electrónico.").closest("p")).toHaveClass("text-sm", "text-red-700");
+    expect(loginWithPassword).not.toHaveBeenCalled();
+
+    await user.type(email, "user@example.com");
+    await user.type(password, "secret");
+
+    expect(email).toHaveAttribute("aria-invalid", "false");
+    expect(email).toHaveAccessibleDescription("Correo válido.");
+    expect(password).toHaveAttribute("aria-invalid", "false");
+    expect(password).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("Ingresa tu contraseña.")).not.toBeInTheDocument();
+  });
+
+  it("keeps live email feedback consistent with the invalid state while typing", async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    const email = screen.getByLabelText("Correo Electrónico");
+
+    expect(email).not.toHaveAttribute("aria-describedby");
+    await user.type(email, "user");
+
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Agrega @ en tu correo.");
+    expect(document.getElementById(email.getAttribute("aria-describedby")!)).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("provides an accessible password visibility control without changing its value", async () => {
+    const user = userEvent.setup();
+    renderLogin();
+    const password = screen.getByLabelText("Contraseña", { exact: true });
+    await user.type(password, "secret");
+    await user.click(screen.getByRole("button", { name: "Mostrar contraseña" }));
+
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("secret");
+    await user.click(screen.getByRole("button", { name: "Ocultar contraseña" }));
+    expect(password).toHaveAttribute("type", "password");
+    expect(loginWithPassword).not.toHaveBeenCalled();
+  });
+
   it("allows disabling persistent login", async () => {
     const user = userEvent.setup();
     renderLogin();
@@ -87,5 +139,6 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     expect(await screen.findByText(/Comprueba las credenciales y vuelve a intentarlo/)).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("Correo o contraseña incorrectos.");
   });
 });
