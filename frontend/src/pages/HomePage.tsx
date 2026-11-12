@@ -7,13 +7,29 @@ import { getCatalogPrice } from "../services/catalog";
 import { useCatalog } from "../hooks/useCatalog";
 import ProductOffer from "../components/ProductOffer";
 import { formatSoles } from "../utils/money";
+import { homeImageUrl } from "../utils/homeImages";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=700&fit=crop&auto=format";
 const SPORT_SLIDES = [
-  "https://images.unsplash.com/photo-1517963879433-6ad2b056d712?q=80&w=2070&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=2070&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1517963879433-6ad2b056d712",
+  "https://images.unsplash.com/photo-1552674605-db6ffd4facb5",
+  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b",
 ];
+
+function HomeProductImage({ original, name, recommended = false }: { original: string; name: string; recommended?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const optimized = homeImageUrl(original, recommended ? 192 : 480);
+  return <img
+    src={failed ? original : optimized}
+    alt={name}
+    width={recommended ? 96 : undefined}
+    height={recommended ? 96 : undefined}
+    loading={recommended ? "lazy" : undefined}
+    decoding={recommended ? "async" : undefined}
+    className={recommended ? "w-24 h-24 rounded-xl object-contain p-2" : "object-contain p-3 w-full h-full"}
+    onError={optimized !== original && !failed ? () => setFailed(true) : undefined}
+  />;
+}
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -22,8 +38,6 @@ export default function HomePage() {
   const { loading, error } = catalog;
   const [activeSlide, setActiveSlide] = useState(0);
   const isInventoryUser = user?.role === "inventory" || user?.role === "receptionist";
-  const panelPath = user?.role === "admin" ? "/admin" : isInventoryUser ? "/inventory" : null;
-  const panelLabel = user?.role === "admin" ? "Volver al panel admin" : "Volver al panel de inventario";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -69,32 +83,34 @@ export default function HomePage() {
     <AppLayout>
       <div className="w-full pb-10 bg-[#f8f9fa] dark:bg-brand-dark-bg text-gray-900 dark:text-white font-sans">
         <section className="relative w-full h-[500px] md:h-[600px] bg-gray-900 text-white flex items-center overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-40 bg-center bg-cover transition-all duration-700"
-            style={{
-              backgroundImage: `url('${SPORT_SLIDES[activeSlide]}')`,
-            }}
+          <img
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-40"
+            src={`${SPORT_SLIDES[activeSlide]}?q=75&w=1280&auto=format&fit=crop`}
+            srcSet={[640, 960, 1280, 1600, 2070].map((width) => `${SPORT_SLIDES[activeSlide]}?q=75&w=${width}&auto=format&fit=crop ${width}w`).join(", ")}
+            sizes="100vw"
+            alt=""
+            fetchPriority={activeSlide === 0 ? "high" : "auto"}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
           <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 w-full">
-            {panelPath && <Link to={panelPath} className="inline-flex items-center gap-2 px-4 py-2 bg-white/95 text-gray-900 text-xs font-bold rounded-xl mb-5 shadow-lg hover:bg-brand-green transition-colors"><i className="fa-solid fa-arrow-left" />{panelLabel}</Link>}
+            {isInventoryUser && <Link to="/inventory" className="inline-flex items-center gap-2 px-4 py-2 bg-white/95 text-gray-900 text-xs font-bold rounded-xl mb-5 shadow-lg hover:bg-brand-green transition-colors"><i className="fa-solid fa-arrow-left" />Volver al panel de inventario</Link>}
             <span className="inline-block px-3 py-1 bg-brand-green text-black text-xs font-bold rounded-full mb-4 tracking-wider">PROBADOR VIRTUAL DISPONIBLE</span>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-4 max-w-2xl leading-tight">Encuentra tu estilo. <br /><span className="text-brand-green">Pruébalo antes de comprar.</span></h1>
             <p className="text-gray-300 text-sm sm:text-base max-w-lg mb-8 leading-tight">Descubre prendas deportivas y consulta sus tallas, disponibilidad y precios actualizados.</p>
             <Link to="/catalogo" className="inline-block px-6 py-3 bg-brand-green text-black font-bold rounded-md hover:opacity-90 transition">Explorar productos</Link>
           </div>
-          <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center gap-3">
+          <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center">
             {SPORT_SLIDES.map((_, index) => (
               <button
                 key={index}
                 type="button"
                 onClick={() => setActiveSlide(index)}
                 aria-label={`Mostrar imagen ${index + 1}`}
-                className={`rounded-full transition-all duration-300 ${activeSlide === index
-                    ? "w-8 h-2 bg-brand-green"
-                    : "w-2 h-2 bg-white/60 hover:bg-white"
-                  }`}
-              />
+                aria-pressed={activeSlide === index}
+                className="flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+              >
+                <span aria-hidden="true" className={`h-2 rounded-full ${activeSlide === index ? "w-8 bg-brand-green" : "w-2 bg-white/60"}`} />
+              </button>
             ))}
           </div>
         </section>
@@ -102,7 +118,7 @@ export default function HomePage() {
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 mb-8">
             <div>
-              <p className="text-brand-green text-xs font-extrabold tracking-widest uppercase">
+              <p className="text-emerald-700 dark:text-brand-green text-xs font-extrabold tracking-widest uppercase">
                 {hasPreferences ? `Recomendados para ti (${user.preferencia_deporte || "Tus gustos"})` : 'Catálogo actualizado'}
               </p>
               <h2 className="text-3xl font-extrabold">
@@ -120,7 +136,7 @@ export default function HomePage() {
               const image = product.imagenUrl || FALLBACK_IMAGE;
               return <article key={product.id} className="bg-white dark:bg-brand-card-dark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col">
                 <div className="relative bg-gray-100 dark:bg-gray-800 rounded-xl aspect-square mb-4 overflow-hidden">
-                  <Link to={`/producto/${product.id}`}><img src={image} alt={product.nombre} className="object-contain p-3 w-full h-full" /></Link>
+                  <Link to={`/producto/${product.id}`}><HomeProductImage key={image} original={image} name={product.nombre} /></Link>
                   <FavoriteButton
                     product={{ id: product.id, cat: product.categoria || "General", name: product.nombre, price: pricing.price, img: image }}
                     className="absolute top-3 right-3 p-2 bg-white dark:bg-gray-700 rounded-full shadow-md"
@@ -135,7 +151,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {recommended.length > 0 && <section className="max-w-7xl mx-auto px-6 lg:px-8 py-8"><h2 className="text-2xl font-extrabold mb-8">Más productos</h2><div className="grid grid-cols-1 lg:grid-cols-3 gap-6">{recommended.map((product) => <Link key={product.id} to={`/producto/${product.id}`} className="bg-white dark:bg-brand-card-dark rounded-2xl p-3 shadow-sm flex items-center gap-4 border border-gray-100 dark:border-gray-800"><img src={product.imagenUrl || FALLBACK_IMAGE} alt={product.nombre} className="w-24 h-24 rounded-xl object-contain p-2" /><div><p className="text-xs text-gray-500 font-bold uppercase">{product.categoria || "General"}</p><h3 className="font-extrabold text-sm">{product.nombre}</h3><p className="font-black text-sm mt-2">{formatSoles(getCatalogPrice(product).price)}</p></div></Link>)}</div></section>}
+        {recommended.length > 0 && <section className="max-w-7xl mx-auto px-6 lg:px-8 py-8"><h2 className="text-2xl font-extrabold mb-8">Más productos</h2><div className="grid grid-cols-1 lg:grid-cols-3 gap-6">{recommended.map((product) => <Link key={product.id} to={`/producto/${product.id}`} className="bg-white dark:bg-brand-card-dark rounded-2xl p-3 shadow-sm flex items-center gap-4 border border-gray-100 dark:border-gray-800"><HomeProductImage key={product.imagenUrl || FALLBACK_IMAGE} original={product.imagenUrl || FALLBACK_IMAGE} name={product.nombre} recommended /><div><p className="text-xs text-gray-500 font-bold uppercase">{product.categoria || "General"}</p><h3 className="font-extrabold text-sm">{product.nombre}</h3><p className="font-black text-sm mt-2">{formatSoles(getCatalogPrice(product).price)}</p></div></Link>)}</div></section>}
 
         <section className="max-w-7xl mx-auto px-6 lg:px-8 pt-4 pb-12"><div className="bg-brand-green/20 rounded-3xl p-8 border border-brand-green/30 flex flex-col md:flex-row items-center justify-between gap-5"><div><h2 className="text-3xl font-black mb-2">Descuentos autorizados</h2><p className="text-sm text-gray-700 dark:text-gray-300">Consulta las ofertas vigentes y el precio final de cada talla en el catálogo.</p></div><Link to="/catalogo?ofertas=1" className="px-8 py-4 bg-gray-900 text-white font-bold rounded-xl whitespace-nowrap">Ver ofertas</Link></div></section>
       </div>

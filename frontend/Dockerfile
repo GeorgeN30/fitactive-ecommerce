@@ -12,6 +12,7 @@ ENV VITE_JWT_APP_ID=$VITE_JWT_APP_ID
 ENV VITE_MP_PUBLIC_KEY=$VITE_MP_PUBLIC_KEY
 
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/patches ./patches
 
 RUN corepack enable && corepack prepare pnpm@9 --activate && pnpm install --frozen-lockfile
 
