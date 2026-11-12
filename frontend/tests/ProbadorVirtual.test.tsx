@@ -31,6 +31,7 @@ vi.mock("../src/context/FavoritesContext", () => ({ useFavorites: () => ({ addFa
 import ProbadorVirtual from "../src/pages/ProbadorVirtual";
 import { paginateProducts, PRODUCTS_PER_PAGE } from "../src/utils/productPagination";
 import api from "../src/services/api";
+import { invalidateCatalogCache } from "../src/services/catalog";
 
 interface TestProduct {
   id: string;
@@ -61,6 +62,7 @@ function createProducts(count: number): TestProduct[] {
 describe("ProbadorVirtual", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    invalidateCatalogCache();
   });
 
   it("paginates product collections in groups of five", () => {
@@ -112,5 +114,43 @@ describe("ProbadorVirtual", () => {
     await user.click(within(selector).getByAltText("Prenda 2"));
     expect(JSON.parse(screen.getByTestId("avatar-stage").textContent!).customColor).toBeNull();
     expect(within(panel).queryByRole("button", { name: "Previsualizar color Azul marino" })).not.toBeInTheDocument();
+  });
+
+  it("makes reference garments reachable while retaining five products and their real cart variants", async () => {
+    const products = createProducts(8);
+    products[6].nombre = 'Adidas Entrada 22';
+    products[7].nombre = 'Puma ESS Sweatpants';
+    products[6].categoria = 'Polos';
+    products[7].categoria = 'Buzos Hombre';
+    products[6].tallas = [{ id: 'entrada-M', talla: 'M', stock: 5, discountPercent: 0, salePrice: 100 }];
+    products[6].totalStock = 5;
+    vi.mocked(api.get).mockResolvedValue({ data: products } as never);
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/probador-virtual?producto=product-7']}><ProbadorVirtual /></MemoryRouter>);
+    const selector = await screen.findByRole('group', { name: 'Selector de prendas' });
+    expect(within(selector).getByAltText('Adidas Entrada 22')).toBeInTheDocument();
+    expect(within(selector).getByAltText('Puma ESS Sweatpants')).toBeInTheDocument();
+    expect(within(selector).queryByAltText('Prenda 6')).not.toBeInTheDocument();
+    expect(screen.getByText('Mostrando 1-5 de 5 prendas')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Añadir al Carrito' }));
+    expect(cart.addToCart).toHaveBeenCalledWith(expect.objectContaining({ id: 'product-7', tallaId: 'entrada-M', size: 'M', color: 'Original' }));
+  });
+
+  it("retains a deep-linked product displaced by pilots instead of purchasing another garment", async () => {
+    const products = createProducts(8);
+    products[6].nombre = 'Adidas Entrada 22';
+    products[7].nombre = 'Puma ESS Sweatpants';
+    products[3].tallas = [{ id: 'requested-M', talla: 'M', stock: 5, discountPercent: 0, salePrice: 100 }];
+    products[3].totalStock = 5;
+    vi.mocked(api.get).mockResolvedValue({ data: products } as never);
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/probador-virtual?producto=product-4']}><ProbadorVirtual /></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Prenda 4', level: 2 })).toBeInTheDocument();
+    const selector = screen.getByRole('group', { name: 'Selector de prendas' });
+    expect(within(selector).getByAltText('Prenda 4')).toBeInTheDocument();
+    expect(within(selector).getByAltText('Adidas Entrada 22')).toBeInTheDocument();
+    expect(screen.getByText('Mostrando 1-5 de 5 prendas')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Añadir al Carrito' }));
+    expect(cart.addToCart).toHaveBeenCalledWith(expect.objectContaining({ id: 'product-4', tallaId: 'requested-M', size: 'M' }));
   });
 });

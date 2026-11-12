@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout, { LegalModal, type LegalDocType } from "../components/AuthLayout";
 import PasswordRequirements from "../components/PasswordRequirements";
+import AuthFieldFeedback from "../components/AuthFieldFeedback";
 import SuccessOverlay from "../components/SuccessOverlay";
 import {
   getRegistrationEmailValidationMessage,
@@ -237,10 +238,12 @@ export default function RegisterPage() {
             className="space-y-5 animate-slide-up-fade"
           >
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="registration-name" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Nombre Completo
               </label>
               <input
+                id="registration-name"
+                autoComplete="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -249,7 +252,7 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label htmlFor="registration-email" className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="registration-email" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Correo Electrónico
               </label>
               <div
@@ -276,13 +279,13 @@ export default function RegisterPage() {
                   className="w-full rounded-xl border-0 bg-transparent px-4 py-3 pr-11 text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-white"
                   placeholder="ejemplo@correo.com"
                 />
-                {email.length > 0 && (
+                {(emailHasError || emailIsValid) && (
                   <span
                     aria-hidden="true"
                     className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 ${emailHasError
-                      ? "text-red-500"
+                      ? "text-red-700 dark:text-red-300"
                       : emailIsValid
-                        ? "text-brand-green"
+                        ? "text-emerald-700 dark:text-emerald-300"
                         : "text-slate-400"
                       }`}
                   >
@@ -290,32 +293,24 @@ export default function RegisterPage() {
                   </span>
                 )}
               </div>
-              <div
+              <AuthFieldFeedback
                 id="registration-email-help"
-                aria-live="polite"
-                className={`mt-2 flex items-start gap-2 text-[11px] leading-relaxed ${emailHasError
-                  ? "text-red-600 dark:text-red-400"
-                  : emailIsValid
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-slate-500 dark:text-slate-400"
-                  }`}
+                tone={emailHasError ? "error" : emailIsValid ? "success" : "hint"}
               >
-                <i className={`fa-solid ${emailHasError ? "fa-circle-exclamation" : emailIsValid ? "fa-circle-check" : "fa-shield-halved"} mt-0.5`} />
-                <span>
                   {emailHasError
                     ? emailValidationMessage
                     : emailIsValid
                       ? "Correo personal válido."
                       : "Aceptamos Gmail, Outlook, Hotmail, Live, Yahoo, iCloud y Proton."}
-                </span>
-              </div>
+              </AuthFieldFeedback>
             </div>
             <div>
-              <label className="block text-[11px] font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
+              <label htmlFor="registration-password" className="block text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase mb-2">
                 Contraseña
               </label>
               <div className="relative">
                 <input
+                  id="registration-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -324,23 +319,33 @@ export default function RegisterPage() {
                   minLength={8}
                   autoComplete="new-password"
                   aria-invalid={Boolean(passwordTouched && !passwordIsStrong)}
-                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-10 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:bg-white dark:focus:bg-slate-600 transition-all"
+                  aria-describedby={passwordTouched && !passwordIsStrong ? "registration-password-feedback registration-password-requirements" : "registration-password-requirements"}
+                  className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 pr-12 text-sm text-slate-800 dark:text-white focus:outline-none focus:border-brand-green focus:ring-2 focus:ring-brand-green/20 focus:bg-white dark:focus:bg-slate-600 aria-invalid:border-red-500 aria-invalid:bg-red-50 aria-invalid:focus:border-red-500 aria-invalid:focus:ring-red-500/20 dark:aria-invalid:border-red-400 dark:aria-invalid:bg-red-950/20 transition-all"
                   placeholder="Mínimo 8 caracteres"
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-controls="registration-password"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white focus-visible:outline-2 focus-visible:outline-brand-green"
                 >
                   <i
+                    aria-hidden="true"
                     className={`fa-regular ${showPassword ? "fa-eye" : "fa-eye-slash"
                       } text-sm`}
                   />
                 </button>
               </div>
+              {passwordTouched && !passwordIsStrong && (
+                <AuthFieldFeedback id="registration-password-feedback" tone="error">
+                  Completa los requisitos de la contraseña.
+                </AuthFieldFeedback>
+              )}
               <PasswordRequirements
+                id="registration-password-requirements"
                 password={password}
-                visible={passwordTouched}
+                visible
               />
             </div>
 
@@ -352,7 +357,7 @@ export default function RegisterPage() {
                   onChange={(e) => setAgreed(e.target.checked)}
                   className="w-4 h-4 rounded mt-0.5 text-brand-green focus:ring-brand-green accent-brand-green"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                <span className="text-sm text-slate-600 dark:text-slate-300 leading-5">
                   Acepto los{" "}
 
                   <button
@@ -377,7 +382,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs px-4 py-2.5 rounded-lg">
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-sm leading-5 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}

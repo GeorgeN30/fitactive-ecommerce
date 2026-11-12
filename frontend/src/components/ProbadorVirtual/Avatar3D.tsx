@@ -1,14 +1,14 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
+import { OrbitControls, useGLTF, Environment, Lightformer, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useStoreSettings } from '../../context/StoreSettingsContext';
 import { classifyGarment } from '../../utils/garmentProfile';
-
-// Precarga de los modelos humanos atléticos reales (Hombre morph MakeHuman y Mujer morph MakeHuman)
-useGLTF.preload('/avatar/hombre_morph.glb?v=5');
-useGLTF.preload('/avatar/mujer_morph.glb?v=13');
+import { getGarmentVisual } from '../../utils/garmentVisuals';
+import { buildTailoredGarment, updateTailoredGarment } from './tailoredGarments';
+import { createTailoredTexture } from './tailoredTextures';
+import { maskBodyForTailoredOutfit } from './garmentBodyMask';
 
 export interface BodyScales {
   scalePecho: number;
@@ -1260,6 +1260,10 @@ function updateGarmentEase(
   activeSize: GarmentSize = 'M'
 ) {
   if (!mesh || !mesh.geometry) return;
+  if (mesh.geometry.userData.tailoredKind) {
+    updateTailoredGarment(mesh, activeSize);
+    return;
+  }
   const geom = mesh.geometry;
   const data = geom.userData;
   if (!data || !data.basePositions || !data.baseNormals) return;
@@ -1440,48 +1444,57 @@ function useGarments(
     topTank?: THREE.SkinnedMesh;
     short?: THREE.SkinnedMesh;
     legging?: THREE.SkinnedMesh;
+    tailoredShirt?: THREE.SkinnedMesh;
+    tailoredJoggers?: THREE.SkinnedMesh;
   }>({});
 
-  const [garmentColor, setGarmentColor] = useState<string>(() => customColor || getFallbackGarmentColor(selectedProduct));
+  const visual = isFemale ? null : getGarmentVisual(selectedProduct);
+  const visualKind = visual?.kind;
+  const [garmentColor, setGarmentColor] = useState<string>(() => customColor || visual?.color || getFallbackGarmentColor(selectedProduct));
+  const profile = selectedProduct ? classifyGarment(selectedProduct) : 'unknown';
+  const selection = {
+    jacket: ['jacket', 'jacket'], shirt: ['polo', 'polo'], pant: ['pant', 'pant'],
+    legging: ['legging', 'legging'], bra: ['topBra', 'top_bra'],
+    tank: ['topTank', 'top_tank'], shorts: ['short', 'short'],
+  } as const;
+  const activeKey = visualKind === 'football-shirt' ? 'tailoredShirt' : visualKind === 'joggers' ? 'tailoredJoggers'
+    : profile === 'unknown' ? undefined : selection[profile][0];
+  const activeGarmentType = visualKind === 'football-shirt' ? 'polo' : visualKind === 'joggers' ? 'pant'
+    : profile === 'unknown' ? undefined : selection[profile][1];
+  const upper = profile === 'jacket' || profile === 'shirt' || profile === 'bra' || profile === 'tank';
+  const secondaryKey = visualKind === 'football-shirt' ? 'tailoredJoggers' : visualKind === 'joggers' ? 'tailoredShirt'
+    : upper ? 'pant' : 'polo';
+  const secondaryType = upper ? 'pant' : 'polo';
+  const productName = selectedProduct?.nombre || '';
+  const brandName = selectedProduct?.marca || '';
+  const tailoredOutfit = !!visualKind;
 
   useEffect(() => {
-    if (!bodyMesh || !bodyMesh.geometry) return;
-
-    const polo = buildGarment(bodyMesh, 'polo', isFemale);
-    const jacket = buildGarment(bodyMesh, 'jacket', isFemale);
-    const pant = buildGarment(bodyMesh, 'pant', isFemale);
-    const topBra = buildGarment(bodyMesh, 'top_bra', isFemale);
-    const topTank = buildGarment(bodyMesh, 'top_tank', isFemale);
-    const short = buildGarment(bodyMesh, 'short', isFemale);
-    const legging = buildGarment(bodyMesh, 'legging', isFemale);
-
-    polo.visible = false;
-    jacket.visible = false;
-    pant.visible = false;
-    topBra.visible = false;
-    topTank.visible = false;
-    short.visible = false;
-    legging.visible = false;
-
-    const garmentParent = bodyMesh.parent || clonedScene;
-    garmentParent.add(polo);
-    garmentParent.add(jacket, pant);
-    garmentParent.add(topBra);
-    garmentParent.add(topTank);
-    garmentParent.add(short);
-    garmentParent.add(legging);
-
-    garmentsRef.current = { polo, jacket, pant, topBra, topTank, short, legging };
-
+    if (!bodyMesh || !tailoredOutfit) return;
+    // The source GLB is shared by the loader: mask only an instance-owned clone.
+    const original = bodyMesh.geometry;
+    const masked = original.clone();
+    maskBodyForTailoredOutfit(masked);
+    bodyMesh.geometry = masked;
     return () => {
-      for (const mesh of Object.values(garmentsRef.current)) {
-        garmentParent.remove(mesh);
+      bodyMesh.geometry = original;
+      masked.dispose();
+    };
+  }, [bodyMesh, tailoredOutfit]);
+
+  useEffect(() => {
+    // Capture this lifecycle's cache so StrictMode cleanup cannot dispose a later cache.
+    const garments: typeof garmentsRef.current = {};
+    garmentsRef.current = garments;
+    return () => {
+      for (const mesh of Object.values(garments)) {
+        mesh.removeFromParent();
         mesh.geometry.dispose();
         const material = mesh.material as THREE.MeshStandardMaterial;
         material.map?.dispose();
         material.dispose();
       }
-      garmentsRef.current = {};
+      if (garmentsRef.current === garments) garmentsRef.current = {};
     };
   }, [bodyMesh, clonedScene, isFemale]);
 
@@ -1491,80 +1504,80 @@ function useGarments(
       setGarmentColor(customColor);
       return;
     }
-    const fallback = getFallbackGarmentColor(selectedProduct);
+    const fallback = visual?.color || getFallbackGarmentColor(selectedProduct);
     let cancelled = false;
     setGarmentColor(fallback);
+    if (visualKind) return;
     const imgUrl = selectedProduct?.imagen_url || selectedProduct?.imagenUrl || selectedProduct?.img;
     extractDominantColor(imgUrl, fallback, (extractedHex) => {
       if (!cancelled) setGarmentColor(extractedHex);
     });
     return () => { cancelled = true; };
-  }, [selectedProduct, customColor]);
+  }, [selectedProduct, customColor, visualKind, visual?.color]);
 
   useEffect(() => {
-    const { polo, jacket, pant, topBra, topTank, short, legging } = garmentsRef.current;
-    if (!polo || !jacket || !pant || !topBra || !topTank || !short || !legging) return;
     // Unknown products deliberately show the bare mannequin, never the previous outfit.
     Object.values(garmentsRef.current).forEach(mesh => { mesh.visible = false; });
+    if (!bodyMesh?.geometry || !activeKey || !activeGarmentType) return;
 
-    if (!selectedProduct) {
-      polo.visible = false;
-      topBra.visible = false;
-      topTank.visible = false;
-      short.visible = false;
-      legging.visible = false;
-      return;
+    const garmentParent = bodyMesh.parent || clonedScene;
+    for (const [key, type] of [[activeKey, activeGarmentType], [secondaryKey, secondaryType]] as const) {
+      let mesh = garmentsRef.current[key];
+      if (!mesh) {
+        mesh = key === 'tailoredShirt' ? buildTailoredGarment(bodyMesh, 'football-shirt')
+          : key === 'tailoredJoggers' ? buildTailoredGarment(bodyMesh, 'joggers') : buildGarment(bodyMesh, type, isFemale);
+        garmentsRef.current[key] = mesh;
+        garmentParent.add(mesh);
+      }
+      mesh.visible = true;
     }
+  }, [bodyMesh, clonedScene, isFemale, activeKey, activeGarmentType, secondaryKey, secondaryType]);
 
-    const profile = classifyGarment(selectedProduct);
-    if (profile === 'unknown') return;
-    const types = { jacket: 'jacket', shirt: 'polo', pant: 'pant', legging: 'legging', bra: 'top_bra', tank: 'top_tank', shorts: 'short' } as const;
-    const meshes = { jacket, shirt: polo, pant, legging, bra: topBra, tank: topTank, shorts: short };
-    const activeMesh = meshes[profile];
-    const activeGarmentType = types[profile];
-    const upper = profile === 'jacket' || profile === 'shirt' || profile === 'bra' || profile === 'tank';
-    const secondaryMesh = upper ? pant : polo;
-    activeMesh.visible = true;
-    secondaryMesh.visible = true;
-
+  useEffect(() => {
+    if (!activeKey) return;
+    const activeMesh = garmentsRef.current[activeKey];
+    const secondaryMesh = garmentsRef.current[secondaryKey];
     if (activeMesh) {
       updateGarmentEase(activeMesh, fitStatus, fitDelta, isFemale, activeSize);
-
       const activeMat = activeMesh.material as THREE.MeshStandardMaterial;
-      const prodName = selectedProduct.nombre || '';
-      const brandName = selectedProduct.marca || '';
+      activeMat.emissive = new THREE.Color(fitStatus === 'demasiado_ajustado' ? '#380808' : '#000000');
+    }
+    if (secondaryMesh) updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, 'M');
+  }, [bodyMesh, clonedScene, isFemale, activeKey, secondaryKey, fitStatus, fitDelta, activeSize]);
 
-      const brandTex = createBrandLogoTexture(prodName, brandName, activeGarmentType, garmentColor);
+  useEffect(() => {
+    if (!activeKey || !activeGarmentType) return;
+    const activeMesh = garmentsRef.current[activeKey];
+    const secondaryMesh = garmentsRef.current[secondaryKey];
+    if (activeMesh) {
+      const activeMat = activeMesh.material as THREE.MeshStandardMaterial;
+
+      const brandTex = visualKind ? createTailoredTexture(visualKind, garmentColor)
+        : createBrandLogoTexture(productName, brandName, activeGarmentType, garmentColor);
       activeMat.map?.dispose();
       activeMat.map = brandTex;
       activeMat.color = new THREE.Color('#ffffff');
       activeMat.bumpMap = getAthleticFabricBumpMap();
-      activeMat.bumpScale = 0.02;
-      activeMat.roughness = activeGarmentType === 'jacket' || activeGarmentType === 'pant' ? 0.92 : 0.8;
+      activeMat.bumpScale = visualKind ? 0.006 : 0.02;
+      activeMat.roughness = visual?.roughness ?? (activeGarmentType === 'jacket' || activeGarmentType === 'pant' ? 0.92 : 0.8);
       activeMat.metalness = 0;
-      if (fitStatus === 'demasiado_ajustado') {
-        activeMat.emissive = new THREE.Color('#380808');
-      } else {
-        activeMat.emissive = new THREE.Color('#000000');
-      }
       activeMat.needsUpdate = true;
     }
 
     if (secondaryMesh && secondaryMesh.visible) {
-      updateGarmentEase(secondaryMesh, 'perfecto', 0, isFemale, 'M');
-
       const secMat = secondaryMesh.material as THREE.MeshStandardMaterial;
       secMat.map?.dispose();
-      secMat.map = null;
-      secMat.color = new THREE.Color('#141518');
+      const secondaryKind = secondaryMesh.geometry.userData.tailoredKind;
+      secMat.map = secondaryKind ? createTailoredTexture(secondaryKind, secondaryKind === 'football-shirt' ? '#d6d7d7' : '#222428', false) : null;
+      secMat.color = new THREE.Color(secondaryKind ? '#ffffff' : '#141518');
       secMat.bumpMap = getAthleticFabricBumpMap();
-      secMat.bumpScale = 0.015;
+      secMat.bumpScale = secondaryKind ? 0.006 : 0.015;
       secMat.roughness = 0.92;
       secMat.metalness = 0;
       secMat.emissive = new THREE.Color('#000000');
       secMat.needsUpdate = true;
     }
-  }, [bodyMesh, clonedScene, selectedProduct, isFemale, fitStatus, fitDelta, garmentColor, activeSize]);
+  }, [bodyMesh, clonedScene, isFemale, activeKey, activeGarmentType, secondaryKey, productName, brandName, garmentColor, visualKind, visual?.roughness]);
 
   return garmentsRef;
 }
@@ -2010,7 +2023,7 @@ export default function Avatar3D({
   };
 
   return (
-    <div className="w-full h-full min-h-[500px] relative cursor-grab active:cursor-grabbing z-20">
+    <div className="w-full h-full min-h-0 relative cursor-grab active:cursor-grabbing z-0">
       <Canvas shadows={settings.hqRender} dpr={settings.hqRender ? [1, 2] : 1} camera={{ position: [0, 0, 3.8], fov: 42 }}>
         {/* Iluminación de estudio profesional neutro estilo Nike (blanco suave y natural) */}
         <ambientLight intensity={0.7} />
@@ -2026,7 +2039,11 @@ export default function Avatar3D({
         <directionalLight position={[0, 3, -3.5]} intensity={1.1} color="#f8fafc" />
         <pointLight position={[0, -1, 1.5]} intensity={0.35} color="#ffffff" />
 
-        <Environment preset="studio" />
+        <Environment resolution={128} frames={1}>
+          <Lightformer intensity={2} position={[3, 3, 3]} rotation={[0, -Math.PI / 4, 0]} scale={[3, 5, 1]} />
+          <Lightformer intensity={1} position={[-3, 1, 2]} rotation={[0, Math.PI / 4, 0]} scale={[2, 4, 1]} />
+          <Lightformer intensity={1.5} position={[0, 4, -2]} rotation={[Math.PI / 3, 0, 0]} scale={[3, 2, 1]} />
+        </Environment>
         <ContactShadows position={[0, -0.85, 0]} opacity={0.5} scale={6} blur={2.0} far={4} />
 
         {genero === 'Hombre' ? (

@@ -33,6 +33,7 @@ export interface User {
   preferencia_colores?: string | null;
   preferencia_deporte?: string | null;
 
+  // The initial prompt was handled, either by saving preferences or explicitly skipping it.
   onboarding_completado?: boolean;
 }
 

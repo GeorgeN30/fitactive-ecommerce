@@ -6,6 +6,8 @@ import { useFavorites } from "../context/FavoritesContext";
 import { fetchMyTryOnHistory, type UserTryOnHistoryItem } from "../services/virtualTryOn";
 import { formatSoles } from "../utils/money";
 import { getInitialBodyType, type BodyType } from "../utils/bodyType";
+import ProfilePreferencesFields, { type ProfilePreferences } from "../components/ProfilePreferencesFields";
+import { profileSaveError } from "../utils/profileSaveError";
 
 function profileGender(value?: string | null) {
   const normalized = value?.toLowerCase();
@@ -25,6 +27,11 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || "");
   const [genero, setGenero] = useState(profileGender(user?.genero));
   const [bodyType, setBodyType] = useState<BodyType>(() => getInitialBodyType(user));
+  const [preferences, setPreferences] = useState<ProfilePreferences>({
+    preferencia_deporte: user?.preferencia_deporte || "",
+    preferencia_ropa: user?.preferencia_ropa || "",
+    preferencia_colores: user?.preferencia_colores || "",
+  });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);
@@ -96,6 +103,10 @@ export default function ProfilePage() {
         name: name.trim(),
         genero: genero || undefined,
         bodyType,
+        preferencia_deporte: preferences.preferencia_deporte || null,
+        preferencia_ropa: preferences.preferencia_ropa || null,
+        preferencia_colores: preferences.preferencia_colores || null,
+        onboarding_completado: true,
       });
       if (user?.id) {
         try {
@@ -106,9 +117,9 @@ export default function ProfilePage() {
       }
       setMsg("Perfil guardado con éxito");
       setTimeout(() => setMsg(""), 3000);
-    } catch {
+    } catch (error) {
       setSaveFailed(true);
-      setMsg("Error al guardar perfil");
+      setMsg(profileSaveError(error));
     } finally {
       setSaving(false);
     }
@@ -119,7 +130,7 @@ export default function ProfilePage() {
       <div className="space-y-8">
         {/* Panel de Datos Personales */}
         <div className="bg-white dark:bg-brand-card-dark rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-wrap gap-4 justify-between items-center mb-8">
             <h1 className="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-white">
               Datos Personales
             </h1>
@@ -211,6 +222,19 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
+
+          <section aria-labelledby="profile-preferences-title" className="mb-8 border-t border-slate-100 dark:border-slate-800 pt-6">
+            <h2 id="profile-preferences-title" className="text-lg font-black text-slate-900 dark:text-white mb-2">Preferencias deportivas</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+              {!user?.genero || !user?.preferencia_deporte || !user?.preferencia_ropa || !user?.preferencia_colores
+                ? "Tus preferencias están pendientes. Puedes completarlas cuando quieras; no son obligatorias para usar la tienda."
+                : "Puedes cambiar tus preferencias cuando quieras."}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ProfilePreferencesFields values={preferences} onChange={setPreferences} disabled={saving} />
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Selecciona Guardar cambios para actualizar tu perfil.</p>
+          </section>
 
           {statsError && <p role="alert" className="text-red-600 mb-4">{statsError}</p>}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

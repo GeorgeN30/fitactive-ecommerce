@@ -66,6 +66,8 @@ export default function CatalogPage() {
     ];
   }, [validProducts]);
 
+  const prices = useMemo(() => new Map(validProducts.map((product) => [product.id, getCatalogPrice(product)])), [validProducts]);
+
   const filtered = useMemo(() => {
     return validProducts
       .filter((p) => {
@@ -75,7 +77,7 @@ export default function CatalogPage() {
         const matchStock = !inStock || p.totalStock > 0;
         const matchCategory = category === "Todas" || p.categoria === category;
         const matchBrand = brand === "Todas" || p.marca === brand;
-        const matchOffers = !onlyOffers || getCatalogPrice(p).discount > 0;
+        const matchOffers = !onlyOffers || (prices.get(p.id)?.discount || 0) > 0;
         const matchSearch =
           !searchQuery ||
           [p.nombre, p.categoria || "", p.marca || ""].some((value) =>
@@ -93,11 +95,11 @@ export default function CatalogPage() {
         );
       })
       .sort((a, b) => {
-        if (sort === "low") return getCatalogPrice(a).price - getCatalogPrice(b).price;
-        if (sort === "high") return getCatalogPrice(b).price - getCatalogPrice(a).price;
+        if (sort === "low") return prices.get(a.id)!.price - prices.get(b.id)!.price;
+        if (sort === "high") return prices.get(b.id)!.price - prices.get(a.id)!.price;
         return b.totalStock - a.totalStock;
       });
-  }, [validProducts, gender, size, inStock, category, brand, onlyOffers, searchQuery, sort]);
+  }, [validProducts, prices, gender, size, inStock, category, brand, onlyOffers, searchQuery, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / 6));
   const page = Math.min(currentPage, pageCount);
