@@ -104,7 +104,7 @@ export default function ProductSelector({
 
       {/* Grid de Prendas del Catálogo */}
       <div role="group" aria-label="Selector de prendas" className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
           {visibleProducts.map((prod) => {
             const isSelected = selectedProduct?.id === prod.id;
             const img = prod.imagen_url || prod.imagenUrl || prod.img || 'https://placehold.co/200x200';
@@ -118,7 +118,7 @@ export default function ProductSelector({
                 key={prod.id}
                 type="button"
                 onClick={() => setSelectedProduct(prod)}
-                className={`flex flex-col items-center p-2.5 rounded-2xl border-2 transition-all duration-200 bg-white dark:bg-white/5 cursor-pointer text-left relative ${
+                className={`min-w-0 flex flex-col items-center p-2.5 rounded-2xl border-2 transition-all duration-200 bg-white dark:bg-white/5 cursor-pointer text-left relative ${
                   isSelected
                     ? 'border-brand-green shadow-md ring-1 ring-brand-green bg-emerald-500/5 dark:bg-emerald-500/10'
                     : 'border-gray-100 dark:border-white/5 hover:border-brand-green/40'
@@ -144,7 +144,7 @@ export default function ProductSelector({
                   )}
                 </div>
 
-                <div className="w-full">
+                <div className="w-full min-w-0">
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block truncate">
                     {prod.marca || prod.categoria || 'Catálogo'}
                   </span>
@@ -152,7 +152,7 @@ export default function ProductSelector({
                     {prod.nombre}
                   </h5>
                   <div className="text-[10px] mt-1">
-                    <ProductOffer product={prod} />
+                    <ProductOffer product={prod} compact />
                   </div>
                   {availableSizes && (
                     <span className="text-[9px] text-gray-400 block truncate mt-1">

@@ -427,4 +427,29 @@ describe("AuthContext", () => {
     expect(result.current.user).toEqual(savedUser);
     expect(JSON.parse(localStorage.getItem("user")!)).toEqual(savedUser);
   });
+
+  it.each(["localStorage", "sessionStorage"] as const)("persists a confirmed onboarding skip across reload in %s without inventing preferences", async (storageName) => {
+    const storage = window[storageName];
+    const initialUser = {
+      id: "u1", email: "ana@example.test", name: "Ana", role: "customer", picture: null,
+      onboarding_completado: false, preferencia_deporte: "Running", preferencia_ropa: null, preferencia_colores: null,
+    };
+    const savedUser = { ...initialUser, onboarding_completado: true };
+    storage.setItem("token", "stored-token");
+    storage.setItem("user", JSON.stringify(initialUser));
+    mockApi.put.mockResolvedValueOnce({ data: { user: savedUser } });
+    const { result, unmount } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.updateProfile({ onboarding_completado: true }); });
+    expect(mockApi.put).toHaveBeenCalledExactlyOnceWith("/auth/me", { onboarding_completado: true });
+    expect(result.current.user).toEqual(savedUser);
+    expect(JSON.parse(storage.getItem("user")!)).toEqual(savedUser);
+    unmount();
+    const restored = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(restored.result.current.loading).toBe(false));
+    expect(restored.result.current.user).toEqual(savedUser);
+    expect(restored.result.current.token).toBe("stored-token");
+    const otherStorage = storageName === "localStorage" ? sessionStorage : localStorage;
+    expect(otherStorage.getItem("user")).toBeNull();
+  });
 });

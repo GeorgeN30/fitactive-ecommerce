@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchCatalogProducts, type CatalogProduct } from "../services/catalog";
+import { fetchCatalogProducts, getCachedCatalogProducts, type CatalogProduct } from "../services/catalog";
 
 export function useCatalog() {
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<CatalogProduct[]>(() => getCachedCatalogProducts() || []);
+  const [loading, setLoading] = useState(() => !getCachedCatalogProducts());
   const [error, setError] = useState("");
   const mounted = useRef(false);
   const busy = useRef(false);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (fresh = true) => {
     if (busy.current) return;
     busy.current = true;
     try {
-      const loaded = await fetchCatalogProducts();
+      const loaded = await fetchCatalogProducts({ cached: !fresh });
       if (mounted.current) { setProducts(loaded); setError(""); }
     } catch {
       if (mounted.current) setError("No se pudo actualizar el catálogo. Intenta nuevamente.");
@@ -22,8 +22,8 @@ export function useCatalog() {
   }, []);
   useEffect(() => {
     mounted.current = true;
-    void refresh();
-    const onFocus = () => { if (document.visibilityState !== "hidden") void refresh(); };
+    void refresh(false);
+    const onFocus = () => { if (document.visibilityState !== "hidden") void refresh(false); };
     const interval = window.setInterval(onFocus, 30_000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);

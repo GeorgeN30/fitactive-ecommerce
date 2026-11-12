@@ -88,22 +88,44 @@ export function getCatalogOffer(product: CatalogProduct, selectedSize?: string |
   };
 }
 
-export async function fetchCatalogProducts(): Promise<CatalogProduct[]> {
-  const { data } = await api.get("/products");
-  const rawList = ((data.products || data.data || data) as CatalogProduct[]) || [];
+let cachedProducts: CatalogProduct[] | undefined;
+let cachedAt = 0;
+let pendingRequest: Promise<CatalogProduct[]> | undefined;
 
-  // Filter only products configured for Hombre or Mujer
-  return rawList.filter((p) => {
-    const gen = (p.genero || "").trim().toLowerCase();
-    return (
-      !gen ||
-      gen === "hombre" ||
-      gen === "mujer" ||
-      gen === "male" ||
-      gen === "female" ||
-      gen === "masculino" ||
-      gen === "femenino" ||
-      gen === "unisex"
-    );
-  });
+export function getCachedCatalogProducts() {
+  return cachedProducts;
+}
+
+export function invalidateCatalogCache() {
+  cachedProducts = undefined;
+  cachedAt = 0;
+}
+
+export async function fetchCatalogProducts({ cached = false } = {}): Promise<CatalogProduct[]> {
+  // Browsing may reuse a short-lived snapshot; cart validation requests fresh data by default.
+  if (cached && cachedProducts && Date.now() - cachedAt < 15_000) return cachedProducts;
+  if (pendingRequest) return pendingRequest;
+
+  pendingRequest = api.get("/products").then(({ data }) => {
+    const rawList = ((data.products || data.data || data) as CatalogProduct[]) || [];
+
+    // Filter only products configured for Hombre or Mujer.
+    const products = rawList.filter((p) => {
+      const gen = (p.genero || "").trim().toLowerCase();
+      return (
+        !gen ||
+        gen === "hombre" ||
+        gen === "mujer" ||
+        gen === "male" ||
+        gen === "female" ||
+        gen === "masculino" ||
+        gen === "femenino" ||
+        gen === "unisex"
+      );
+    });
+    cachedProducts = products;
+    cachedAt = Date.now();
+    return products;
+  }).finally(() => { pendingRequest = undefined; });
+  return pendingRequest;
 }

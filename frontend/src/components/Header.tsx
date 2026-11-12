@@ -59,7 +59,7 @@ export default function Header() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCatalogProducts()
+    fetchCatalogProducts({ cached: true })
       .then((loadedProducts) => {
         if (!cancelled) setAllProducts(loadedProducts);
       })

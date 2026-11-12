@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStoreSettings } from "../context/StoreSettingsContext";
 
@@ -12,7 +12,6 @@ export default function ProtectedRoute({
   requiredRole,
 }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
-  const location = useLocation();
   const settings = useStoreSettings();
 
   if (loading) {
@@ -31,19 +30,6 @@ export default function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
   if (requiredRole && settings.twoFactor && !user.twoFactorEnabled) return <Navigate to="/2fa-setup" replace />;
-
-  if (
-    user.role === "customer" &&
-    user.onboarding_completado === false &&
-    location.pathname !== "/configurar-perfil"
-  ) {
-    return (
-      <Navigate
-        to="/configurar-perfil"
-        replace
-      />
-    );
-  }
 
   return <>{children}</>;
 }

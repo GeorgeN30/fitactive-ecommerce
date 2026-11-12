@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import { useCatalog } from '../hooks/useCatalog';
@@ -13,6 +13,7 @@ import ProductSelector from '../components/ProbadorVirtual/ProductSelector';
 
 import AvatarStage from '../components/ProbadorVirtual/AvatarStage';
 import GarmentColorPicker from '../components/ProbadorVirtual/GarmentColorPicker';
+import { getGarmentVisual, prioritizeGarmentPilots } from '../utils/garmentVisuals';
 
 function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   const normalized = value?.trim().toLowerCase();
@@ -81,16 +82,20 @@ export default function ProbadorVirtual() {
       })),
     }));
 
-  const hombres = normalizados
-    .filter((item) => item.genero === 'Hombre')
-    .slice(0, 5);
+  const hombres = prioritizeGarmentPilots(normalizados.filter((item) => item.genero === 'Hombre')).slice(0, 5);
 
   const mujeres = normalizados
     .filter((item) => item.genero === 'Mujer')
     .slice(0, 5);
 
+  // A catalog deep link must keep its product, even when pilots occupy the first slots.
+  const requested = normalizados.find(item => String(item.id) === productoIdUrl);
+  if (requested) {
+    const selection = requested.genero === 'Hombre' ? hombres : mujeres;
+    if (!selection.some(item => item.id === requested.id)) selection[selection.length - 1] = requested;
+  }
   return [...hombres, ...mujeres];
-}, [catalog.products]);
+}, [catalog.products, productoIdUrl]);
 
 
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -165,6 +170,10 @@ export default function ProbadorVirtual() {
     const prodsNuevos = productos.filter((p) => p.genero === nextGen);
     if (prodsNuevos.length > 0) {
       setSelectedProduct(prodsNuevos[0]);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('producto', String(prodsNuevos[0].id));
+      nextParams.set('talla', selectedSize);
+      setSearchParams(nextParams, { replace: true });
     }
   };
 
@@ -234,13 +243,9 @@ export default function ProbadorVirtual() {
   const handleSelectSize = (sz: string) => {
     const norm = sz.trim().toUpperCase();
     setSelectedSize(norm);
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('talla', norm);
-      window.history.replaceState({}, '', url.toString());
-    } catch {
-      // fallback
-    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('talla', norm);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const handleSelectProduct = (product: any) => {
@@ -485,6 +490,11 @@ export default function ProbadorVirtual() {
                       <p className="break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         Previsualización 3D aproximada. El tipo de cuerpo adapta el avatar, pero no permite confirmar la compatibilidad ni recomendar una talla sin comparar medidas reales de la prenda y del cuerpo.
                       </p>
+                      {getGarmentVisual(selectedProduct) && (
+                        <p className="mt-2 break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                          Diseño piloto basado en la fotografía del producto, no en un escaneo 3D. La prenda complementaria es ilustrativa y no se añade al carrito.
+                        </p>
+                      )}
                     </section>
                   </div>
 

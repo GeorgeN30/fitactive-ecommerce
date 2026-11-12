@@ -1,11 +1,13 @@
 import { getPasswordRequirements } from "../utils/validation";
 
 interface PasswordRequirementsProps {
+  id?: string;
   password: string;
   visible: boolean;
 }
 
 export default function PasswordRequirements({
+  id,
   password,
   visible,
 }: PasswordRequirementsProps) {
@@ -15,26 +17,28 @@ export default function PasswordRequirements({
 
   return (
     <div
-      className="mt-3 rounded-lg bg-slate-50 dark:bg-slate-700/40 px-3 py-2.5 animate-fade-in"
+      id={id}
+      className="mt-3 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-700/40 px-3 py-3 animate-fade-in"
       aria-live="polite"
     >
-      <p className="mb-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+      <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
         Tu contraseña debe incluir:
       </p>
-      <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
         {requirements.map(({ id, label, met }) => (
           <li
             key={id}
-            className={`flex items-center gap-1.5 text-[11px] ${
-              met ? "text-brand-green" : "text-slate-500 dark:text-slate-400"
+            className={`flex items-start gap-2 text-sm leading-5 ${
+              met ? "text-emerald-700 dark:text-emerald-300" : "text-slate-600 dark:text-slate-300"
             }`}
           >
             <i
+              aria-hidden="true"
               className={`fa-solid ${
                 met ? "fa-circle-check" : "fa-circle"
-              } text-[9px]`}
+              } mt-1 shrink-0 text-xs`}
             />
-            {label}
+            <span><span className="sr-only">{met ? "Cumplido: " : "Pendiente: "}</span>{label}</span>
           </li>
         ))}
       </ul>
