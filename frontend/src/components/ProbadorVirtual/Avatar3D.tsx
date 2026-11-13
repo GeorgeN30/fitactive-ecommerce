@@ -1448,6 +1448,9 @@ function useGarments(
     tailoredJoggers?: THREE.SkinnedMesh;
   }>({});
 
+  const invalidate = useThree((state) => state.invalidate);
+  // Include imperative garment mutations and asynchronous color updates.
+  useEffect(() => { invalidate(); });
   const visual = isFemale ? null : getGarmentVisual(selectedProduct);
   const visualKind = visual?.kind;
   const [garmentColor, setGarmentColor] = useState<string>(() => customColor || visual?.color || getFallbackGarmentColor(selectedProduct));
@@ -1936,7 +1939,7 @@ function CameraController({
 }: {
   action?: { type: 'reset' | 'zoom-in' | 'zoom-out' | 'rotate-left' | 'rotate-right'; id: number } | null;
 }) {
-  const { camera } = useThree();
+  const { camera, invalidate } = useThree();
   const controlsRef = useRef<any>(null);
 
   useEffect(() => {
@@ -1966,7 +1969,9 @@ function CameraController({
       camera.position.z = z;
       camera.lookAt(0, 0, 0);
     }
-  }, [action, camera]);
+    controlsRef.current?.update();
+    invalidate();
+  }, [action, camera, invalidate]);
 
   return (
     <OrbitControls
@@ -2024,7 +2029,7 @@ export default function Avatar3D({
 
   return (
     <div className="w-full h-full min-h-0 relative cursor-grab active:cursor-grabbing z-0">
-      <Canvas shadows={settings.hqRender} dpr={settings.hqRender ? [1, 2] : 1} camera={{ position: [0, 0, 3.8], fov: 42 }}>
+      <Canvas frameloop="demand" shadows={settings.hqRender} dpr={settings.hqRender ? [1, 2] : 1} camera={{ position: [0, 0, 3.8], fov: 42 }}>
         {/* Iluminación de estudio profesional neutro estilo Nike (blanco suave y natural) */}
         <ambientLight intensity={0.7} />
         <directionalLight
@@ -2044,7 +2049,17 @@ export default function Avatar3D({
           <Lightformer intensity={1} position={[-3, 1, 2]} rotation={[0, Math.PI / 4, 0]} scale={[2, 4, 1]} />
           <Lightformer intensity={1.5} position={[0, 4, -2]} rotation={[Math.PI / 3, 0, 0]} scale={[3, 2, 1]} />
         </Environment>
-        <ContactShadows position={[0, -0.85, 0]} opacity={0.5} scale={6} blur={2.0} far={4} />
+        {/* The light and pose stay still while the camera moves. Refresh the shadow
+            only when the avatar or garment changes instead of on every frame. */}
+        <ContactShadows
+          key={JSON.stringify([genero, selectedProduct?.id, activeSize, fitStatus, fitDelta, activeScales, settings.hqRender])}
+          frames={1}
+          position={[0, -0.85, 0]}
+          opacity={0.5}
+          scale={6}
+          blur={2.0}
+          far={4}
+        />
 
         {genero === 'Hombre' ? (
           <HombreModel

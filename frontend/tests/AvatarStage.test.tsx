@@ -13,11 +13,11 @@ import AvatarStage from "../src/components/ProbadorVirtual/AvatarStage";
 beforeEach(() => { auth.user = null; localStorage.clear(); });
 
 describe("avatar profile body type", () => {
-  it.each(["Hombre", "Mujer"] as const)("reacts to the saved preference independently of garment size for %s", (gender) => {
+  it.each(["Hombre", "Mujer"] as const)("reacts to the saved preference independently of garment size for %s", async (gender) => {
     auth.user = { id: "u1", bodyType: "slim" };
     const props = { selectedProduct: null, genero: gender, activeSize: "M" };
     const { rerender } = render(<AvatarStage {...props} />);
-    const slim = screen.getByTestId("body-scales").textContent;
+    const slim = (await screen.findByTestId("body-scales")).textContent;
     expect(JSON.parse(slim!).scalePecho).toBe(0.88);
     rerender(<AvatarStage {...props} activeSize="L" />);
     expect(screen.getByTestId("body-scales").textContent).toBe(slim);
@@ -39,7 +39,7 @@ describe("avatar profile body type", () => {
     expect(screen.queryByText("Compatibilidad pendiente")).not.toBeInTheDocument();
     expect(screen.queryByText(/stock/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /talla|color/i })).not.toBeInTheDocument();
-    expect(JSON.parse(screen.getByTestId("avatar-options").textContent!).customColor).toBe("#374151");
+    expect(JSON.parse((await screen.findByTestId("avatar-options")).textContent!).customColor).toBe("#374151");
     await user.click(screen.getByRole("button", { name: "Acercar cámara" }));
     expect(JSON.parse(screen.getByTestId("avatar-options").textContent!).cameraAction.type).toBe("zoom-in");
   });
