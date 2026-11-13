@@ -23,10 +23,8 @@ RUN pnpm build
 # Precompress the unchanged avatar binaries once, rather than on each request.
 RUN gzip -9 -k dist/avatar/hombre_morph.glb dist/avatar/mujer_morph.glb
 
-# Compress only the try-on bundles; other views keep their existing delivery.
-RUN for file in dist/assets/ProbadorVirtual-*.js; do \
-      if [ -f "$file" ]; then gzip -9 -k "$file"; fi; \
-    done
+# Include dynamically imported 3D chunks and shared assets.
+RUN find dist/assets -type f \( -name '*.js' -o -name '*.css' \) -exec gzip -9 -k {} \;
 
 FROM nginx:stable-alpine
 

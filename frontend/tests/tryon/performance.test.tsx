@@ -29,7 +29,7 @@ describe('try-on loading and images', () => {
     const panel = screen.getByRole('complementary', { name: 'Opciones de la prenda' });
     const selector = screen.getByRole('group', { name: 'Selector de prendas' });
     const image = await within(panel).findByAltText('Adidas');
-    expect(screen.getByText('Avatar listo')).toBeInTheDocument();
+    expect(await screen.findByText('Avatar listo')).toBeInTheDocument();
     expect(image).toHaveAttribute('fetchpriority', 'high');
     expect(image).toHaveAttribute('width', '400');
     expect(image).toHaveAttribute('height', '300');
