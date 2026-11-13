@@ -1,5 +1,6 @@
 import React from 'react';
 import ProductOffer from '../ProductOffer';
+import { homeImageUrl } from '../../utils/homeImages';
 
 interface ProductSelectorProps {
   visibleProducts: any[];
@@ -108,6 +109,7 @@ export default function ProductSelector({
           {visibleProducts.map((prod) => {
             const isSelected = selectedProduct?.id === prod.id;
             const img = prod.imagen_url || prod.imagenUrl || prod.img || 'https://placehold.co/200x200';
+            const optimizedImg = homeImageUrl(img, 192);
             const availableSizes = (prod.producto_tallas || prod.tallas || [])
               .filter((t: any) => Number(t.stock) > 0)
               .map((t: any) => t.talla)
@@ -126,8 +128,9 @@ export default function ProductSelector({
               >
                 <div className="w-full aspect-[4/5] rounded-xl overflow-hidden bg-gray-50 dark:bg-black/40 mb-2 relative flex items-center justify-center">
                   <img
-                    src={img}
+                    src={optimizedImg}
                     alt={prod.nombre}
+                    onError={optimizedImg !== img ? (event) => { if (event.currentTarget.getAttribute('src') !== img) event.currentTarget.src = img; } : undefined}
                     className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal p-1.5 transition-transform duration-200 hover:scale-105"
                   />
                   {isSelected && (

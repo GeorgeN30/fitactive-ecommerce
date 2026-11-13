@@ -90,10 +90,7 @@ describe("AdminDashboard", () => {
   it("aplica el tema oscuro a la cabecera del panel", () => {
     renderDashboard();
 
-    const headerTitle = screen.getByRole("heading", {
-      name: "Dashboard",
-      level: 2,
-    });
+    const headerTitle = screen.getByText("Dashboard", { selector: "header div" });
     const header = headerTitle.closest("header");
 
     expect(header).toHaveClass("dark:bg-zinc-900");

@@ -4,6 +4,20 @@ type Kind = 'football-shirt' | 'joggers';
 type Size = 'S' | 'M' | 'L';
 type Point = [number, number, number];
 
+type PositionAttribute = THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
+const spatialSources = new WeakMap<PositionAttribute, {
+  version: number; array: ArrayLike<number>; count: number; factor: number; layout: string; buckets: Map<string, number[]>;
+}>();
+const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
+// Preserve the original dx/dy/dz order, including ties across cell boundaries.
+const shells: Point[][] = Array.from({ length: 7 }, (_, r) => {
+  const offsets: Point[] = [];
+  for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) {
+    if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) === r) offsets.push([dx, dy, dz]);
+  }
+  return offsets;
+});
+
 /**
  * Bind-space patterns for the male pilot (Y up, front +Z, centimetre-like units).
  * UVs use Three's bottom-left origin, not canvas coordinates:
@@ -34,9 +48,14 @@ export function buildTailoredGarment(bodyMesh: THREE.SkinnedMesh, kind: Kind): T
   if (!sourcePosition?.count || !sourceIndex || !sourceWeight || !bodyMesh.skeleton?.bones.length) {
     throw new Error('Tailored garments require a bind-space body with skin attributes and a skeleton');
   }
-  source.computeBoundingBox();
+  // Compute Three's morph-aware bounds without modifying the shared source geometry.
+  const bounds = new THREE.BufferGeometry();
+  bounds.setAttribute('position', sourcePosition);
+  bounds.morphAttributes.position = source.morphAttributes.position;
+  bounds.morphTargetsRelative = source.morphTargetsRelative;
+  bounds.computeBoundingBox();
   // The optional small-unit asset uses approximately 0.1 of the male units.
-  const factor = source.boundingBox!.max.y < 30 ? 0.1 : 1;
+  const factor = bounds.boundingBox!.max.y < 30 ? 0.1 : 1;
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
@@ -236,18 +255,26 @@ export function buildTailoredGarment(bodyMesh: THREE.SkinnedMesh, kind: Kind): T
   // Four inverse-distance neighbours interpolate smoothly without scanning the
   // 80k source vertices for each pattern vertex. Search is capped at six cells.
   const cell = 5 * factor;
-  const buckets = new Map<string, number[]>();
-  const unique = new Set<string>();
-  const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
-  for (let i = 0; i < sourcePosition.count; i++) {
-    const x = sourcePosition.getX(i), y = sourcePosition.getY(i), z = sourcePosition.getZ(i);
-    const exact = key(Math.round(x / factor * 10000), Math.round(y / factor * 10000), Math.round(z / factor * 10000));
-    if (unique.has(exact)) continue;
-    unique.add(exact);
-    const k = key(Math.floor(x / cell), Math.floor(y / cell), Math.floor(z / cell));
-    const bucket = buckets.get(k);
-    if (bucket) bucket.push(i); else buckets.set(k, [i]);
+  const version = 'data' in sourcePosition ? sourcePosition.data.version : sourcePosition.version;
+  const layout = `${sourcePosition.itemSize},${sourcePosition.normalized},${'data' in sourcePosition ? `${sourcePosition.data.stride},${sourcePosition.offset}` : ''}`;
+  let spatial = spatialSources.get(sourcePosition);
+  if (!spatial || spatial.version !== version || spatial.array !== sourcePosition.array
+    || spatial.count !== sourcePosition.count || spatial.factor !== factor || spatial.layout !== layout) {
+    const buckets = new Map<string, number[]>();
+    const unique = new Set<string>();
+    for (let i = 0; i < sourcePosition.count; i++) {
+      const x = sourcePosition.getX(i), y = sourcePosition.getY(i), z = sourcePosition.getZ(i);
+      const exact = key(Math.round(x / factor * 10000), Math.round(y / factor * 10000), Math.round(z / factor * 10000));
+      if (unique.has(exact)) continue;
+      unique.add(exact);
+      const k = key(Math.floor(x / cell), Math.floor(y / cell), Math.floor(z / cell));
+      const bucket = buckets.get(k);
+      if (bucket) bucket.push(i); else buckets.set(k, [i]);
+    }
+    spatial = { version, array: sourcePosition.array, count: sourcePosition.count, factor, layout, buckets };
+    spatialSources.set(sourcePosition, spatial);
   }
+  const buckets = spatial.buckets;
   const skinIndices = new Uint16Array(positions.length / 3 * 4);
   const skinWeights = new Float32Array(skinIndices.length);
   const sourceMorphs = source.morphAttributes.position ?? [];
@@ -257,6 +284,7 @@ export function buildTailoredGarment(bodyMesh: THREE.SkinnedMesh, kind: Kind): T
     const x = positions[i * 3], y = positions[i * 3 + 1], z = positions[i * 3 + 2];
     const bx = Math.floor(x / cell), by = Math.floor(y / cell), bz = Math.floor(z / cell);
     const nearest: { index: number; distance: number }[] = [];
+    let hasNaN = false;
     const consider = (id: number) => {
       const sx = sourcePosition.getX(id), sy = sourcePosition.getY(id);
       // Do not borrow the other thigh or a torso influence across an armpit.
@@ -264,13 +292,23 @@ export function buildTailoredGarment(bodyMesh: THREE.SkinnedMesh, kind: Kind): T
       if (kind === 'football-shirt' && Math.abs(x) > 24 * factor && (Math.abs(sx) < 17 * factor || sy < 117 * factor)) return;
       const distance = (sx - x) ** 2 + (sy - y) ** 2 + (sourcePosition.getZ(id) - z) ** 2;
       if (nearest.length === 4 && distance >= nearest[3].distance) return;
-      nearest.push({ index: id, distance });
-      nearest.sort((a, b) => a.distance - b.distance);
-      if (nearest.length > 4) nearest.pop();
+      if (hasNaN || Number.isNaN(distance)) {
+        // Retain Array.sort's behavior for malformed, non-finite input too.
+        nearest.push({ index: id, distance });
+        nearest.sort((a, b) => a.distance - b.distance);
+        if (nearest.length > 4) nearest.pop();
+        hasNaN = nearest.some(n => Number.isNaN(n.distance));
+      } else {
+        let slot = Math.min(nearest.length, 3);
+        while (slot > 0 && distance < nearest[slot - 1].distance) {
+          nearest[slot] = nearest[slot - 1];
+          slot--;
+        }
+        nearest[slot] = { index: id, distance };
+      }
     };
     for (let r = 0; r <= 6; r++) {
-      for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) !== r) continue;
+      for (const [dx, dy, dz] of shells[r]) {
         const bucket = buckets.get(key(bx + dx, by + dy, bz + dz));
         if (bucket) for (const id of bucket) consider(id);
       }
@@ -360,6 +398,7 @@ export function updateTailoredGarment(mesh: THREE.SkinnedMesh, size: Size): void
   const geometry = mesh.geometry;
   const data = geometry.userData;
   if (!data.tailoredKind || !data.basePositions) return;
+  if (data.tailoredSize === size) return;
   const base = data.basePositions as Float32Array;
   const centers = data.centers as Float32Array;
   const depthCenters = data.depthCenters as Float32Array;
