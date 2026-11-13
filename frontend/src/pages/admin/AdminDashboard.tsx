@@ -193,7 +193,10 @@ function BarChart({ data, color }: { data: number[]; color: string }) {
 export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedSection = searchParams.get("section");
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+  useEffect(() => setThemeMounted(true), []);
+  const darkMode = themeMounted && resolvedTheme === "dark";
   const logout = () => {
     clearStoredSession();
     window.location.href = "/";
@@ -633,8 +636,8 @@ export default function AdminDashboard() {
             {item.icon}
             {item.label}
             {item.key === "notifications" && unread > 0 && (
-              <span className="ml-auto w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {unread}
+              <span className="ml-auto w-5 h-5 bg-red-700 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="sr-only">, notificaciones sin leer: </span>{unread}
               </span>
             )}
           </button>
@@ -655,19 +658,23 @@ export default function AdminDashboard() {
         </Link>
         <div className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-400">
           <div className="flex items-center gap-3">
-            {theme === "dark" ? (
+            {darkMode ? (
               <AdminIcon name="fa-moon" size={16} />
             ) : (
               <AdminIcon name="fa-sun" size={16} />
             )}
-            <span>Modo {theme === "dark" ? "Claro" : "Oscuro"}</span>
+            <span>Modo oscuro</span>
           </div>
           <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className={`w-10 h-5 rounded-full relative transition-colors ${theme === "dark" ? "bg-[#00E87A]" : "bg-gray-600"}`}
+            type="button"
+            aria-label="Modo oscuro"
+            aria-pressed={themeMounted && resolvedTheme ? darkMode : undefined}
+            disabled={!themeMounted || !resolvedTheme}
+            onClick={() => setTheme(darkMode ? "light" : "dark")}
+            className={`w-10 h-5 rounded-full relative transition-colors ${darkMode ? "bg-[#00E87A]" : "bg-gray-600"}`}
           >
             <div
-              className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${theme === "dark" ? "translate-x-5" : ""}`}
+              className={`absolute top-1 left-1 w-3 h-3 rounded-full transition-transform ${darkMode ? "translate-x-5 bg-[#0A0A0A]" : "bg-white"}`}
             />
           </button>
         </div>
@@ -735,16 +742,17 @@ export default function AdminDashboard() {
             <Menu size={20} />
           </button>
           <div className="flex-1">
-            <h2 className="font-bold text-gray-900 dark:text-white capitalize">
+            <div className="font-bold text-gray-900 dark:text-white capitalize">
               {navItems.find((n) => n.key === section)?.label}
-            </h2>
-            <p className="text-xs text-gray-400 dark:text-gray-400">
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
               Panel de administración · FITLOOK
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSection("notifications")}
+              aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
               className="relative"
             >
               <Bell size={20} className="text-gray-500 dark:text-gray-300" />
@@ -1131,7 +1139,7 @@ export default function AdminDashboard() {
           <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-gray-900">{selectedOrder.id}</h2>
-              <button onClick={() => setSelectedOrder(null)}>
+              <button aria-label="Cerrar detalle del pedido" onClick={() => setSelectedOrder(null)}>
                 <X size={20} className="text-gray-400" />
               </button>
             </div>
@@ -1215,7 +1223,7 @@ export default function AdminDashboard() {
           <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-gray-900">Perfil del cliente</h2>
-              <button onClick={() => setSelectedClient(null)}>
+              <button aria-label="Cerrar perfil del cliente" onClick={() => setSelectedClient(null)}>
                 <X size={20} className="text-gray-400" />
               </button>
             </div>

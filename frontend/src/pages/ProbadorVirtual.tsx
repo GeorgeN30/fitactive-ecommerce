@@ -14,6 +14,7 @@ import ProductSelector from '../components/ProbadorVirtual/ProductSelector';
 import AvatarStage from '../components/ProbadorVirtual/AvatarStage';
 import GarmentColorPicker from '../components/ProbadorVirtual/GarmentColorPicker';
 import { getGarmentVisual, prioritizeGarmentPilots } from '../utils/garmentVisuals';
+import { homeImageUrl } from '../utils/homeImages';
 
 function normalizeGender(value?: string | null): 'Hombre' | 'Mujer' {
   const normalized = value?.trim().toLowerCase();
@@ -195,6 +196,8 @@ export default function ProbadorVirtual() {
   const firstProductIndex = productosFiltrados.length === 0 ? 0 : (currentProductPage - 1) * PRODUCTS_PER_PAGE + 1;
   const lastProductIndex = Math.min(currentProductPage * PRODUCTS_PER_PAGE, productosFiltrados.length);
   const visibleProducts = paginateProducts(productosFiltrados, currentProductPage);
+  const selectedImage = selectedProduct?.imagen_url || selectedProduct?.imagenUrl || selectedProduct?.img || 'https://placehold.co/400x400';
+  const optimizedSelectedImage = homeImageUrl(selectedImage, 480);
 
   const handleCategoryFilterChange = (category: string) => {
     setCategoriaFiltro(category);
@@ -392,8 +395,12 @@ export default function ProbadorVirtual() {
                   <div role="region" aria-label="Detalles y ajuste de la prenda" tabIndex={0} className="min-h-0 min-w-0 space-y-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green lg:flex-1 lg:overflow-y-auto lg:pr-1">
                     <div className="relative rounded-2xl bg-[#f4f5f7] dark:bg-gray-800/60 p-4 aspect-[4/3] flex items-center justify-center overflow-hidden border border-gray-100 dark:border-white/5">
                       <img
-                        src={selectedProduct.imagen_url || selectedProduct.imagenUrl || selectedProduct.img || 'https://placehold.co/400x400'}
+                        src={optimizedSelectedImage}
                         alt={selectedProduct.nombre}
+                        width={400}
+                        height={300}
+                        fetchPriority="high"
+                        onError={optimizedSelectedImage !== selectedImage ? (event) => { if (event.currentTarget.getAttribute('src') !== selectedImage) event.currentTarget.src = selectedImage; } : undefined}
                         className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
                       />
                       <FavoriteButton

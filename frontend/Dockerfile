@@ -20,6 +20,14 @@ COPY frontend .
 
 RUN pnpm build
 
+# Precompress the unchanged avatar binaries once, rather than on each request.
+RUN gzip -9 -k dist/avatar/hombre_morph.glb dist/avatar/mujer_morph.glb
+
+# Compress only the try-on bundles; other views keep their existing delivery.
+RUN for file in dist/assets/ProbadorVirtual-*.js; do \
+      if [ -f "$file" ]; then gzip -9 -k "$file"; fi; \
+    done
+
 FROM nginx:stable-alpine
 
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf

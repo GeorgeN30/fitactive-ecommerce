@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { useTheme } from "next-themes";
 
 ChartJS.register(
   CategoryScale,
@@ -78,7 +79,7 @@ function statusClass(status: string): string {
     case "delivered":
       return "bg-green-100 text-green-700";
     case "cancelled":
-      return "bg-red-100 text-red-600";
+      return "bg-red-100 text-red-800";
     default:
       return "bg-orange-100 text-orange-700";
   }
@@ -91,6 +92,8 @@ export default function DashboardView({
   recentOrders = [],
   summary = { activeCustomers: 0, productsSold: 0, totalReturns: 0 },
 }: DashboardViewProps = {}) {
+  const { resolvedTheme } = useTheme();
+  const darkMode = resolvedTheme === "dark";
   const totalSales = salesData.values.reduce((sum, value) => sum + value, 0);
   const chartData = {
     labels: salesData.labels,
@@ -113,8 +116,8 @@ export default function DashboardView({
       tooltip: { backgroundColor: "#1E1E1E", titleColor: "#00FF66" },
     },
     scales: {
-      x: { grid: { display: false } },
-      y: { grid: { color: "#E5E7EB", borderDash: [5, 5] }, beginAtZero: true },
+      x: { grid: { display: false }, ticks: { color: darkMode ? "#d1d5db" : "#374151" } },
+      y: { grid: { color: darkMode ? "#52525b" : "#e5e7eb", borderDash: [5, 5] }, ticks: { color: darkMode ? "#d1d5db" : "#374151" }, beginAtZero: true },
     },
   };
 
@@ -123,11 +126,11 @@ export default function DashboardView({
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Dashboard Financiero</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-700 dark:text-gray-400">
             Vista estratégica del negocio - FITLOOK
           </p>
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-gray-700 dark:text-gray-400">
           Datos de los últimos 12 meses
         </span>
       </div>
@@ -139,11 +142,11 @@ export default function DashboardView({
             className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm"
           >
             <div className="flex justify-between items-start mb-2">
-              <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+              <span className="text-gray-700 dark:text-gray-400 text-sm font-medium">
                 {metric.label}
               </span>
               {metric.inc && (
-                <span className="text-xs text-green-600 dark:text-[#00FF66]">
+                <span className="text-xs text-green-700 dark:text-[#00FF66]">
                   {metric.inc}
                 </span>
               )}
@@ -152,7 +155,7 @@ export default function DashboardView({
           </div>
         ))}
         {metrics.length === 0 && (
-          <div className="md:col-span-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+          <div className="md:col-span-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-700 dark:text-gray-400">
             No hay estadísticas disponibles.
           </div>
         )}
@@ -161,16 +164,25 @@ export default function DashboardView({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
           <div className="flex justify-between mb-4">
-            <h3 className="font-bold">Ingresos</h3>
-            <span className="text-gray-400 text-sm">
+            <h2 className="font-bold">Ingresos</h2>
+            <span className="text-gray-700 dark:text-gray-400 text-sm">
               S/ {totalSales.toLocaleString("es-PE", { maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="h-64">
             {salesData.values.length > 0 ? (
-              <Line options={chartOptions} data={chartData} />
+              <>
+                <Line options={chartOptions} data={chartData} aria-hidden="true" />
+                <table className="sr-only">
+                  <caption>Ingresos por periodo en soles</caption>
+                  <thead><tr><th scope="col">Periodo</th><th scope="col">Ingresos</th></tr></thead>
+                  <tbody>{salesData.values.map((value, index) => (
+                    <tr key={index}><th scope="row">{salesData.labels[index] || `Periodo ${index + 1}`}</th><td>S/ {value.toLocaleString("es-PE", { maximumFractionDigits: 2 })}</td></tr>
+                  ))}</tbody>
+                </table>
+              </>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-500">
+              <div className="h-full flex items-center justify-center text-sm text-gray-700 dark:text-gray-400">
                 No hay ventas registradas.
               </div>
             )}
@@ -178,18 +190,18 @@ export default function DashboardView({
         </div>
 
         <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm">
-          <h3 className="font-bold mb-5">Indicadores operativos</h3>
+          <h2 className="font-bold mb-5">Indicadores operativos</h2>
           <div className="space-y-4 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Clientes activos</span>
+              <span className="text-gray-700 dark:text-gray-400">Clientes activos</span>
               <span className="font-bold">{summary.activeCustomers.toLocaleString("es-PE")}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Unidades vendidas</span>
+              <span className="text-gray-700 dark:text-gray-400">Unidades vendidas</span>
               <span className="font-bold">{summary.productsSold.toLocaleString("es-PE")}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Devoluciones</span>
+              <span className="text-gray-700 dark:text-gray-400">Devoluciones</span>
               <span className="font-bold">{summary.totalReturns.toLocaleString("es-PE")}</span>
             </div>
           </div>
@@ -198,16 +210,16 @@ export default function DashboardView({
 
       <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex justify-between items-center">
-          <h3 className="font-bold">Últimos pedidos</h3>
+          <h2 className="font-bold">Últimos pedidos</h2>
           {goToOrders && (
-            <button onClick={goToOrders} className="text-xs text-[#00FF66] font-bold hover:underline">
+            <button onClick={goToOrders} className="text-xs text-green-700 dark:text-[#00FF66] font-bold hover:underline">
               Ver todos
             </button>
           )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50 dark:bg-zinc-950/50 text-gray-500 dark:text-gray-400 font-medium">
+            <thead className="bg-gray-50 dark:bg-zinc-950/50 text-gray-700 dark:text-gray-400 font-medium">
               <tr>
                 <th className="px-5 py-3">Pedido</th>
                 <th className="px-5 py-3">Cliente</th>
@@ -221,19 +233,19 @@ export default function DashboardView({
                 <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition">
                   <td className="px-5 py-4 font-medium">{order.id}</td>
                   <td className="px-5 py-4">{order.client}</td>
-                  <td className="px-5 py-4 font-bold text-[#00FF66]">{order.total}</td>
+                  <td className="px-5 py-4 font-bold text-green-700 dark:text-[#00FF66]">{order.total}</td>
                   <td className="px-5 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusClass(order.status)}`}>
                       {STATUS_LABELS[order.status] || order.status}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-gray-500 dark:text-gray-400">{order.time}</td>
+                  <td className="px-5 py-4 text-gray-700 dark:text-gray-400">{order.time}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {recentOrders.length === 0 && (
-            <p className="p-8 text-center text-sm text-gray-500">No hay pedidos registrados.</p>
+            <p className="p-8 text-center text-sm text-gray-700 dark:text-gray-400">No hay pedidos registrados.</p>
           )}
         </div>
       </div>
