@@ -15,6 +15,8 @@ import { orderService } from "./services/orders";
 import { settingsController } from "./controllers/settings";
 import supportRoutes from "./routes/support";
 import returnsRoutes from "./routes/returns";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 
 const app = express();
 
@@ -24,7 +26,7 @@ app.use(helmet());
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json({ limit: "32mb" }));
 app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
