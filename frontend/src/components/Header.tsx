@@ -185,9 +185,9 @@ export default function Header() {
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              FIT<span className="text-brand-green">LOOK</span>
+              FIT<span className="text-emerald-700 dark:text-brand-green">LOOK</span>
             </span>
-            <span className="bg-slate-100 dark:bg-slate-700 text-[10px] font-bold text-brand-green px-2 py-0.5 rounded border border-brand-green/30 tracking-wider hidden sm:inline">
+            <span className="bg-slate-100 dark:bg-slate-700 text-[10px] font-bold text-emerald-700 dark:text-brand-green px-2 py-0.5 rounded border border-brand-green/30 tracking-wider hidden sm:inline">
               AR FIT
             </span>
           </Link>
@@ -427,7 +427,7 @@ export default function Header() {
             <div className="flex items-center gap-2" ref={ref}>
               <Link
                 to="/login"
-                className="hidden sm:inline-flex items-center px-4 py-2 text-xs font-semibold text-brand-green border border-brand-green/30 rounded-lg hover:bg-brand-green/5 transition-colors"
+                className="hidden sm:inline-flex items-center px-4 py-2 text-xs font-semibold text-emerald-700 dark:text-brand-green border border-brand-green/30 rounded-lg hover:bg-brand-green/5 transition-colors"
               >
                 Iniciar sesión
               </Link>
@@ -622,7 +622,7 @@ export default function Header() {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="mt-2 rounded-lg border border-brand-green/30 px-3 py-3 text-center text-brand-green hover:bg-brand-green/5"
+                  className="mt-2 rounded-lg border border-brand-green/30 px-3 py-3 text-center text-emerald-700 dark:text-brand-green hover:bg-brand-green/5"
                 >
                   Iniciar sesión
                 </Link>

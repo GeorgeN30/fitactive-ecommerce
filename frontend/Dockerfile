@@ -12,12 +12,19 @@ ENV VITE_JWT_APP_ID=$VITE_JWT_APP_ID
 ENV VITE_MP_PUBLIC_KEY=$VITE_MP_PUBLIC_KEY
 
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/patches ./patches
 
 RUN corepack enable && corepack prepare pnpm@9 --activate && pnpm install --frozen-lockfile
 
 COPY frontend .
 
 RUN pnpm build
+
+# Precompress the unchanged avatar binaries once, rather than on each request.
+RUN gzip -9 -k dist/avatar/hombre_morph.glb dist/avatar/mujer_morph.glb
+
+# Include dynamically imported 3D chunks and shared assets.
+RUN find dist/assets -type f \( -name '*.js' -o -name '*.css' \) -exec gzip -9 -k {} \;
 
 FROM nginx:stable-alpine
 

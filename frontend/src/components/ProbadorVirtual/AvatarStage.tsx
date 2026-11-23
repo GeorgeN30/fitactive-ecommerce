@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import Avatar3D, { type BodyScales } from './Avatar3D';
+import { lazy, Suspense, useState } from 'react';
+import type { BodyScales } from './Avatar3D';
 import { useAuth } from '../../context/AuthContext';
 import type { BodyType } from '../../utils/bodyType';
+
+// Keep the catalog and controls available while the WebGL engine downloads.
+const Avatar3D = lazy(() => import('./Avatar3D'));
 
 interface AvatarStageProps {
   selectedProduct: any;
@@ -88,14 +91,16 @@ export default function AvatarStage({
         <div className="h-80 w-56 rounded-full bg-brand-green/10 blur-3xl" />
       </div>
       <div className="relative min-h-0 w-full flex-1">
-        <Avatar3D
-          scales={scales}
-          genero={genero}
-          selectedProduct={selectedProduct}
-          activeSize={size}
-          customColor={customColor || undefined}
-          cameraAction={cameraAction}
-        />
+        <Suspense fallback={<div role="status" className="flex h-full min-h-64 items-center justify-center text-sm text-gray-500 dark:text-gray-400">Cargando vista 3D…</div>}>
+          <Avatar3D
+            scales={scales}
+            genero={genero}
+            selectedProduct={selectedProduct}
+            activeSize={size}
+            customColor={customColor || undefined}
+            cameraAction={cameraAction}
+          />
+        </Suspense>
       </div>
       <div className="relative z-10 flex shrink-0 flex-col items-center gap-3 border-t border-gray-200/60 bg-white/75 px-4 py-4 backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/65">
         <div role="group" aria-label="Controles de cámara" className="flex max-w-full flex-wrap justify-center gap-2">

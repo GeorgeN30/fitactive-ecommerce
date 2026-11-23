@@ -1,4 +1,5 @@
 import InventoryHomeView from "../../components/inventory/views/InventoryHomeView";
+import "../../components/admin/fonts.css";
 import InventoryStockView from "../../components/inventory/views/InventoryStockView";
 import InventoryAuditView from "../../components/inventory/views/InventoryAuditView";
 import InventoryAlertsView from "../../components/inventory/views/InventoryAlertsView";
@@ -65,8 +66,21 @@ function toInventoryNotification(notification: AdminNotification): InventoryNoti
 export default function InventoryDashboard() {
   const [searchParams] = useSearchParams();
   const initialSection = searchParams.get("section");
-  const validSections = new Set<Section>(["dashboard", "orders", "catalog", "stock", "alerts", "audit", "discounts", "notifications"]);
-  const [section, setSection] = useState<Section>(() => validSections.has(initialSection as Section) ? initialSection as Section : "dashboard");
+  const validSections = new Set<Section>([
+    "dashboard",
+    "orders",
+    "catalog",
+    "stock",
+    "alerts",
+    "audit",
+    "discounts",
+    "notifications",
+  ]);
+  const [section, setSection] = useState<Section>(() =>
+    validSections.has(initialSection as Section)
+      ? (initialSection as Section)
+      : "dashboard",
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
@@ -79,7 +93,8 @@ export default function InventoryDashboard() {
     kind: "info" | "critical" | "success";
   } | null>(null);
 
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const isDark = (resolvedTheme ?? theme) === "dark";
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -89,10 +104,6 @@ export default function InventoryDashboard() {
       product.minStock,
   ).length;
 
-  useEffect(() => {
-    if (!theme) setTheme("light");
-  }, [theme, setTheme]);
-
   const isAuthError = (error: unknown): boolean =>
     (error as { response?: { status?: number } })?.response?.status === 401;
 
@@ -100,15 +111,39 @@ export default function InventoryDashboard() {
     clearStoredSession();
     window.location.href = "/login";
   };
+
+  const refreshMovements = () => {
+    void fetchMovements()
+      .then(setMovements)
+      .catch((error: unknown) => {
+        if (isAuthError(error)) handleUnauthorized();
+      });
+  };
+
+  useEffect(() => {
+    if (section === "audit") {
+      refreshMovements();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
+
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
       if (document.visibilityState === "hidden") return;
-      void fetchInventory().then((loaded) => { if (!cancelled) setProducts(loaded); }).catch(() => undefined);
+      void fetchInventory()
+        .then((loaded) => {
+          if (!cancelled) setProducts(loaded);
+        })
+        .catch(() => undefined);
     };
     const timer = window.setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
-    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -127,7 +162,10 @@ export default function InventoryDashboard() {
         }
       } catch (error) {
         if (isAuthError(error)) handleUnauthorized();
-        else if (!cancelled) setLoadError("No se pudo cargar el inventario. Reintenta para consultar datos actualizados.");
+        else if (!cancelled)
+          setLoadError(
+            "No se pudo cargar el inventario. Reintenta para consultar datos actualizados.",
+          );
       }
     };
     void loadProducts();
@@ -145,7 +183,10 @@ export default function InventoryDashboard() {
           const stored = loadedNotifications.map(toInventoryNotification);
           setNotifications((current) => {
             const storedIds = new Set(stored.map((item) => item.id));
-            return [...stored, ...current.filter((item) => !storedIds.has(item.id))];
+            return [
+              ...stored,
+              ...current.filter((item) => !storedIds.has(item.id)),
+            ];
           });
         }
       })
@@ -158,36 +199,54 @@ export default function InventoryDashboard() {
     };
   }, []);
 
-  useEffect(() => connectAdminSocket((event) => {
-    const live = mapLiveEventToAdminNotification(event);
-    setNotifications((current) => [
-      {
-        id: live.id,
-        title: live.title,
-        message: live.message,
-        type: event.type === "DISCOUNT_APPROVED" ? "success" : event.type === "STOCK_ALERT" || event.type === "DISCOUNT_REJECTED" || event.type === "DISCOUNT_REVERTED" ? "critical" : "info",
-        time: live.date,
-        read: false,
-      },
-      ...current,
-    ]);
-    setToast({
-      title: live.title,
-      message: live.message,
-      kind:
-        event.type === "STOCK_ALERT" || event.type === "DISCOUNT_REJECTED"
-          ? "critical"
-          : event.type === "DISCOUNT_APPROVED"
-            ? "success"
-            : "info",
-    });
-    if (event.type === "DISCOUNT_APPROVED" || event.type === "DISCOUNT_REVERTED") {
-      void fetchInventory().then(setProducts).catch(() => undefined);
-    }
-    if (event.type === "NEW_ORDER" || event.type === "PAYMENT_STATUS" || event.type === "ORDER_STATUS") {
-      void fetchInventoryOrders().then(setOrders).catch(() => undefined);
-    }
-  }), []);
+  useEffect(
+    () =>
+      connectAdminSocket((event) => {
+        const live = mapLiveEventToAdminNotification(event);
+        setNotifications((current) => [
+          {
+            id: live.id,
+            title: live.title,
+            message: live.message,
+            type:
+              event.type === "DISCOUNT_APPROVED"
+                ? "success"
+                : event.type === "STOCK_ALERT" ||
+                    event.type === "DISCOUNT_REJECTED" ||
+                    event.type === "DISCOUNT_REVERTED"
+                  ? "critical"
+                  : "info",
+            time: live.date,
+            read: false,
+          },
+          ...current,
+        ]);
+        setToast({
+          title: live.title,
+          message: live.message,
+          kind:
+            event.type === "STOCK_ALERT" || event.type === "DISCOUNT_REJECTED"
+              ? "critical"
+              : event.type === "DISCOUNT_APPROVED"
+                ? "success"
+                : "info",
+        });
+        if (
+          event.type === "DISCOUNT_APPROVED" ||
+          event.type === "DISCOUNT_REVERTED"
+        ) {
+          void fetchInventory().then(setProducts).catch(() => undefined);
+        }
+        if (
+          event.type === "NEW_ORDER" ||
+          event.type === "PAYMENT_STATUS" ||
+          event.type === "ORDER_STATUS"
+        ) {
+          void fetchInventoryOrders().then(setOrders).catch(() => undefined);
+        }
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -203,7 +262,11 @@ export default function InventoryDashboard() {
   };
 
   const handleMarkNotificationRead = async (notification: InventoryNotification) => {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notification.id)) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        notification.id,
+      )
+    ) {
       return;
     }
 
@@ -229,7 +292,12 @@ export default function InventoryDashboard() {
     stock: number;
     imageUrls: string[];
     category: string;
-    sizes: { size: string; stock: number; rangoCmMin: number | null; rangoCmMax: number | null }[];
+    sizes: {
+      size: string;
+      stock: number;
+      rangoCmMin: number | null;
+      rangoCmMax: number | null;
+    }[];
   }) => {
     try {
       const input: ProductInput = {
@@ -237,11 +305,18 @@ export default function InventoryDashboard() {
         precio: data.price || 0,
         categoria: data.category,
         imageUrls: data.imageUrls,
-        tallas: data.sizes.length > 0
-          ? data.sizes.map((size) => ({ talla: size.size, stock: size.stock, rangoCmMin: size.rangoCmMin, rangoCmMax: size.rangoCmMax }))
-          : [{ talla: "M", stock: data.stock }],
+        tallas:
+          data.sizes.length > 0
+            ? data.sizes.map((size) => ({
+                talla: size.size,
+                stock: size.stock,
+                rangoCmMin: size.rangoCmMin,
+                rangoCmMax: size.rangoCmMax,
+              }))
+            : [{ talla: "M", stock: data.stock }],
       };
       const created = await createProduct(input, "/inventory");
+      refreshMovements();
       return created;
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
@@ -251,19 +326,46 @@ export default function InventoryDashboard() {
 
   const handleUpdateProduct = async (
     product: Product,
-    data: { name: string; sku: string; price: number; stock: number; imageUrls: string[]; category: string; sizes: { size: string; stock: number; rangoCmMin: number | null; rangoCmMax: number | null }[] },
+    data: {
+      name: string;
+      sku: string;
+      price: number;
+      stock: number;
+      imageUrls: string[];
+      category: string;
+      sizes: {
+        size: string;
+        stock: number;
+        rangoCmMin: number | null;
+        rangoCmMax: number | null;
+      }[];
+    },
   ) => {
     try {
-      const sizes = data.sizes.length > 0
-        ? data.sizes.map((size) => ({ talla: size.size, stock: size.stock, rangoCmMin: size.rangoCmMin, rangoCmMax: size.rangoCmMax }))
-        : Object.entries(product.stock || {}).map(([talla, stock]) => ({ talla, stock }));
-      const updated = await updateProduct(String(product.id), {
-        nombre: data.name,
-        precio: data.price || 0,
-        categoria: data.category,
-        imageUrls: data.imageUrls,
-        tallas: sizes.length > 0 ? sizes : [{ talla: "M", stock: data.stock }],
-      }, "/inventory");
+      const sizes =
+        data.sizes.length > 0
+          ? data.sizes.map((size) => ({
+              talla: size.size,
+              stock: size.stock,
+              rangoCmMin: size.rangoCmMin,
+              rangoCmMax: size.rangoCmMax,
+            }))
+          : Object.entries(product.stock || {}).map(([talla, stock]) => ({
+              talla,
+              stock,
+            }));
+      const updated = await updateProduct(
+        String(product.id),
+        {
+          nombre: data.name,
+          precio: data.price || 0,
+          categoria: data.category,
+          imageUrls: data.imageUrls,
+          tallas: sizes.length > 0 ? sizes : [{ talla: "M", stock: data.stock }],
+        },
+        "/inventory",
+      );
+      refreshMovements();
       return updated;
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
@@ -297,10 +399,9 @@ export default function InventoryDashboard() {
     try {
       const updated = await updateStock(productId, size, quantity, motivdo);
       setProducts((current) =>
-        current.map((p) =>
-          p.id === productId ? updated : p,
-        ),
+        current.map((p) => (p.id === productId ? updated : p)),
       );
+      refreshMovements();
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
       throw error;
@@ -315,28 +416,30 @@ export default function InventoryDashboard() {
   ) => {
     if (!sizeKey) return;
     try {
-      const target = products.find(
-        (p) => String(p.id) === productId,
-      );
+      const target = products.find((p) => String(p.id) === productId);
       if (!target) return;
       const updated = await updateStock(productId, sizeKey, newQuantity, motivdo);
       setProducts((current) =>
-        current.map((p) =>
-          p.id === target.id ? updated : p,
-        ),
+        current.map((p) => (p.id === target.id ? updated : p)),
       );
+      refreshMovements();
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
       throw error;
     }
   };
 
-  const handleInventoryOrderStatus = async (orderId: string, status: Order["status"]) => {
+  const handleInventoryOrderStatus = async (
+    orderId: string,
+    status: Order["status"],
+  ) => {
     try {
       await updateInventoryOrderStatusApi(orderId, status);
-      setOrders((current) => current.map((order) =>
-        order.id === orderId ? { ...order, status } : order,
-      ));
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId ? { ...order, status } : order,
+        ),
+      );
     } catch (error) {
       if (isAuthError(error)) handleUnauthorized();
       throw error;
@@ -376,7 +479,8 @@ export default function InventoryDashboard() {
       alert:
         products.filter(
           (product) =>
-            Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <= 5,
+            Object.values(product.stock).reduce((sum, stock) => sum + stock, 0) <=
+            5,
         ).length || undefined,
     },
     {
@@ -400,7 +504,6 @@ export default function InventoryDashboard() {
     clearStoredSession();
     window.location.href = "/";
   };
-
   const Sidebar = () => (
     <div className="flex flex-col h-full bg-[#111111] text-white w-64 flex-shrink-0 font-sans">
       <div className="p-6 border-b border-white/10 flex items-center gap-3">
@@ -421,7 +524,11 @@ export default function InventoryDashboard() {
         <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-3 flex items-start gap-3 mb-2">
           <i className="fa-solid fa-triangle-exclamation text-[16px] mt-0.5 flex-shrink-0" />
           <p className="text-xs font-medium">
-            {lowStockCount} {lowStockCount === 1 ? "producto requiere" : "productos requieren"} atención
+            {lowStockCount}{" "}
+            {lowStockCount === 1
+              ? "producto requiere"
+              : "productos requieren"}{" "}
+            atención
           </p>
         </div>
       </div>
@@ -473,11 +580,14 @@ export default function InventoryDashboard() {
             Modo Oscuro
           </span>
           <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${theme === "dark" ? "bg-[#F59E0B]" : "bg-gray-600"}`}
+            type="button"
+            aria-label="Cambiar modo oscuro"
+            aria-pressed={isDark}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${isDark ? "bg-[#F59E0B]" : "bg-gray-600"}`}
           >
             <div
-              className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform duration-300 ${theme === "dark" ? "left-6" : "left-1"}`}
+              className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-transform duration-300 ${isDark ? "left-6" : "left-1"}`}
             />
           </button>
         </div>
@@ -541,7 +651,14 @@ export default function InventoryDashboard() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {loadError && <div role="alert" className="p-4 text-red-600 border rounded-xl">{loadError} <button onClick={() => window.location.reload()} className="underline">Reintentar</button></div>}
+        {loadError && (
+          <div role="alert" className="p-4 text-red-600 border rounded-xl">
+            {loadError}{" "}
+            <button onClick={() => window.location.reload()} className="underline">
+              Reintentar
+            </button>
+          </div>
+        )}
         <header className="lg:hidden bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -549,7 +666,17 @@ export default function InventoryDashboard() {
               aria-label="Abrir menú del panel"
               className="text-gray-500 dark:text-gray-400 p-1"
             >
-              <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+              <svg
+                aria-hidden="true"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
             </button>
             <div className="w-8 h-8 bg-[#F59E0B] rounded-lg flex items-center justify-center font-black text-black">
               FL
@@ -559,7 +686,7 @@ export default function InventoryDashboard() {
             onClick={() => navigate("/")}
             className="text-xs font-bold text-[#F59E0B]"
           >
-            Ver tienda ↗
+            Ver tienda ↗️
           </button>
         </header>
 
@@ -600,7 +727,9 @@ export default function InventoryDashboard() {
               onUpdateStock={handleUpdateStock}
             />
           )}
-          {section === "alerts" && <InventoryAlertsView products={products} onRestock={handleRestock} />}
+          {section === "alerts" && (
+            <InventoryAlertsView products={products} onRestock={handleRestock} />
+          )}
           {section === "audit" && (
             <InventoryAuditView products={products} movements={movements} />
           )}
@@ -615,7 +744,11 @@ export default function InventoryDashboard() {
               onMarkAllRead={handleMarkAllNotificationsRead}
               onOpen={(notification) => {
                 const title = notification.title.toLowerCase();
-                setSection(title.includes("pedido") || title.includes("pago") ? "orders" : "notifications");
+                setSection(
+                  title.includes("pedido") || title.includes("pago")
+                    ? "orders"
+                    : "notifications",
+                );
               }}
             />
           )}

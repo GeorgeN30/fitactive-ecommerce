@@ -31,11 +31,11 @@ vi.mock("../src/services/api", () => ({
   default: { get: vi.fn(), post: vi.fn().mockResolvedValue({ data: {} }) },
 }));
 vi.mock("../src/components/ProbadorVirtual/AvatarStage", () => ({
-  default: ({ selectedProduct, activeSize, customColor }: {
+  default: function MockAvatarStage({ selectedProduct, activeSize, customColor }: {
     selectedProduct: { id: string } | null;
     activeSize: string;
     customColor: string | null;
-  }) => {
+  }) {
     useEffect(() => {
       avatar.mount();
       return () => { avatar.unmount(); };

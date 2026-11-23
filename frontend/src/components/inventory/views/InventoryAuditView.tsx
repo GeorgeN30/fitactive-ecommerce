@@ -48,7 +48,15 @@ export default function InventoryAuditView({
   });
 
   const handleExportCSV = () => {
-    const headers = ["ID", "Fecha", "Producto", "Tipo", "Motivo", "Cantidad", "Usuario"];
+    const headers = [
+      "ID",
+      "Fecha",
+      "Producto",
+      "Tipo",
+      "Motivo",
+      "Cantidad",
+      "Usuario",
+    ];
     const rows = filteredMovements.map((movement) => [
       movement.id,
       movement.datetime,
@@ -56,13 +64,21 @@ export default function InventoryAuditView({
       movementLabel(movement.type),
       movement.note || "",
       movement.quantity.toString(),
-      movement.responsible,
+      movement.responsible || "Sistema",
     ]);
     const csvContent = [headers, ...rows]
-      .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))
-      .join("\n");
+      .map((row) =>
+        row
+          .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+          .join(";"),
+      )
+      .join("\r\n");
+
+    const blob = new Blob(["\uFEFF", csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(new Blob([csvContent], { type: "text/csv;charset=utf-8" }));
+    const url = URL.createObjectURL(blob);
     link.href = url;
     link.download = `auditoria_inventario_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
@@ -137,11 +153,21 @@ export default function InventoryAuditView({
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-sm font-bold">{movement.productName}</p>
-                      <p className="text-[10px] text-gray-500">{product ? `FIT-001-${product.id}` : ""}</p>
+
+                      <p className="text-[10px] text-gray-500">
+                        {product ? `FIT-001-${product.id}` : ""}
+                      </p>
                       <p className="text-[10px] text-gray-500">Talla {movement.size || "-"}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${label === "Entrada" ? "text-blue-500 bg-blue-500/10" : label === "Salida" ? "text-red-500 bg-red-500/10" : "text-amber-600 bg-amber-500/10"}`}>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-1 rounded-full ${label === "Entrada"
+                            ? "text-blue-500 bg-blue-500/10"
+                            : label === "Salida"
+                              ? "text-red-500 bg-red-500/10"
+                              : "text-amber-600 bg-amber-500/10"
+                          }`}
+                      >
                         {label}
                       </span>
                     </td>
