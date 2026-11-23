@@ -68,7 +68,18 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
 
     e.target.value = "";
   };
+const handleRemovePhoto = async () => {
+  setPhotoError("");
+  setUploadingPhoto(true);
 
+  try {
+    await updateProfile({ picture: null });
+  } catch {
+    setPhotoError("No se pudo quitar la foto.");
+  } finally {
+    setUploadingPhoto(false);
+  }
+};
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -102,7 +113,17 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
                   className="hidden"
                 />
               </div>
-
+              {user?.picture && (
+  <button
+    type="button"
+    onClick={handleRemovePhoto}
+    disabled={uploadingPhoto}
+    className="block mx-auto mt-3 mb-4 text-sm text-red-500 hover:text-red-600 font-medium transition-colors disabled:opacity-50"
+  >
+    <i className="fa-solid fa-trash-can mr-1"></i>
+    Quitar foto
+  </button>
+)}
               {uploadingPhoto && (
                 <p className="text-sm text-slate-500 mb-2">
                   Actualizando foto...
